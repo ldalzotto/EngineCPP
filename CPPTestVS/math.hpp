@@ -128,43 +128,43 @@ namespace Math
 	template <class TYPE>
 	inline Vector<3, TYPE> mul(const Vector<3, TYPE>& p_left, const Vector<3, TYPE>& p_right)
 	{
-		return Vector3<TYPE>(p_left.Points[0] * p_right.Points[0], p_left.Points[1] * p_right.Points[1], p_left.Points[2] * p_right.Points[2]);
+		return Vector<3, TYPE>(p_left.Points[0] * p_right.Points[0], p_left.Points[1] * p_right.Points[1], p_left.Points[2] * p_right.Points[2]);
 	}
 
 	template <class TYPE>
 	inline Vector<3, TYPE> mul(const Vector<3, TYPE>& p_left, const TYPE& p_right)
 	{
-		return Vector3<TYPE>(p_left.Points[0] * p_right, p_left.Points[1] * p_right, p_left.Points[2] * p_right);
+		return Vector<3, TYPE>(p_left.Points[0] * p_right, p_left.Points[1] * p_right, p_left.Points[2] * p_right);
 	}
 
 	template <class TYPE>
 	inline Vector<3, TYPE> min(const Vector<3, TYPE>& p_left, const Vector<3, TYPE>& p_right)
 	{
-		return Vector3<TYPE>(p_left.Points[0] - p_right.Points[0], p_left.Points[1] - p_right.Points[1], p_left.Points[2] - p_right.Points[2]);
+		return Vector<3, TYPE>(p_left.Points[0] - p_right.Points[0], p_left.Points[1] - p_right.Points[1], p_left.Points[2] - p_right.Points[2]);
 	}
 
 	template <class TYPE>
 	inline Vector<3, TYPE> add(const Vector<3, TYPE>& p_left, const Vector<3, TYPE>& p_right)
 	{
-		return Vector3<TYPE>(p_left.Points[0] + p_right.Points[0], p_left.Points[1] + p_right.Points[1], p_left.Points[2] + p_right.Points[2]);
+		return Vector<3, TYPE>(p_left.Points[0] + p_right.Points[0], p_left.Points[1] + p_right.Points[1], p_left.Points[2] + p_right.Points[2]);
 	}
 
 	template <class TYPE>
 	inline Vector<4, TYPE> mul(const Vector<4, TYPE>& p_left, const Vector<4, TYPE>& p_right)
 	{
-		return Vector4<TYPE>(p_left.Points[0] * p_right.Points[0], p_left.Points[1] * p_right.Points[1], p_left.Points[2] * p_right.Points[2], p_left.Points[3] * p_right.Points[3]);
+		return Vector<4, TYPE>(p_left.Points[0] * p_right.Points[0], p_left.Points[1] * p_right.Points[1], p_left.Points[2] * p_right.Points[2], p_left.Points[3] * p_right.Points[3]);
 	}
 
 	template <class TYPE>
 	inline Vector<4, TYPE> mul(const Vector<4, TYPE>& p_left, const TYPE& p_right)
 	{
-		return Vector4<TYPE>(p_left.Points[0] * p_right, p_left.Points[1] * p_right, p_left.Points[2] * p_right, p_left.Points[3] * p_right);
+		return Vector<4, TYPE>(p_left.Points[0] * p_right, p_left.Points[1] * p_right, p_left.Points[2] * p_right, p_left.Points[3] * p_right);
 	}
 
 	template <class TYPE>
 	inline Vector<4, TYPE> min(const Vector<4, TYPE>& p_left, const Vector<4, TYPE>& p_right)
 	{
-		return Vector4<TYPE>(p_left.Points[0] - p_right.Points[0], p_left.Points[1] - p_right.Points[1], p_left.Points[2] - p_right.Points[2], p_left.Points[3] - p_right.Points[3]);
+		return Vector<4, TYPE>(p_left.Points[0] - p_right.Points[0], p_left.Points[1] - p_right.Points[1], p_left.Points[2] - p_right.Points[2], p_left.Points[3] - p_right.Points[3]);
 	}
 
 	template <unsigned N, class TYPE>
@@ -182,7 +182,7 @@ namespace Math
 	template <class TYPE>
 	inline Vector<3, TYPE> cross(const Vector<3, TYPE>& p_left, const Vector<3, TYPE>& p_right)
 	{
-		return Vector3<TYPE>(
+		return Vector<3, TYPE>(
 			(p_left.Points[1] * p_right.Points[2]) - (p_left.Points[2] * p_right.Points[1]),
 			(p_left.Points[2] * p_right.Points[0]) - (p_left.Points[0] * p_right.Points[2]),
 			(p_left.Points[0] * p_right.Points[1]) - (p_left.Points[1] * p_right.Points[0])
@@ -266,13 +266,6 @@ namespace Math
 		);
 	}
 
-	/*
-	inline Quaternion cross(const Quaternion& p_left, const Quaternion& p_right)
-	{
-
-	}
-	*/
-
 	inline Quaternion conjugate(const Quaternion& p_left)
 	{
 		return Quaternion(
@@ -306,7 +299,50 @@ namespace Math
 		return rotateAround(cross(l_rotatedLeft, l_rotatedRight), 0.0f);
 	};
 
-	//TODO extract axis
+	
+	template <class TYPE>
+	inline Matrix<3, TYPE> extractAxis(const Quaternion& quat)
+	{
+		float l_qxx = quat.x * quat.x;
+		float l_qxy = quat.x * quat.y;
+		float l_qxz = quat.x * quat.z;
+		float l_qxw = quat.x * quat.w;
+
+		float l_qyy = quat.y * quat.y;
+		float l_qyz = quat.y * quat.z;
+		float l_qyw = quat.y * quat.w;
+
+		float l_qzz = quat.z * quat.z;
+		float l_qzw = quat.z * quat.w;
+
+		Matrix<3, TYPE> l_return;
+		//RIGHT
+		l_return.Col0 = Vector<3, TYPE>(
+			1 - (2 * l_qyy) - (2 * l_qzz),
+			(2 * l_qxy) + (2 * l_qzw),
+			(2 * l_qxz) - (2 * l_qyw)
+		);
+
+		//UP	
+		l_return.Col1 = Vector<3, TYPE>(
+			(2 * l_qxy) - (2 * l_qzw),
+			1 - (2 * l_qxx) - (2 * l_qzz),
+			(2 * l_qyz) + (2 * l_qxw)
+		);
+
+		//Forward
+		l_return.Col2 = Vector<3, TYPE>(
+			(2 * l_qxz) + (2 * l_qyw),
+			(2 * l_qyz) - (2 * l_qxw),
+			1 - (2 * l_qxx) - (2 * l_qyy)
+		);
+
+		l_return.Col0 = normalize(l_return.Col0);
+		l_return.Col1 = normalize(l_return.Col1);
+		l_return.Col2 = normalize(l_return.Col2);
+
+		return l_return;
+	};
 
 	template <class TYPE>
 	inline Quaternion fromDirection(const Vector<3, TYPE>& p_vec)
@@ -318,7 +354,84 @@ namespace Math
 		);
 	};
 
-	//TODO from axis
+	inline Quaternion fromAxis(const Matrix<3, float>& p_axis)
+	{
+		const Vector<3, float>& l_right = p_axis.Right;
+		const Vector<3, float>& l_up = p_axis.Up;
+		const Vector<3, float>& l_forward = p_axis.Forward;
+
+		// We calculate the four square roots and get the higher one.
+		float qxDiag = fmaxf(1 + l_right.x - l_up.y - l_forward.z, 0.0f);
+		float qyDiag = fmaxf(1 + l_up.y - l_right.x - l_forward.z, 0.0f);
+		float qzDiag = fmaxf(1 + l_forward.z - l_right.x - l_up.y, 0.0f);
+		float qwDiag = fmaxf(1 + l_right.x + l_up.y + l_forward.z, 0.0f);
+
+		int l_diagonalIndex = 0;
+		float l_biggestDiagonalValue = qxDiag;
+		if (qyDiag > l_biggestDiagonalValue)
+		{
+			l_biggestDiagonalValue = qyDiag;
+			l_diagonalIndex = 1;
+		}
+		if (qzDiag > l_biggestDiagonalValue)
+		{
+			l_biggestDiagonalValue = qzDiag;
+			l_diagonalIndex = 2;
+		}
+		if (qwDiag > l_biggestDiagonalValue)
+		{
+			l_biggestDiagonalValue = qwDiag;
+			l_diagonalIndex = 3;
+		}
+
+		l_biggestDiagonalValue = 0.5f * sqrtf(l_biggestDiagonalValue);
+		float mult = 1 / (4.0f * l_biggestDiagonalValue);
+
+		switch (l_diagonalIndex)
+		{
+		case 0:
+		{
+			return Quaternion(
+				l_biggestDiagonalValue,
+				(l_right.y + l_up.x) * mult,
+				(l_forward.x + l_right.z) * mult,
+				(l_up.z - l_forward.y) * mult
+			);
+		}
+		break;
+		case 1:
+		{
+			return Quaternion(
+				(l_right.y + l_up.x) * mult,
+				l_biggestDiagonalValue,
+				(l_up.z + l_forward.y) * mult,
+				(l_forward.x - l_right.z) * mult
+			);
+		}
+		break;
+		case 2:
+		{
+			return Quaternion(
+				(l_forward.x + l_right.z) * mult,
+				(l_up.z + l_forward.y) * mult,
+				l_biggestDiagonalValue,
+				(l_right.y - l_up.x) * mult
+			);
+		}
+		break;
+		case 3:
+		{
+			return Quaternion(
+				(l_up.z - l_forward.y) * mult,
+				(l_forward.x - l_right.z) * mult,
+				(l_right.y - l_up.x) * mult,
+				l_biggestDiagonalValue
+			);
+		}
+		break;
+		}
+
+	};
 
 	template <class TYPE>
 	inline Quaternion fromEulerAngle(const Vector<3, TYPE>& p_eulerAngle)
@@ -341,8 +454,215 @@ namespace Math
 namespace Math
 {
 	template <unsigned N, class TYPE>
+	inline TYPE mul_line_column(const Matrix<N, TYPE>& p_left, const Matrix<N, TYPE>& p_right, const short int p_column_index, const short int p_line_index)
+	{
+		TYPE l_return = 0;
+		for (short int i = 0; i < N; i++)
+		{
+			l_return += (p_left.Points2D[i].Points[p_line_index] * p_right.Points2D[p_column_index].Points[i]);
+		}
+		return l_return;
+	}
+
+	template <unsigned N, class TYPE>
 	inline Matrix<N, TYPE> mul(const Matrix<N, TYPE>& p_left, const Matrix<N, TYPE>& p_right)
 	{
-		//TODO
+		Matrix<N, TYPE> l_return;
+		for (short int p_column_index = 0; p_column_index < N; p_column_index++)
+		{
+			for (short int p_line_index = 0; p_line_index < N; p_line_index++)
+			{
+				l_return[p_column_index][p_line_index] = mul_line_column<N, TYPE>(p_left, p_right, p_column_index, p_line_index);
+			}
+		}
+		return l_return;
+	};
+
+	template <unsigned N, class TYPE>
+	inline Matrix<N, TYPE> mul(const Matrix<N, TYPE>& p_left, const TYPE& p_right)
+	{
+		Matrix<N, TYPE> l_return;
+		for (short int p_column_index = 0; p_column_index < N; p_column_index++)
+		{
+			for (short int p_line_index = 0; p_line_index < N; p_line_index++)
+			{
+				l_return[p_column_index][p_line_index] = p_left.Points2D[p_column_index].Points[p_line_index] * p_right;
+			}
+		}
+		return l_return;
+	};
+
+	template <class TYPE>
+	inline TYPE det(const Matrix<4, TYPE>& p_mat, const short int p_column_index, const short int p_line_index)
+	{
+		Matrix<3, TYPE> l_matDet;
+		short int l_matDet_column_counter = 0;
+		short int l_matDet_line_counter = 0;
+
+		for (short int l_column_index = 0; l_column_index < 4; l_column_index++)
+		{
+			if (l_column_index != p_column_index)
+			{
+				l_matDet_line_counter = 0;
+				for (short int l_line_index = 0; l_line_index < 4; l_line_index++)
+				{
+					if (l_line_index != p_line_index)
+					{
+						l_matDet.Points2D[l_matDet_column_counter].Points[l_matDet_line_counter] = p_mat.Points2D[l_column_index].Points[l_line_index];
+						l_matDet_line_counter += 1;
+					}
+					
+				}
+				l_matDet_column_counter += 1;
+			}
+			
+		}
+
+		return
+			(l_matDet[0][0] * ((l_matDet[1][1] * l_matDet[2][2]) - (l_matDet[1][2] * l_matDet[2][1]))) +
+			(l_matDet[1][0] * ((l_matDet[2][1] * l_matDet[0][2]) - (l_matDet[2][2] * l_matDet[0][1]))) +
+			(l_matDet[2][0] * ((l_matDet[0][1] * l_matDet[1][2]) - (l_matDet[0][2] * l_matDet[1][1])));
 	}
+
+	template <class TYPE>
+	inline Matrix<4, TYPE> inv(const Matrix<4, TYPE>& p_mat)
+	{
+		Matrix<4, TYPE> l_return;
+		float l_det = 
+			(p_mat.Points2D[0].Points[0] * det(p_mat, 0, 0)) 
+		  - (p_mat.Points2D[0].Points[1] * det(p_mat, 0, 1)) 
+		  + (p_mat.Points2D[0].Points[2] * det(p_mat, 0, 2)) 
+		  - (p_mat.Points2D[0].Points[3] * det(p_mat, 0, 3));
+
+		{
+			l_return._00 = det(p_mat, 0, 0);
+			l_return._01 = -det(p_mat, 1, 0);
+			l_return._02 = det(p_mat, 2, 0);
+			l_return._03 = -det(p_mat, 3, 0);
+			l_return._10 = -det(p_mat, 0, 1);
+			l_return._11 = det(p_mat, 1, 1);
+			l_return._12 = -det(p_mat, 2, 1);
+			l_return._13 = det(p_mat, 3, 1);
+			l_return._20 = det(p_mat, 0, 2);
+			l_return._21 = -det(p_mat, 1, 2);
+			l_return._22 = det(p_mat, 2, 2);
+			l_return._23 = -det(p_mat, 3, 2);
+			l_return._30 = -det(p_mat, 0, 3);
+			l_return._31 = det(p_mat, 1, 3);
+			l_return._32 = -det(p_mat, 2, 3);
+			l_return._33 = det(p_mat, 3, 3);
+		}
+
+		return mul(l_return, 1.0f / l_det);
+	}
+
+	template <class TYPE>
+	inline Matrix<4, TYPE> translationMatrix(const Vector<3, TYPE>& p_translation)
+	{
+		Matrix<4, TYPE> l_return = mat4f_IDENTITYF;
+		l_return.Col3.Vec3 = p_translation;
+		return l_return;
+	}
+
+	template <class TYPE>
+	inline Matrix<4, TYPE> rotationMatrix(const Matrix<3, TYPE>& p_axis)
+	{
+		return Matrix<4, TYPE>(
+			Vector<4, TYPE>(p_axis.Points2D[0], 0.0f),
+			Vector<4, TYPE>(p_axis.Points2D[1], 0.0f),
+			Vector<4, TYPE>(p_axis.Points2D[2], 0.0f),
+			Vector<4, TYPE>(0.0f, 0.0f, 0.0f, 1.0f)
+		);
+	}
+
+	template <class TYPE>
+	inline Matrix<4, TYPE> rotationMatrix(const Vector<3, TYPE>& p_right, const Vector<3, TYPE>& p_up, const Vector<3, TYPE>& p_forward)
+	{
+		return Matrix<4, TYPE>(
+			Vector<4, TYPE>(p_right, 0.0f),
+			Vector<4, TYPE>(p_up, 0.0f),
+			Vector<4, TYPE>(p_forward, 0.0f),
+			Vector<4, TYPE>(0.0f, 0.0f, 0.0f, 1.0f)
+		);
+	}
+
+	template <class TYPE>
+	inline Matrix<4, TYPE> scaleMatrix(const Vector<3, TYPE>& p_scale)
+	{
+		Matrix<4, TYPE> l_return = mat4f_IDENTITYF;
+		l_return.Col0 = mul(l_return.Col0, p_scale.Points[0]);
+		l_return.Col1 = mul(l_return.Col1, p_scale.Points[1]);
+		l_return.Col2 = mul(l_return.Col2, p_scale.Points[2]);
+		return l_return;
+	}
+
+	template <class TYPE>
+	inline Matrix<4, TYPE> TRS(const Vector<3, TYPE>& p_position, const Matrix<3, TYPE>& p_axis, const Vector<3, TYPE>& p_scale)
+	{
+		return
+			mul(
+			mul(
+				translationMatrix(p_position),
+				rotationMatrix(p_axis)),
+				scaleMatrix(p_scale)
+			);
+	}
+
+	template <class TYPE>
+	inline Matrix<4, TYPE> perspective(const float p_fov, const float p_aspect, const float p_near, const float p_far)
+	{
+		Matrix<4, TYPE> l_return;
+		TYPE l_halfTan = tan(p_fov / 2.0f);
+		
+		l_return._00 = 1.0f / (p_aspect * l_halfTan);
+		l_return._01 = 0.0f;
+		l_return._02 = 0.0f;
+		l_return._03 = 0.0f;
+
+		l_return._10 = 0.0f;
+		l_return._11 = 1.0f / l_halfTan;
+		l_return._12 = 0.0f;
+		l_return._13 = 0.0f;
+
+		l_return._20 = 0.0f;
+		l_return._21 = 0.0f;
+		l_return._22 = (p_far + p_near) / (p_far - p_near);
+		l_return._23 = 1.0f;
+
+		l_return._30 = 0.0f;
+		l_return._31 = 0.0f;
+		l_return._32 = (-2.0f * p_far * p_near) / (p_far - p_near);
+		l_return._33 = 0.0f;
+
+		return l_return;
+	}
+
+	template <class TYPE>
+	inline Matrix<4, TYPE> lookAtView(const Vector<3, TYPE>& p_origin, const Vector<3, TYPE>& p_target, const Vector<3, TYPE>& p_up)
+	{
+		Matrix<4, TYPE> l_return = mat4f_IDENTITYF;
+
+		//WARNING : this is true only for view matrices (camera).
+		l_return.Forward.Vec3 = normalize(min(p_target, p_origin));
+		l_return.Right.Vec3 = mul(normalize(cross(l_return.Forward.Vec3, p_up)), -1.0f);
+		l_return.Up.Vec3 = mul(normalize(cross(l_return.Right.Vec3, l_return.Forward.Vec3)), -1.0f);
+
+		return l_return;
+	}
+
+	
+	template <class TYPE>
+	inline Matrix<4, TYPE> lookAtRotation(const Vector<3, TYPE>& p_origin, const Vector<3, TYPE>& p_target, const Vector<3, TYPE>& p_up)
+	{
+		Vector<3, TYPE> l_forward = normalize(min(p_target, p_origin));
+		Vector<3, TYPE> l_right = normalize(cross(l_forward, p_up));
+		Vector<3, TYPE> l_up = normalize(cross(l_right, l_forward));
+
+		return rotationMatrix(
+			l_right,
+			l_up,
+			l_forward
+		);
+	}
+	
 }

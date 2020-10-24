@@ -6,119 +6,133 @@ namespace Math
 	template <unsigned N, class TYPE>
 	struct Vector
 	{
-		TYPE Points[N];
+		
 	};
 
 	template <class TYPE>
-	struct Vector3 : public Vector<3, TYPE>
+	struct Vector<3, TYPE>
 	{
-		inline Vector3(TYPE p_x, TYPE p_y, TYPE p_z)
+		union
 		{
-			this->Points[0] = p_x;
-			this->Points[1] = p_y;
-			this->Points[2] = p_z;
+			TYPE Points[3];
+			struct { TYPE x, y, z; };
+		};
+		
+		inline Vector(TYPE p_x, TYPE p_y, TYPE p_z) : x{ p_x }, y{ p_y }, z{ p_z }
+		{
 		}
 
-		inline Vector3<TYPE> operator*(const Vector3<TYPE>& p_other)
+		inline Vector<3, TYPE> operator*(const Vector<3, TYPE>& p_other)
 		{
-			return Vector3<TYPE>(this->Points[0] * p_other.Points[0], this->Points[1] * p_other.Points[1], this->Points[2] * p_other.Points[2]);
+			return Vector<3, TYPE>(this->Points[0] * p_other.Points[0], this->Points[1] * p_other.Points[1], this->Points[2] * p_other.Points[2]);
 		}
 
-		inline Vector3<TYPE> operator*(const TYPE& p_other)
+		inline Vector<3, TYPE> operator*(const TYPE& p_other)
 		{
-			return Vector3<TYPE>(this->Points[0] * p_other, this->Points[1] * p_other, this->Points[2] * p_other);
+			return Vector<3, TYPE>(this->Points[0] * p_other, this->Points[1] * p_other, this->Points[2] * p_other);
 		}
 
-		inline Vector3<TYPE> operator/(const Vector3<TYPE>& p_other)
+		inline Vector<3, TYPE> operator/(const Vector<3, TYPE>& p_other)
 		{
-			return Vector3<TYPE>(this->Points[0] / p_other.Points[0], this->Points[1] / p_other.Points[1], this->Points[2] / p_other.Points[2]);
+			return Vector<3, TYPE>(this->Points[0] / p_other.Points[0], this->Points[1] / p_other.Points[1], this->Points[2] / p_other.Points[2]);
 		}
 
-		inline Vector3<TYPE> operator/(const TYPE& p_other)
+		inline Vector<3, TYPE> operator/(const TYPE& p_other)
 		{
-			return Vector3<TYPE>(this->Points[0] / p_other, this->Points[1] / p_other, this->Points[2] / p_other);
+			return Vector<3, TYPE>(this->Points[0] / p_other, this->Points[1] / p_other, this->Points[2] / p_other);
 		}
 
-		inline Vector3<TYPE> operator+(const Vector3<TYPE>& p_other)
+		inline Vector<3, TYPE> operator+(const Vector<3, TYPE>& p_other)
 		{
-			return Vector3<TYPE>(this->Points[0] + p_other.Points[0], this->Points[1] + p_other.Points[1], this->Points[2] + p_other.Points[2]);
+			return Vector<3, TYPE>(this->Points[0] + p_other.Points[0], this->Points[1] + p_other.Points[1], this->Points[2] + p_other.Points[2]);
 		}
 
-		inline Vector3<TYPE> operator+(const TYPE& p_other)
+		inline Vector<3, TYPE> operator+(const TYPE& p_other)
 		{
-			return Vector3<TYPE>(this->Points[0] + p_other, this->Points[1] + p_other, this->Points[2] + p_other);
+			return Vector<3, TYPE>(this->Points[0] + p_other, this->Points[1] + p_other, this->Points[2] + p_other);
 		}
 
-		inline Vector3<TYPE> operator-(const Vector3<TYPE>& p_other)
+		inline Vector<3, TYPE> operator-(const Vector<3, TYPE>& p_other)
 		{
-			return Vector3<TYPE>(this->Points[0] - p_other.Points[0], this->Points[1] - p_other.Points[1], this->Points[2] - p_other.Points[2]);
+			return Vector<3, TYPE>(this->Points[0] - p_other.Points[0], this->Points[1] - p_other.Points[1], this->Points[2] - p_other.Points[2]);
 		}
 
-		inline Vector3<TYPE> operator-(const TYPE& p_other)
+		inline Vector<3, TYPE> operator-(const TYPE& p_other)
 		{
-			return Vector3<TYPE>(this->Points[0] - p_other, this->Points[1] - p_other, this->Points[2] - p_other);
+			return Vector<3, TYPE>(this->Points[0] - p_other, this->Points[1] - p_other, this->Points[2] - p_other);
+		}
+
+		inline TYPE& operator[](int p_index)
+		{
+			return this->Points[p_index];
 		}
 	};
-
-	using vec3f = Vector3<float>;
-
 
 	template <class TYPE>
-	struct Vector4 : public Vector<4, TYPE>
+	struct Vector<4, TYPE>
 	{
-		inline Vector4(TYPE p_x, TYPE p_y, TYPE p_z, TYPE p_w)
+
+		union
 		{
-			this->Points[0] = p_x;
-			this->Points[1] = p_y;
-			this->Points[2] = p_z;
-			this->Points[3] = p_w;
+			TYPE Points[4];
+			struct { TYPE x; TYPE y; TYPE z; TYPE w; };
+			struct { Vector<3, TYPE> Vec3; TYPE Vec3_w; };
+		};
+
+		inline Vector(TYPE p_x, TYPE p_y, TYPE p_z, TYPE p_w) : x{p_x}, y{p_y}, z{p_z}, w{p_w}{}
+		inline Vector(const Vector<3, TYPE>& p_vec3, const TYPE& p_w) : Vec3{ p_vec3 }, Vec3_w{ p_w }{};
+
+		inline Vector<4, TYPE> operator*(const Vector<4, TYPE>& p_other)
+		{
+			return Vector<4, TYPE>(this->Points[0] * p_other.Points[0], this->Points[1] * p_other.Points[1], this->Points[2] * p_other.Points[2], this->Points[3] * p_other.Points[3]);
 		}
 
-		inline Vector4<TYPE> operator*(const Vector4<TYPE>& p_other)
+		inline Vector<4, TYPE> operator*(const TYPE& p_other)
 		{
-			return Vector4<TYPE>(this->Points[0] * p_other.Points[0], this->Points[1] * p_other.Points[1], this->Points[2] * p_other.Points[2], this->Points[3] * p_other.Points[3]);
+			return Vector<4, TYPE>(this->Points[0] * p_other, this->Points[1] * p_other, this->Points[2] * p_other, this->Points[3] * p_other);
 		}
 
-		inline Vector4<TYPE> operator*(const TYPE& p_other)
+		inline Vector<4, TYPE> operator/(const Vector<4, TYPE>& p_other)
 		{
-			return Vector4<TYPE>(this->Points[0] * p_other, this->Points[1] * p_other, this->Points[2] * p_other, this->Points[3] * p_other);
+			return Vector<4, TYPE>(this->Points[0] / p_other.Points[0], this->Points[1] / p_other.Points[1], this->Points[2] / p_other.Points[2], this->Points[3] / p_other.Points[3]);
 		}
 
-		inline Vector4<TYPE> operator/(const Vector4<TYPE>& p_other)
+		inline Vector<4, TYPE> operator/(const TYPE& p_other)
 		{
-			return Vector4<TYPE>(this->Points[0] / p_other.Points[0], this->Points[1] / p_other.Points[1], this->Points[2] / p_other.Points[2], this->Points[3] / p_other.Points[3]);
+			return Vector<4, TYPE>(this->Points[0] / p_other, this->Points[1] / p_other, this->Points[2] / p_other, this->Points[3] / p_other);
 		}
 
-		inline Vector4<TYPE> operator/(const TYPE& p_other)
+		inline Vector<4, TYPE> operator+(const Vector<4, TYPE>& p_other)
 		{
-			return Vector4<TYPE>(this->Points[0] / p_other, this->Points[1] / p_other, this->Points[2] / p_other, this->Points[3] / p_other);
+			return Vector<4, TYPE>(this->Points[0] + p_other.Points[0], this->Points[1] + p_other.Points[1], this->Points[2] + p_other.Points[2], this->Points[3] + p_other.Points[3]);
 		}
 
-		inline Vector4<TYPE> operator+(const Vector4<TYPE>& p_other)
+		inline Vector<4, TYPE> operator+(const TYPE& p_other)
 		{
-			return Vector4<TYPE>(this->Points[0] + p_other.Points[0], this->Points[1] + p_other.Points[1], this->Points[2] + p_other.Points[2], this->Points[3] + p_other.Points[3]);
+			return Vector<4, TYPE>(this->Points[0] + p_other, this->Points[1] + p_other, this->Points[2] + p_other, this->Points[3] + p_other);
 		}
 
-		inline Vector4<TYPE> operator+(const TYPE& p_other)
+		inline Vector<4, TYPE> operator-(const Vector<4, TYPE>& p_other)
 		{
-			return Vector4<TYPE>(this->Points[0] + p_other, this->Points[1] + p_other, this->Points[2] + p_other, this->Points[3] + p_other);
+			return Vector<4, TYPE>(this->Points[0] - p_other.Points[0], this->Points[1] - p_other.Points[1], this->Points[2] - p_other.Points[2], this->Points[3] - p_other.Points[3]);
 		}
 
-		inline Vector4<TYPE> operator-(const Vector4<TYPE>& p_other)
+		inline Vector<4, TYPE> operator-(const TYPE& p_other)
 		{
-			return Vector4<TYPE>(this->Points[0] - p_other.Points[0], this->Points[1] - p_other.Points[1], this->Points[2] - p_other.Points[2], this->Points[3] - p_other.Points[3]);
+			return Vector<4, TYPE>(this->Points[0] - p_other, this->Points[1] - p_other, this->Points[2] - p_other, this->Points[3] - p_other);
 		}
 
-		inline Vector4<TYPE> operator-(const TYPE& p_other)
+		inline TYPE& operator[](int p_index)
 		{
-			return Vector4<TYPE>(this->Points[0] - p_other, this->Points[1] - p_other, this->Points[2] - p_other, this->Points[3] - p_other);
+			return this->Points[p_index];
 		}
 	};
 
-	using vec4f = Vector4<float>;
+	using vec3f = Vector<3, float>;
+	using vec4f = Vector<4, float>;
 
-	const Vector<3, float> vec3f_ZERO = { 0.0f, 0.0f, 0.0f };
-	const Vector<3, float> vec3f_RIGHT = { 1.0f, 0.0f, 0.0f };
-	const Vector<3, float> vec3f_UP = { 0.0f, 1.0f, 0.0f };
-	const Vector<3, float> vec3f_FORWARD = { 0.0f, 0.0f, 1.0f };
+	const vec3f vec3f_ZERO = { 0.0f, 0.0f, 0.0f };
+	const vec3f vec3f_RIGHT = { 1.0f, 0.0f, 0.0f };
+	const vec3f vec3f_UP = { 0.0f, 1.0f, 0.0f };
+	const vec3f vec3f_FORWARD = { 0.0f, 0.0f, 1.0f };
 }

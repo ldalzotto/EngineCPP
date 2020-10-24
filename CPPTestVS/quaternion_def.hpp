@@ -26,4 +26,6 @@ namespace Math
 		{
 		}
 	};
+
+	using quat = Quaternion;
 }
