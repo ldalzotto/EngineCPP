@@ -431,6 +431,7 @@ namespace Math
 		break;
 		}
 
+		return Quaternion(0.0f, 0.0f, 0.0f, 1.0f);
 	};
 
 	template <class TYPE>
@@ -657,7 +658,7 @@ namespace Math
 		Vector<3, TYPE> l_forward = normalize(min(p_target, p_origin));
 		Vector<3, TYPE> l_right = normalize(cross(l_forward, p_up));
 		Vector<3, TYPE> l_up = normalize(cross(l_right, l_forward));
-
+		
 		return rotationMatrix(
 			l_right,
 			l_up,

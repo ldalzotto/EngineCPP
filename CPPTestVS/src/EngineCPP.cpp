@@ -2,12 +2,18 @@
 //
 
 #include <iostream>
-#include "math.hpp"
+#include "Math/math.hpp"
+#include "Common/Container/vector.hpp"
+#include "Common/Container/pool.hpp"
+#include <vector>
 
 using namespace Math;
 
 int main()
 {
+	std::vector<float> zd;
+	std::allocator<float> l_del;
+	sizeof(zd);
 	std::cout << "Hello World!\n";
 	
 	vec3f l_234 = vec3f(2.0f, 3.0f, 4.0f);
@@ -48,4 +54,24 @@ int main()
 	mat4f l_perspective = perspective<float>(0.25f, 1.96f, 0.02f, 50.0f);
 	mat4f l_lookatView = lookAtView(l_234, l_100, vec3f_UP);
 	mat4f l_lookatRot = lookAtRotation(l_234, l_100, vec3f_UP);
+
+	/*
+	VkInstanceCreateInfo l_info = {};
+	VkInstance l_instance;
+	vkCreateInstance(&l_info, nullptr, &l_instance);
+	*/
+
+	com::Vector<float> l_vf = com::Vector<float>(10);
+	for (size_t i = 0; i < 100; i++)
+	{
+		l_vf.pushBack(i);
+		//l_vf.insert_at(99.0f, 0);
+	}
+	l_vf.erase_at(0);
+	l_vf.swap(0, 1);
+	l_vf.dispose();
+
+	com::Pool<float> l_pool = com::Pool<float>(10);
+	com::PoolToken<float> l_zd = l_pool.alloc_element(5.0f);
+	float& l_f = l_pool.resolve(l_zd);
 }
