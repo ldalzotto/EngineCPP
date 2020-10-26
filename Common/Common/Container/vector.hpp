@@ -21,13 +21,14 @@ namespace com
 		inline Vector_ClassName::Vector()
 	{
 		this->Memory = nullptr;
+		this->Capacity = 0;
+		this->Size = 0;
 	}
 
-	Vector_TemplateHeader
-		inline Vector_ClassName::Vector(size_t p_initialSize, Allocator* p_allocator)
+	Vector_TemplateHeader inline Vector_ClassName::Vector(size_t p_initialSize, const Allocator &p_allocator)
 	{
 		this->allocator = p_allocator;
-		this->Memory = (TYPE*)this->allocator->malloc(p_initialSize * sizeof(TYPE));
+		this->Memory = (TYPE*)this->allocator.malloc(p_initialSize * sizeof(TYPE));
 		this->Capacity = p_initialSize;
 		this->Size = 0;
 	}
@@ -35,7 +36,7 @@ namespace com
 	Vector_TemplateHeader
 		inline void Vector_ClassName::dispose()
 	{
-		free(this->Memory);
+		this->allocator.free(this->Memory);
 		this->Memory = nullptr;
 		this->Capacity = 0;
 		this->Size = 0;
@@ -46,7 +47,7 @@ namespace com
 	{
 		if (p_newCapacity > this->Capacity)
 		{
-			TYPE* l_newMemory = (TYPE*)this->allocator->realloc(this->Memory, p_newCapacity * sizeof(TYPE));
+			TYPE *l_newMemory = (TYPE *)this->allocator.realloc(this->Memory, p_newCapacity * sizeof(TYPE));
 			if (l_newMemory != NULL)
 			{
 				this->Memory = l_newMemory;
@@ -61,8 +62,7 @@ namespace com
 		return 0;
 	}
 
-	Vector_TemplateHeader
-		inline char Vector_ClassName::pushBack(const TYPE& p_element)
+	Vector_TemplateHeader inline char Vector_ClassName::push_back(const TYPE &p_element)
 	{
 		if (this->Size >= this->Capacity)
 		{
@@ -70,7 +70,7 @@ namespace com
 			{
 				return 1;
 			};
-			this->pushBack(p_element);
+			this->push_back(p_element);
 		}
 		else
 		{

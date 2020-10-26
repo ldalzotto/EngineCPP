@@ -19,7 +19,8 @@ namespace com
 		Vector<size_t, HeapAllocator> FreeBlocks;
 
 		Pool();
-		Pool(size_t p_initialSize, Allocator* p_allocator = &GlobalHeapAllocator);
+		Pool(size_t p_initialSize, const Allocator& p_allocator = Allocator());
+		void dispose();
 		PoolToken<TYPE> alloc_element(const TYPE& p_element);
 		void release_element(const PoolToken<TYPE>& p_element);
 		TYPE& resolve(const PoolToken<TYPE>& p_element);

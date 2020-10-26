@@ -6,6 +6,7 @@
 #include "Common/Container/vector.hpp"
 #include "Common/Container/pool.hpp"
 #include <vector>
+#include "Engine/engine.hpp"
 
 using namespace Math;
 
@@ -55,23 +56,24 @@ int main()
 	mat4f l_lookatView = lookAtView(l_234, l_100, vec3f_UP);
 	mat4f l_lookatRot = lookAtRotation(l_234, l_100, vec3f_UP);
 
-	/*
-	VkInstanceCreateInfo l_info = {};
-	VkInstance l_instance;
-	vkCreateInstance(&l_info, nullptr, &l_instance);
-	*/
-
-	com::Vector<float> l_vf = com::Vector<float>(10);
+	com::Vector<float> l_vf(10);
+	// = com::Vector<float>(10);
 	for (size_t i = 0; i < 100; i++)
 	{
-		l_vf.pushBack(i);
-		//l_vf.insert_at(99.0f, 0);
+		l_vf.push_back(i);
 	}
 	l_vf.erase_at(0);
 	l_vf.swap(0, 1);
-	l_vf.dispose();
+	
 
 	com::Pool<float> l_pool = com::Pool<float>(10);
 	com::PoolToken<float> l_zd = l_pool.alloc_element(5.0f);
 	float& l_f = l_pool.resolve(l_zd);
+
+	l_vf.dispose();
+	l_pool.dispose();
+
+	EngineHandle l_engine = engine_create();
+	engine_mainloop(l_engine);
+	engine_destroy(l_engine);
 }

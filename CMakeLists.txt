@@ -6,6 +6,9 @@ enable_language(CXX)
 
 # add_subdirectory(ThirdParty)
 
+add_subdirectory(ThirdParty)
 add_subdirectory(Common)
 add_subdirectory(Math)
+add_subdirectory(Render)
+add_subdirectory(Engine)
 add_subdirectory(CPPTestVS)

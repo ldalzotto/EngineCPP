@@ -12,13 +12,13 @@ namespace com
 		size_t Size;
 		size_t Capacity;
 
-		Allocator* allocator;
+		Allocator allocator;
 
 		Vector();
-		Vector(size_t p_initialSize, Allocator* p_allocator = &GlobalHeapAllocator);
+		Vector(size_t p_initialSize, const Allocator &p_allocator = Allocator());
 		void dispose();
 		char resize(const size_t p_newCapacity);
-		char pushBack(const TYPE& p_element);
+		char push_back(const TYPE &p_element);
 		char insert_at(MemorySlice<TYPE>& p_elements, const size_t p_index);
 		char insert_at(const TYPE& p_element, const size_t p_index);
 		char erase_at(const size_t p_index);

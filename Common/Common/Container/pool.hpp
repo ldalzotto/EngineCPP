@@ -9,13 +9,20 @@ namespace com
 	{
 	}
 
-	template<class TYPE, class Allocator>
-	inline Pool<TYPE, Allocator>::Pool(size_t p_initialSize, Allocator* p_allocator)
+	template <class TYPE, class Allocator>
+	inline Pool<TYPE, Allocator>::Pool(size_t p_initialSize, const Allocator &p_allocator)
 	{
 		this->Memory = Vector<TYPE, Allocator>(p_initialSize, p_allocator);
-		this->FreeBlocks = Vector<size_t, HeapAllocator>(0, &GlobalHeapAllocator);
+		this->FreeBlocks = Vector<size_t, HeapAllocator>(0, p_allocator);
 	}
 
+	template <class TYPE, class Allocator>
+	inline void Pool<TYPE, Allocator>::dispose()
+	{
+		this->Memory.dispose();
+		this->FreeBlocks.dispose();
+	}
+	
 	template<class TYPE, class Allocator>
 	inline PoolToken<TYPE> Pool<TYPE, Allocator>::alloc_element(const TYPE& p_element)
 	{
@@ -27,7 +34,7 @@ namespace com
 		}
 		else
 		{
-			this->Memory.pushBack(p_element);
+			this->Memory.push_back(p_element);
 			return PoolToken<TYPE>(this->Memory.Size - 1);
 		}
 	}
@@ -35,7 +42,7 @@ namespace com
 	template<class TYPE, class Allocator>
 	inline void Pool<TYPE, Allocator>::release_element(const PoolToken<TYPE>& p_element)
 	{
-		this->FreeBlocks.pushBack(p_element.Index);
+		this->FreeBlocks.push_back(p_element.Index);
 	}
 
 	template<class TYPE, class Allocator>
