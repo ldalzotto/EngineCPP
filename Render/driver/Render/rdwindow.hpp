@@ -25,4 +25,10 @@ struct rdwindow
 	{
 		return glfwPollEvents();
 	}
+
+	inline static HWND get_window_native(const WindowHandle& p_windowHandle)
+	{
+		return glfwGetWin32Window(p_windowHandle);
+	}
+
 };

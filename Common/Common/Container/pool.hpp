@@ -15,13 +15,6 @@ namespace com
 		this->Memory = Vector<TYPE, Allocator>(p_initialSize, p_allocator);
 		this->FreeBlocks = Vector<size_t, HeapAllocator>(0, p_allocator);
 	}
-
-	template <class TYPE, class Allocator>
-	inline void Pool<TYPE, Allocator>::dispose()
-	{
-		this->Memory.dispose();
-		this->FreeBlocks.dispose();
-	}
 	
 	template<class TYPE, class Allocator>
 	inline PoolToken<TYPE> Pool<TYPE, Allocator>::alloc_element(const TYPE& p_element)

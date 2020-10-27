@@ -17,6 +17,8 @@ namespace Math
 			TYPE Points[3];
 			struct { TYPE x, y, z; };
 		};
+
+		Vector() = default;
 		
 		inline Vector(TYPE p_x, TYPE p_y, TYPE p_z) : x{ p_x }, y{ p_y }, z{ p_z }
 		{
@@ -79,6 +81,7 @@ namespace Math
 			struct { Vector<3, TYPE> Vec3; TYPE Vec3_w; };
 		};
 
+		Vector() = default;
 		inline Vector(TYPE p_x, TYPE p_y, TYPE p_z, TYPE p_w) : x{p_x}, y{p_y}, z{p_z}, w{p_w}{}
 		inline Vector(const Vector<3, TYPE>& p_vec3, const TYPE& p_w) : Vec3{ p_vec3 }, Vec3_w{ p_w }{};
 

@@ -16,6 +16,13 @@ namespace com
 			this->End = 1;
 		}
 
+		inline MemorySlice(const TYPE& p_element, const size_t p_element_count)
+		{
+			this->Memory = &p_element;
+			this->Begin = 0;
+			this->End = p_element_count;
+		}
+
 		inline size_t count()
 		{
 			return this->End - this->Begin;

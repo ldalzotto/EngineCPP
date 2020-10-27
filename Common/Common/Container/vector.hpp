@@ -16,6 +16,20 @@ namespace com
 		return sizeof(TYPE) * p_index;
 	};
 
+	Vector_TemplateHeader
+		inline void copy(Vector_ClassName* thiz, const Vector_ClassName& p_other)
+	{
+		if (thiz != &p_other)
+		{
+			thiz->allocator = p_other.allocator;
+			thiz->Memory = (TYPE*)thiz->allocator.malloc(p_other.Capacity * sizeof(TYPE));
+			memcpy(thiz->Memory, p_other.Memory, p_other.Capacity * sizeof(TYPE));
+
+
+			thiz->Capacity = p_other.Capacity;
+			thiz->Size = p_other.Size;
+		}
+	};
 
 	Vector_TemplateHeader
 		inline Vector_ClassName::Vector()
@@ -24,6 +38,36 @@ namespace com
 		this->Capacity = 0;
 		this->Size = 0;
 	}
+
+	// Copy constructor.
+	Vector_TemplateHeader
+		Vector_ClassName::Vector(const Vector_ClassName& p_other)
+	{
+		if (this != &p_other)
+		{
+			copy(this, p_other);
+		}
+	};
+	
+	Vector_TemplateHeader
+		Vector_ClassName::Vector(Vector_ClassName&& p_other)
+	{
+		if (this != &p_other)
+		{
+			this->Memory = p_other.Memory;
+			this->Size = p_other.Size;
+			this->Capacity = p_other.Capacity;
+			this->allocator = p_other.allocator;
+
+			p_other.Memory = nullptr;
+		}
+	};
+
+	Vector_TemplateHeader
+		inline TYPE& Vector_ClassName::operator[](int i)
+	{
+		return this->Memory[i];
+	};
 
 	Vector_TemplateHeader inline Vector_ClassName::Vector(size_t p_initialSize, const Allocator &p_allocator)
 	{
@@ -34,13 +78,42 @@ namespace com
 	}
 
 	Vector_TemplateHeader
-		inline void Vector_ClassName::dispose()
+		inline Vector_ClassName::~Vector()
 	{
 		this->allocator.free(this->Memory);
 		this->Memory = nullptr;
 		this->Capacity = 0;
 		this->Size = 0;
 	}
+
+	// Copy assignment operator.
+	Vector_TemplateHeader
+		inline Vector_ClassName& Vector_ClassName::operator=(const Vector_ClassName& p_other)
+	{
+		if (this != &p_other)
+		{
+			this->allocator.free(this->Memory);
+			copy(this, p_other);
+		}
+
+		return (*this);
+	};
+
+	// Move assignment operator.
+	Vector_TemplateHeader
+		inline Vector_ClassName& Vector_ClassName::operator=(Vector_ClassName&& p_other)
+	{
+		if (this != &p_other)
+		{
+			this->allocator.free(this->Memory);
+			this->Memory = p_other.Memory;
+			this->Capacity = p_other.Capacity;
+			this->Size = p_other.Size;
+			p_other.Memory = nullptr;
+		}
+
+		return (*this);
+	};
 
 	Vector_TemplateHeader
 		inline char Vector_ClassName::resize(const size_t p_newCapacity)

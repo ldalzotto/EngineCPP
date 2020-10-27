@@ -13,3 +13,6 @@ add_library(Render ${RENDER_HEADER} ${RENDER_SOURCE})
 target_include_directories(Render PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/interface)
 
 target_link_libraries(Render PUBLIC GLFW)
+target_link_libraries(Render PUBLIC Vulkan)
+target_link_libraries(Render PUBLIC Math)
+target_link_libraries(Render PUBLIC Common)

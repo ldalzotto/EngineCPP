@@ -22,7 +22,7 @@ namespace Math
 			struct { Vector<3, TYPE> Right, Up, Forward; };
 		};
 
-		inline Matrix() {}
+		Matrix() = default;
 		inline Matrix(TYPE p_00, TYPE p_01, TYPE p_02, TYPE p_10, TYPE p_11, TYPE p_12,
 			TYPE p_20, TYPE p_21, TYPE p_22 )
 			: _00{ p_00 }, _01{ p_01 }, _02{ p_02 }, _10{ p_10 }, _11{ p_11 }, _12{ p_12 },
@@ -47,7 +47,7 @@ namespace Math
 			struct { Vector<4, TYPE> Right, Up, Forward, Col3_Direction; };
 		};
 
-		inline Matrix() {}
+		Matrix() = default;
 
 		inline Matrix(TYPE p_00, TYPE p_01, TYPE p_02, TYPE p_03, TYPE p_10, TYPE p_11, TYPE p_12,
 			TYPE p_13, TYPE p_20, TYPE p_21, TYPE p_22, TYPE p_23, TYPE p_30, TYPE p_31, TYPE p_32, TYPE p_33)
