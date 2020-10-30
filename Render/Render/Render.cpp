@@ -28,6 +28,124 @@ struct Window
 	};
 };
 
+struct RenderPass
+{
+	vk::RenderPass l_render_pass;
+
+	void create(const vk::Device& p_device, vk::SurfaceFormatKHR p_surface_format)
+	{
+		com::Vector<vk::AttachmentDescription> l_attachments(1);
+		l_attachments.Size = 1;
+
+		vk::AttachmentDescription& l_color_attachment = l_attachments[0];
+		l_color_attachment = vk::AttachmentDescription();
+		l_color_attachment.setFormat(p_surface_format.format);
+		l_color_attachment.setSamples(vk::SampleCountFlagBits::e1);
+		l_color_attachment.setLoadOp(vk::AttachmentLoadOp::eClear);
+		l_color_attachment.setStoreOp(vk::AttachmentStoreOp::eStore);
+		l_color_attachment.setStencilLoadOp(vk::AttachmentLoadOp::eDontCare);
+		l_color_attachment.setStencilStoreOp(vk::AttachmentStoreOp::eDontCare);
+		l_color_attachment.setInitialLayout(vk::ImageLayout::eUndefined);
+		l_color_attachment.setFinalLayout(vk::ImageLayout::ePresentSrcKHR);
+
+		com::Vector<vk::SubpassDescription> l_subpasses(1);
+		l_subpasses.Size = 1;
+
+		vk::AttachmentReference l_color_attachment_ref;
+		l_color_attachment_ref.setAttachment(0);
+		l_color_attachment_ref.setLayout(vk::ImageLayout::eColorAttachmentOptimal);
+
+		vk::SubpassDescription& l_color_subpass = l_subpasses[0];
+		l_color_subpass = vk::SubpassDescription();
+		l_color_subpass.setPipelineBindPoint(vk::PipelineBindPoint::eGraphics);
+		l_color_subpass.setColorAttachmentCount(1);
+		l_color_subpass.setPColorAttachments(&l_color_attachment_ref);
+
+		vk::RenderPassCreateInfo l_renderpass_create_info;
+		l_renderpass_create_info.setAttachmentCount((uint32_t)l_attachments.Size);
+		l_renderpass_create_info.setPAttachments(l_attachments.Memory);
+		l_renderpass_create_info.setSubpassCount((uint32_t)l_subpasses.Size);
+		l_renderpass_create_info.setPSubpasses(l_subpasses.Memory);
+
+		this->l_render_pass = p_device.createRenderPass(l_renderpass_create_info);
+	}
+
+	void dispose(const vk::Device& p_device)
+	{
+		p_device.destroyRenderPass(this->l_render_pass);
+	}
+};
+
+struct CommandBuffer
+{
+	vk::CommandBuffer command_buffer = nullptr;
+	const vk::CommandPool* pool = nullptr;
+	const vk::Queue* queue = nullptr;
+	bool hasBegun = false;
+
+	inline CommandBuffer(const vk::Device& p_device, const vk::CommandPool& p_command_pool, const vk::Queue& p_queue)
+	{
+		vk::CommandBufferAllocateInfo l_command_buffer_allocate_info;
+		this->pool = &p_command_pool;
+		this->queue = &p_queue;
+		l_command_buffer_allocate_info.setCommandPool(*this->pool);
+		l_command_buffer_allocate_info.setLevel(vk::CommandBufferLevel::ePrimary);
+		l_command_buffer_allocate_info.setCommandBufferCount(1);
+		auto l_command_buffers = p_device.allocateCommandBuffers(l_command_buffer_allocate_info);
+		this->command_buffer = l_command_buffers[0];
+	}
+
+	inline void begin()
+	{
+		if (!this->hasBegun)
+		{
+			vk::CommandBufferBeginInfo l_command_buffer_begin_info;
+			this->command_buffer.begin(l_command_buffer_begin_info);
+			this->hasBegun = true;
+		}
+	}
+
+	inline void beginRenderPass(const RenderPass& p_renderpass, const com::Vector<vk::ClearValue>& p_clear_values, const vk::Rect2D& p_rendered_screen)
+	{
+		vk::RenderPassBeginInfo l_renderpass_begin;
+		l_renderpass_begin.setPNext(nullptr);
+		l_renderpass_begin.setRenderPass(p_renderpass.l_render_pass);
+		l_renderpass_begin.setRenderArea(p_rendered_screen);
+		l_renderpass_begin.setClearValueCount(p_clear_values.Size);
+		l_renderpass_begin.setPClearValues(p_clear_values.Memory);
+
+		this->command_buffer.beginRenderPass(l_renderpass_begin, vk::SubpassContents::eInline);
+	}
+
+	inline void end()
+	{
+		if (this->hasBegun)
+		{
+			this->command_buffer.end();
+			this->hasBegun = false;
+		}
+	}
+
+	inline void flush(const vk::Device& p_device)
+	{
+		this->end();
+
+		vk::Fence l_command_buffer_end_fence = p_device.createFence(vk::FenceCreateInfo());
+
+		vk::SubmitInfo l_wait_for_end_submit;
+		l_wait_for_end_submit.setCommandBufferCount(1);
+		l_wait_for_end_submit.setPCommandBuffers(&this->command_buffer);
+		this->queue->submit(1, &l_wait_for_end_submit, l_command_buffer_end_fence);
+
+		p_device.waitForFences(1, &l_command_buffer_end_fence, true, DEFAULT_FENCE_TIMEOUT);
+
+		p_device.destroyFence(l_command_buffer_end_fence);
+		p_device.freeCommandBuffers(*this->pool, 1, &this->command_buffer);
+
+	}
+};
+
+
 struct SwapChain
 {
 public:
@@ -44,6 +162,10 @@ public:
 	uint32_t image_count;
 	std::vector<vk::Image> images;
 	com::Vector<SwapChainBuffer> buffers;
+
+	RenderPass renderpass;
+
+	com::Vector<vk::Framebuffer> framebuffers;
 
 private:
 	const vk::Instance *instance;
@@ -91,11 +213,14 @@ public:
 		this->handle = this->device->createSwapchainKHR(l_swapchain_create_info);
 
 		this->create_images();
-		
+		this->createRenderPass(p_device);
+		this->create_framebuffers(p_device);
 	}
 
 	inline void dispose()
 	{
+		this->destroy_framebuffers();
+		this->destroyRenderPass();
 		this->destroy_images();
 		this->device->destroySwapchainKHR(this->handle);
 	}
@@ -208,54 +333,47 @@ public:
 			this->device->destroyImageView(this->buffers[i].view);
 		}
 	}
-};
 
-struct RenderPass
-{
-	vk::RenderPass l_render_pass;
-
-	void create(const vk::Device& p_device, const SwapChain& p_swapChain)
+	inline void createRenderPass(const vk::Device& p_device)
 	{
-		com::Vector<vk::AttachmentDescription> l_attachments(1);
-		l_attachments.Size = 1;
-
-		vk::AttachmentDescription& l_color_attachment = l_attachments[0];
-		l_color_attachment = vk::AttachmentDescription();
-		l_color_attachment.setFormat(p_swapChain.surface_format.format);
-		l_color_attachment.setSamples(vk::SampleCountFlagBits::e1);
-		l_color_attachment.setLoadOp(vk::AttachmentLoadOp::eClear);
-		l_color_attachment.setStoreOp(vk::AttachmentStoreOp::eStore);
-		l_color_attachment.setStencilLoadOp(vk::AttachmentLoadOp::eDontCare);
-		l_color_attachment.setStencilStoreOp(vk::AttachmentStoreOp::eDontCare);
-		l_color_attachment.setInitialLayout(vk::ImageLayout::eUndefined);
-		l_color_attachment.setFinalLayout(vk::ImageLayout::ePresentSrcKHR);
-
-		com::Vector<vk::SubpassDescription> l_subpasses(1);
-		l_subpasses.Size = 1;
-
-		vk::AttachmentReference l_color_attachment_ref;
-		l_color_attachment_ref.setAttachment(0);
-		l_color_attachment_ref.setLayout(vk::ImageLayout::eColorAttachmentOptimal);
-
-		vk::SubpassDescription& l_color_subpass = l_subpasses[0];
-		l_color_subpass = vk::SubpassDescription();
-		l_color_subpass.setPipelineBindPoint(vk::PipelineBindPoint::eGraphics);
-		l_color_subpass.setColorAttachmentCount(1);
-		l_color_subpass.setPColorAttachments(&l_color_attachment_ref);
-
-		vk::RenderPassCreateInfo l_renderpass_create_info;
-		l_renderpass_create_info.setAttachmentCount((uint32_t)l_attachments.Size);
-		l_renderpass_create_info.setPAttachments(l_attachments.Memory);
-		l_renderpass_create_info.setSubpassCount((uint32_t)l_subpasses.Size);
-		l_renderpass_create_info.setPSubpasses(l_subpasses.Memory);
-
-		this->l_render_pass = p_device.createRenderPass(l_renderpass_create_info);
+		this->renderpass.create(p_device, this->surface_format);
 	}
 
-	void dispose(const vk::Device& p_device)
+	inline void destroyRenderPass()
 	{
-		p_device.destroyRenderPass(this->l_render_pass);
+		this->renderpass.dispose(*this->device);
 	}
+
+	inline void create_framebuffers(const vk::Device& p_device)
+	{
+		this->framebuffers = com::Vector<vk::Framebuffer>(this->image_count);
+		this->framebuffers.Size = this->framebuffers.Capacity;
+		for (size_t i = 0; i < this->framebuffers.Size; i++)
+		{
+			com::Vector<vk::ImageView> l_attachments(1);
+			l_attachments.Size = l_attachments.Capacity;
+			l_attachments[0] = this->buffers[i].view;
+
+			vk::FramebufferCreateInfo l_framebuffer_create;
+			l_framebuffer_create.setRenderPass(this->renderpass.l_render_pass);
+			l_framebuffer_create.setAttachmentCount((uint32_t)l_attachments.Size);
+			l_framebuffer_create.setPAttachments(l_attachments.Memory);
+			l_framebuffer_create.setWidth(this->window->Width);
+			l_framebuffer_create.setHeight(this->window->Height);
+			l_framebuffer_create.setLayers(1);
+
+			this->framebuffers[i] = p_device.createFramebuffer(l_framebuffer_create);
+		}
+	}
+
+	inline void destroy_framebuffers()
+	{
+		for (size_t i = 0; i < this->framebuffers.Size; i++)
+		{
+			this->device->destroyFramebuffer(this->framebuffers[i]);
+		}
+	}
+
 };
 
 struct RenderAPI
@@ -278,9 +396,10 @@ struct RenderAPI
 	uint32_t present_queue_family = QueueFamilyDefault;
 
 	SwapChain swap_chain;
-	RenderPass renderpass;
 
 	vk::CommandPool command_pool;
+
+	com::Vector<CommandBuffer> draw_commandbuffers;
 
 	bool validationLayers_enabled;
 	com::Vector<const char *> validation_layers;
@@ -294,16 +413,16 @@ struct RenderAPI
 		this->createSurface(p_window);
 		this->getPhysicalDevice();
 		this->createPhysicalDevice();
-		this->createSwapChain(p_window);
-		this->createRenderPass();
 		this->createCommandBufferPool();
+		this->createSwapChain(p_window);
+		this->create_draw_commandbuffers();
 	};
 
 	inline void dispose()
 	{
-		this->destroyCommandBufferPool();
-		this->destroyRenderPass();
+		this->destroy_draw_commandbuffers();
 		this->destroySwapChain();
+		this->destroyCommandBufferPool();
 		this->destroySurface();
 		this->device.destroy();
 		this->destroyDebugCallback();
@@ -588,16 +707,6 @@ private:
 		this->instance.destroySurfaceKHR(this->surface);
 	}
 
-	inline void createRenderPass()
-	{
-		this->renderpass.create(this->device, this->swap_chain);
-	}
-
-	inline void destroyRenderPass()
-	{
-		this->renderpass.dispose(this->device);
-	}
-
 	inline void createCommandBufferPool()
 	{
 		vk::CommandPoolCreateInfo l_command_pool_create_info;
@@ -609,6 +718,31 @@ private:
 	inline void destroyCommandBufferPool()
 	{
 		this->device.destroyCommandPool(this->command_pool);
+	}
+
+
+	inline void create_draw_commandbuffers()
+	{
+		this->draw_commandbuffers = com::Vector<CommandBuffer>(this->swap_chain.framebuffers.Size);
+		this->draw_commandbuffers.Size = this->draw_commandbuffers.Capacity;
+		for (int i = 0; i < this->draw_commandbuffers.Size; i++)
+		{
+			this->draw_commandbuffers[i] = CommandBuffer(this->device, this->command_pool, this->graphics_queue);
+		}
+	}
+
+	inline void destroy_draw_commandbuffers()
+	{
+		for (int i = 0; i < this->draw_commandbuffers.Size; i++)
+		{
+			this->draw_commandbuffers[i].flush(this->device);
+		}
+		this->draw_commandbuffers.Size = 0;
+	}
+
+	inline void define_draw_commands()
+	{
+		
 	}
 };
 
@@ -813,7 +947,7 @@ private:
 		p_device.destroyPipelineLayout(this->pipeline_layout);
 	}
 
-	static vk::ShaderModule load_shadermodule(const vk::Device& p_device, const std::string& p_file_path)
+	inline static vk::ShaderModule load_shadermodule(const vk::Device& p_device, const std::string& p_file_path)
 	{
 		size_t l_size;
 		std::string l_shader_code{};
@@ -840,53 +974,12 @@ private:
 		return nullptr;
 	}
 
-	static void dispose_shaderModule(const vk::Device& p_device, const vk::ShaderModule& p_shader_module)
+	inline static void dispose_shaderModule(const vk::Device& p_device, const vk::ShaderModule& p_shader_module)
 	{
 		p_device.destroyShaderModule(p_shader_module);
 	}
 };
 
-struct CommandBuffer
-{
-	vk::CommandBuffer command_buffer;
-	const vk::CommandPool* pool;
-	const vk::Queue* queue;
-
-	inline CommandBuffer(const vk::Device& p_device, const vk::CommandPool& p_command_pool, const vk::Queue& p_queue)
-	{
-		vk::CommandBufferAllocateInfo l_command_buffer_allocate_info;
-		this->pool = &p_command_pool;
-		this->queue = &p_queue;
-		l_command_buffer_allocate_info.setCommandPool(*this->pool);
-		l_command_buffer_allocate_info.setLevel(vk::CommandBufferLevel::ePrimary);
-		l_command_buffer_allocate_info.setCommandBufferCount(1);
-		auto l_command_buffers = p_device.allocateCommandBuffers(l_command_buffer_allocate_info);
-		this->command_buffer = l_command_buffers[0];
-	}
-
-	inline void begin()
-	{
-		vk::CommandBufferBeginInfo l_command_buffer_begin_info;
-		this->command_buffer.begin(l_command_buffer_begin_info);
-	}
-
-	inline void flush(const vk::Device& p_device)
-	{
-		this->command_buffer.end();
-
-		vk::Fence l_command_buffer_end_fence = p_device.createFence(vk::FenceCreateInfo());
-
-		vk::SubmitInfo l_wait_for_end_submit;
-		l_wait_for_end_submit.setCommandBufferCount(1);
-		l_wait_for_end_submit.setPCommandBuffers(&this->command_buffer);
-		this->queue->submit(1, &l_wait_for_end_submit, l_command_buffer_end_fence);
-
-		p_device.waitForFences(1, &l_command_buffer_end_fence, true, DEFAULT_FENCE_TIMEOUT);
-
-		p_device.destroyFence(l_command_buffer_end_fence);
-		p_device.freeCommandBuffers(*this->pool, 1, &this->command_buffer);
-	}
-};
 
 enum Staging;
 enum NotStaging;
@@ -900,10 +993,13 @@ struct AGPUBuffer
 
 	inline void dispose(const vk::Device& p_device)
 	{
-		p_device.freeMemory(this->memory);
-		p_device.destroyBuffer(this->buffer);
-		this->memory = nullptr;
-		this->buffer = nullptr;
+		if (this->memory)
+		{
+			p_device.freeMemory(this->memory);
+			p_device.destroyBuffer(this->buffer);
+			this->memory = nullptr;
+			this->buffer = nullptr;
+		}	
 	}
 };
 
@@ -968,6 +1064,12 @@ struct GPUBuffer<ElementType, Staging>
 		l_buffer_copy_regions.setSize(l_buffer_size);
 		p_commandBuffer.command_buffer.copyBuffer(this->staging_buffer.buffer, this->buffer.buffer, 1, &l_buffer_copy_regions);
 	}
+
+	inline void dispose(const vk::Device& p_device)
+	{
+		this->buffer.dispose(p_device);
+		this->staging_buffer.dispose(p_device);
+	}
 };
 
 
@@ -1002,12 +1104,13 @@ struct Render
 	{
 		this->window = Window(800, 600, "MyGame");
 		this->renderApi.init(window);
-		this->shaderTest = Shader(this->renderApi.device, this->renderApi.renderpass, "E:/GameProjects/CPPTestVS/Render/shader/TriVert.spv", "E:/GameProjects/CPPTestVS/Render/shader/TriFrag.spv");
+		this->shaderTest = Shader(this->renderApi.device, this->renderApi.swap_chain.renderpass, "E:/GameProjects/CPPTestVS/Render/shader/TriVert.spv", "E:/GameProjects/CPPTestVS/Render/shader/TriFrag.spv");
 		this->createVertexBuffer();
 	};
 
 	inline void dispose()
 	{
+		this->destroyVertexBuffer();
 		this->shaderTest.dispose(this->renderApi.device);
 		this->renderApi.dispose();
 		this->window.dispose();
@@ -1041,6 +1144,16 @@ private:
 		l_indices.allocate_buffered(l_copy_cmd, l_indicesBuffer.Size, l_indicesBuffer.Memory, this->renderApi);
 
 		l_copy_cmd.flush(this->renderApi.device);
+	}
+
+	inline void destroyVertexBuffer()
+	{
+		this->l_test.dispose(this->renderApi.device);
+	}
+
+	inline void create_synchronization()
+	{
+		//TODO
 	}
 };
 
