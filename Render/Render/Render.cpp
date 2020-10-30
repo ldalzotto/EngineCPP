@@ -3,8 +3,11 @@
 #include "Math/math.hpp"
 #include "Common/Container/vector.hpp"
 #include <fstream>
+#include <stdlib.h>
 
 using namespace Math;
+
+#define DEFAULT_FENCE_TIMEOUT 2000
 
 struct Window
 {
@@ -277,6 +280,8 @@ struct RenderAPI
 	SwapChain swap_chain;
 	RenderPass renderpass;
 
+	vk::CommandPool command_pool;
+
 	bool validationLayers_enabled;
 	com::Vector<const char *> validation_layers;
 
@@ -291,10 +296,12 @@ struct RenderAPI
 		this->createPhysicalDevice();
 		this->createSwapChain(p_window);
 		this->createRenderPass();
+		this->createCommandBufferPool();
 	};
 
 	inline void dispose()
 	{
+		this->destroyCommandBufferPool();
 		this->destroyRenderPass();
 		this->destroySwapChain();
 		this->destroySurface();
@@ -590,6 +597,19 @@ private:
 	{
 		this->renderpass.dispose(this->device);
 	}
+
+	inline void createCommandBufferPool()
+	{
+		vk::CommandPoolCreateInfo l_command_pool_create_info;
+		l_command_pool_create_info.setQueueFamilyIndex(this->graphics_queue_family);
+		l_command_pool_create_info.setFlags(vk::CommandPoolCreateFlags(vk::CommandPoolCreateFlagBits::eResetCommandBuffer));
+		this->command_pool = this->device.createCommandPool(l_command_pool_create_info);
+	}
+
+	inline void destroyCommandBufferPool()
+	{
+		this->device.destroyCommandPool(this->command_pool);
+	}
 };
 
 struct Vertex
@@ -826,60 +846,149 @@ private:
 	}
 };
 
+struct CommandBuffer
+{
+	vk::CommandBuffer command_buffer;
+	const vk::CommandPool* pool;
+	const vk::Queue* queue;
+
+	inline CommandBuffer(const vk::Device& p_device, const vk::CommandPool& p_command_pool, const vk::Queue& p_queue)
+	{
+		vk::CommandBufferAllocateInfo l_command_buffer_allocate_info;
+		this->pool = &p_command_pool;
+		this->queue = &p_queue;
+		l_command_buffer_allocate_info.setCommandPool(*this->pool);
+		l_command_buffer_allocate_info.setLevel(vk::CommandBufferLevel::ePrimary);
+		l_command_buffer_allocate_info.setCommandBufferCount(1);
+		auto l_command_buffers = p_device.allocateCommandBuffers(l_command_buffer_allocate_info);
+		this->command_buffer = l_command_buffers[0];
+	}
+
+	inline void begin()
+	{
+		vk::CommandBufferBeginInfo l_command_buffer_begin_info;
+		this->command_buffer.begin(l_command_buffer_begin_info);
+	}
+
+	inline void flush(const vk::Device& p_device)
+	{
+		this->command_buffer.end();
+
+		vk::Fence l_command_buffer_end_fence = p_device.createFence(vk::FenceCreateInfo());
+
+		vk::SubmitInfo l_wait_for_end_submit;
+		l_wait_for_end_submit.setCommandBufferCount(1);
+		l_wait_for_end_submit.setPCommandBuffers(&this->command_buffer);
+		this->queue->submit(1, &l_wait_for_end_submit, l_command_buffer_end_fence);
+
+		p_device.waitForFences(1, &l_command_buffer_end_fence, true, DEFAULT_FENCE_TIMEOUT);
+
+		p_device.destroyFence(l_command_buffer_end_fence);
+		p_device.freeCommandBuffers(*this->pool, 1, &this->command_buffer);
+	}
+};
 
 enum Staging;
 enum NotStaging;
 
+
 template<class ElementType = char, class StagingUsage = Staging>
-struct GPUBuffer
+struct AGPUBuffer
 {
 	vk::DeviceMemory memory;
 	vk::Buffer buffer;
 
-	inline void allocate(size_t p_element_number, const void* p_source, const RenderAPI& p_render)
+	inline void dispose(const vk::Device& p_device)
 	{
-		this->buffer = GPUBuffer_Allocate<StagingUsage>::allocate(p_element_number * sizeof(ElementType), p_source, p_render);
-	};
+		p_device.freeMemory(this->memory);
+		p_device.destroyBuffer(this->buffer);
+		this->memory = nullptr;
+		this->buffer = nullptr;
+	}
 };
 
-template<class StagingUsage>
-struct GPUBuffer_Allocate { };
 
-template<>
-struct GPUBuffer_Allocate<Staging>
+template<class ElementType = char, class StagingUsage = Staging>
+struct GPUBuffer {};
+
+template<class ElementType>
+struct GPUBuffer<ElementType, Staging>
 {
-	inline static vk::Buffer allocate(size_t p_size, const void* p_source, const RenderAPI& p_render)
+	AGPUBuffer<ElementType> buffer;
+	AGPUBuffer<ElementType> staging_buffer;
+
+	inline void allocate(size_t p_element_number, const void* p_source, vk::BufferUsageFlags p_usageflags, const RenderAPI& p_render)
 	{
+		CommandBuffer l_copy_cmd = CommandBuffer(p_render.device, p_render.command_pool, p_render.graphics_queue);
+		l_copy_cmd.begin();
+
+		this->allocate_buffered(l_copy_cmd, p_element_number, p_source, p_usageflags, p_render);
+
+		l_copy_cmd.flush(p_render.device);
+		this->staging_buffer.dispose(p_render.device);
+	}
+
+	inline void allocate_buffered(CommandBuffer& p_commandBuffer, size_t p_element_number, const void* p_source, vk::BufferUsageFlags p_usageflags, const RenderAPI& p_render)
+	{
+		size_t l_buffer_size = p_element_number * sizeof(ElementType);
+
+		//STAGING
 		vk::BufferCreateInfo l_buffercreate_info;
 		l_buffercreate_info.setUsage(vk::BufferUsageFlagBits::eTransferSrc);
-		l_buffercreate_info.setSize(p_size);
-		vk::Buffer l_buffer = p_render.device.createBuffer(l_buffercreate_info);
+		l_buffercreate_info.setSize(l_buffer_size);
+		this->staging_buffer.buffer = p_render.device.createBuffer(l_buffercreate_info);
 
-		vk::MemoryRequirements l_requirements = p_render.device.getBufferMemoryRequirements(l_buffer);
+		vk::MemoryRequirements l_requirements = p_render.device.getBufferMemoryRequirements(this->staging_buffer.buffer);
 
 		vk::MemoryAllocateInfo l_memory_allocate_info;
 		l_memory_allocate_info.setAllocationSize(l_requirements.size);
 		l_memory_allocate_info.setMemoryTypeIndex(
 			p_render.getMemoryTypeIndex(l_requirements.memoryTypeBits, vk::MemoryPropertyFlags(vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent)));
 
-		void* l_data;
-		vk::DeviceMemory l_memory = p_render.device.allocateMemory(l_memory_allocate_info);
-		l_data = p_render.device.mapMemory(l_memory, 0, l_memory_allocate_info.allocationSize);
-		//TODO
-		return l_buffer;
-	};
+		void* l_staging_data;
+		this->staging_buffer.memory = p_render.device.allocateMemory(l_memory_allocate_info);
+		l_staging_data = p_render.device.mapMemory(this->staging_buffer.memory, 0, l_memory_allocate_info.allocationSize);
+		memcpy(l_staging_data, p_source, l_buffer_size);
+		p_render.device.unmapMemory(this->staging_buffer.memory);
+		p_render.device.bindBufferMemory(this->staging_buffer.buffer, this->staging_buffer.memory, 0);
+
+
+		//Actual buffer
+		l_buffercreate_info.setUsage(p_usageflags | vk::BufferUsageFlags(vk::BufferUsageFlagBits::eTransferDst));
+		this->buffer.buffer = p_render.device.createBuffer(l_buffercreate_info);
+
+		l_requirements = p_render.device.getBufferMemoryRequirements(this->buffer.buffer);
+		l_memory_allocate_info.setAllocationSize(l_requirements.size);
+		l_memory_allocate_info.setMemoryTypeIndex(
+			p_render.getMemoryTypeIndex(l_requirements.memoryTypeBits, vk::MemoryPropertyFlags(vk::MemoryPropertyFlagBits::eDeviceLocal)));
+		this->buffer.memory = p_render.device.allocateMemory(l_memory_allocate_info);
+		p_render.device.bindBufferMemory(this->buffer.buffer, this->buffer.memory, 0);
+
+		vk::BufferCopy l_buffer_copy_regions;
+		l_buffer_copy_regions.setSize(l_buffer_size);
+		p_commandBuffer.command_buffer.copyBuffer(this->staging_buffer.buffer, this->buffer.buffer, 1, &l_buffer_copy_regions);
+	}
 };
 
-template<>
-struct GPUBuffer_Allocate<NotStaging>
+
+template<class ElementType = char, class StagingUsage = Staging>
+struct VertexBuffer
 {
-	inline static vk::Buffer allocate(size_t p_size, const void* p_source, const RenderAPI& p_render)
+	GPUBuffer<ElementType, StagingUsage> buffer;
+
+	VertexBuffer() {};
+
+	inline void allocate(size_t p_element_number, const void* p_source, const RenderAPI& p_render)
 	{
-		//TODO
-		return nullptr;
+		this->buffer.allocate(p_element_number, p_source, vk::BufferUsageFlags(vk::BufferUsageFlagBits::eVertexBuffer), p_render);
+	};
+
+
+	inline void allocate_buffered(CommandBuffer& p_commandBuffer, size_t p_element_number, const void* p_source, const RenderAPI& p_render)
+	{
+		this->buffer.allocate_buffered(p_commandBuffer, p_element_number, p_source, vk::BufferUsageFlags(vk::BufferUsageFlagBits::eVertexBuffer), p_render);
 	};
 };
-
 
 struct Render
 {
@@ -894,7 +1003,7 @@ struct Render
 		this->window = Window(800, 600, "MyGame");
 		this->renderApi.init(window);
 		this->shaderTest = Shader(this->renderApi.device, this->renderApi.renderpass, "E:/GameProjects/CPPTestVS/Render/shader/TriVert.spv", "E:/GameProjects/CPPTestVS/Render/shader/TriFrag.spv");
-		// this->l_test.allocate(10);
+		this->createVertexBuffer();
 	};
 
 	inline void dispose()
@@ -906,7 +1015,7 @@ struct Render
 
 private:
 	
-	inline void createVertexBuffer(const vk::Device& p_device, bool p_use_staging_buffer)
+	inline void createVertexBuffer()
 	{
 		com::Vector<Vertex> l_vertexBuffer(3);
 		l_vertexBuffer.Size = l_vertexBuffer.Capacity;
@@ -917,34 +1026,21 @@ private:
 		l_vertexBuffer[0].position = vec3f(-0.5f, 0.5f, 0.0f);
 		l_vertexBuffer[0].color = vec3f(0.0f, 0.0f, 1.0f);
 
-		com::Vector<uint32_t> l_indices(3);
-		l_indices.Size = l_indices.Capacity;
-		l_indices[0] = 0; l_indices[1] = 1; l_indices[2] = 2;
+		com::Vector<uint32_t> l_indicesBuffer(3);
+		l_indicesBuffer.Size = l_indicesBuffer.Capacity;
+		l_indicesBuffer[0] = 0; l_indicesBuffer[1] = 1; l_indicesBuffer[2] = 2;
 
-		vk::MemoryAllocateInfo l_mem_alloc_info;
-		vk::MemoryRequirements l_mem_req;
-		if (p_use_staging_buffer)
-		{
-			struct StagingBuffer
-			{
-				vk::DeviceMemory memory;
-				vk::Buffer buffer;
-			};
+			
+		CommandBuffer l_copy_cmd = CommandBuffer(this->renderApi.device, this->renderApi.command_pool, this->renderApi.graphics_queue);
+		l_copy_cmd.begin();
 
-			StagingBuffer l_vertices;
-			StagingBuffer l_indices;
+		VertexBuffer<Vertex> l_vertices;
+		l_vertices.allocate_buffered(l_copy_cmd, l_vertexBuffer.Size, l_vertexBuffer.Memory, this->renderApi);
 
-			vk::BufferCreateInfo l_vertex_buf_create_info;
-			l_vertex_buf_create_info.setSize(l_vertexBuffer.Size);
-			l_vertex_buf_create_info.setUsage(vk::BufferUsageFlagBits::eTransferSrc);
-			l_vertices.buffer = p_device.createBuffer(l_vertex_buf_create_info);
-			l_mem_req = p_device.getBufferMemoryRequirements(l_vertices.buffer);
-			l_mem_alloc_info.setAllocationSize(l_mem_req.size);
+		VertexBuffer<uint32_t> l_indices;
+		l_indices.allocate_buffered(l_copy_cmd, l_indicesBuffer.Size, l_indicesBuffer.Memory, this->renderApi);
 
-			// l_mem_alloc_info.setAllocationSize(p_device.getBufferMemoryRequirements(l_vertices.buffer).size);
-			// p_device.mapMemory(l_vertices.buffer, 0, )
-		}
-
+		l_copy_cmd.flush(this->renderApi.device);
 	}
 };
 
