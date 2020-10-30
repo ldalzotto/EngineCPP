@@ -24,6 +24,7 @@ namespace com
 		Vector& operator=(const Vector& p_other);
 		Vector& operator=(Vector&& p_other);
 		
+		size_t capacity_in_bytes();
 		char resize(const size_t p_newCapacity);
 		char push_back(const TYPE &p_element);
 		char insert_at(MemorySlice<TYPE>& p_elements, const size_t p_index);

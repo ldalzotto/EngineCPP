@@ -10,7 +10,7 @@ namespace Math
 	};
 
 	template <class TYPE>
-	struct Vector<3, TYPE>
+	struct alignas(sizeof(TYPE)) Vector<3, TYPE>
 	{
 		union
 		{
@@ -71,7 +71,7 @@ namespace Math
 	};
 
 	template <class TYPE>
-	struct Vector<4, TYPE>
+	struct alignas(sizeof(TYPE)) Vector<4, TYPE>
 	{
 
 		union

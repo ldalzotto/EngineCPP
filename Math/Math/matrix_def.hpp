@@ -11,7 +11,7 @@ namespace Math
 
 
 	template <class TYPE>
-	struct Matrix<3, TYPE>
+	struct alignas(sizeof(TYPE)) Matrix<3, TYPE>
 	{
 		union
 		{
@@ -36,7 +36,7 @@ namespace Math
 	};
 
 	template <class TYPE>
-	struct Matrix<4, TYPE>
+	struct alignas(sizeof(TYPE)) Matrix<4, TYPE>
 	{
 		union
 		{

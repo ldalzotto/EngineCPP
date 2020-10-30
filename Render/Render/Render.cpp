@@ -207,6 +207,54 @@ public:
 	}
 };
 
+struct RenderPass
+{
+	vk::RenderPass l_render_pass;
+
+	void create(const vk::Device& p_device, const SwapChain& p_swapChain)
+	{
+		com::Vector<vk::AttachmentDescription> l_attachments(1);
+		l_attachments.Size = 1;
+
+		vk::AttachmentDescription& l_color_attachment = l_attachments[0];
+		l_color_attachment = vk::AttachmentDescription();
+		l_color_attachment.setFormat(p_swapChain.surface_format.format);
+		l_color_attachment.setSamples(vk::SampleCountFlagBits::e1);
+		l_color_attachment.setLoadOp(vk::AttachmentLoadOp::eClear);
+		l_color_attachment.setStoreOp(vk::AttachmentStoreOp::eStore);
+		l_color_attachment.setStencilLoadOp(vk::AttachmentLoadOp::eDontCare);
+		l_color_attachment.setStencilStoreOp(vk::AttachmentStoreOp::eDontCare);
+		l_color_attachment.setInitialLayout(vk::ImageLayout::eUndefined);
+		l_color_attachment.setFinalLayout(vk::ImageLayout::ePresentSrcKHR);
+
+		com::Vector<vk::SubpassDescription> l_subpasses(1);
+		l_subpasses.Size = 1;
+
+		vk::AttachmentReference l_color_attachment_ref;
+		l_color_attachment_ref.setAttachment(0);
+		l_color_attachment_ref.setLayout(vk::ImageLayout::eColorAttachmentOptimal);
+
+		vk::SubpassDescription& l_color_subpass = l_subpasses[0];
+		l_color_subpass = vk::SubpassDescription();
+		l_color_subpass.setPipelineBindPoint(vk::PipelineBindPoint::eGraphics);
+		l_color_subpass.setColorAttachmentCount(1);
+		l_color_subpass.setPColorAttachments(&l_color_attachment_ref);
+
+		vk::RenderPassCreateInfo l_renderpass_create_info;
+		l_renderpass_create_info.setAttachmentCount((uint32_t)l_attachments.Size);
+		l_renderpass_create_info.setPAttachments(l_attachments.Memory);
+		l_renderpass_create_info.setSubpassCount((uint32_t)l_subpasses.Size);
+		l_renderpass_create_info.setPSubpasses(l_subpasses.Memory);
+
+		this->l_render_pass = p_device.createRenderPass(l_renderpass_create_info);
+	}
+
+	void dispose(const vk::Device& p_device)
+	{
+		p_device.destroyRenderPass(this->l_render_pass);
+	}
+};
+
 struct RenderAPI
 {
 	static const uint32_t QueueFamilyDefault = -1;
@@ -214,8 +262,10 @@ struct RenderAPI
 	vk::Instance instance;
 	VkDebugUtilsMessengerEXT debugMessenger;
 	vk::PhysicalDevice graphics_device;
+	VkPhysicalDeviceMemoryProperties device_memory_properties;
 	
 	vk::Device device;
+	
 	vk::SurfaceKHR surface;
 
 	vk::Queue graphics_queue;
@@ -225,9 +275,12 @@ struct RenderAPI
 	uint32_t present_queue_family = QueueFamilyDefault;
 
 	SwapChain swap_chain;
+	RenderPass renderpass;
 
 	bool validationLayers_enabled;
 	com::Vector<const char *> validation_layers;
+
+	RenderAPI() = default;
 
 	inline void init(const Window &p_window)
 	{
@@ -237,15 +290,35 @@ struct RenderAPI
 		this->getPhysicalDevice();
 		this->createPhysicalDevice();
 		this->createSwapChain(p_window);
+		this->createRenderPass();
 	};
 
 	inline void dispose()
 	{
+		this->destroyRenderPass();
 		this->destroySwapChain();
 		this->destroySurface();
 		this->device.destroy();
 		this->destroyDebugCallback();
 		this->destroyInstance();
+	}
+
+	uint32_t getMemoryTypeIndex(uint32_t p_typeBits, vk::MemoryPropertyFlags p_properties) const
+	{
+		for (uint32_t i = 0; i < this->device_memory_properties.memoryTypeCount; i++)
+		{
+			if ((p_typeBits & 1) == 1)
+			{
+				
+				if ((vk::MemoryPropertyFlags(this->device_memory_properties.memoryTypes[i].propertyFlags) & p_properties) == p_properties)
+				{
+					return i;
+				}
+			}
+			p_typeBits >>= 1;
+		}
+
+		return -1;
 	}
 
 private:
@@ -419,7 +492,7 @@ private:
 								 {
 									 l_graphics_queue_family = j;
 								 }
-
+								  
 								 if (l_physical_device.getSurfaceSupportKHR(j, this->surface))
 								 {
 									 l_present_queue_family = j;
@@ -445,6 +518,7 @@ private:
 			if (l_device_match)
 			{
 				this->graphics_device = l_physical_device;
+				this->device_memory_properties = this->graphics_device.getMemoryProperties();
 				this->graphics_queue_family = l_graphics_queue_family;
 				this->present_queue_family = l_present_queue_family;
 			}
@@ -506,24 +580,22 @@ private:
 	{
 		this->instance.destroySurfaceKHR(this->surface);
 	}
+
+	inline void createRenderPass()
+	{
+		this->renderpass.create(this->device, this->swap_chain);
+	}
+
+	inline void destroyRenderPass()
+	{
+		this->renderpass.dispose(this->device);
+	}
 };
 
-struct Render
+struct Vertex
 {
-	Window window;
-	RenderAPI renderApi;
-
-	inline Render()
-	{
-		this->window = Window(800, 600, "MyGame");
-		this->renderApi.init(window);
-	};
-
-	inline void dispose()
-	{
-		this->renderApi.dispose();
-		this->window.dispose();
-	};
+	vec3f position;
+	vec3f color;
 };
 
 struct Shader
@@ -538,26 +610,23 @@ struct Shader
 	vk::DescriptorSetLayout descriptorset_layout;
 	vk::PipelineLayout pipeline_layout;
 	vk::RenderPass render_pass;
+	vk::Pipeline pipeline;
 
-	Shader(const vk::Device& p_device)
+	Shader() : descriptorset_layout(nullptr), pipeline_layout(nullptr)
 	{
-		Step vertex_shader;
-		Step fragment_shader;
+		
+	}
 
-		vertex_shader.shader_module = load_shadermodule(p_device, "");
-		vertex_shader.stage = vk::ShaderStageFlagBits::eVertex;
-		vertex_shader.entry_name = "main";
-
-		fragment_shader.shader_module = load_shadermodule(p_device, "");
-		fragment_shader.stage = vk::ShaderStageFlagBits::eFragment;
-		fragment_shader.entry_name = "main";
-
+	Shader(const vk::Device& p_device, const RenderPass& p_render_pass, const std::string& p_vertex_shader, const std::string& p_fragment_shader)
+	{
 		this->createDescriptorSetLayout(p_device);
 		this->createPipelineLayout(p_device);
+		this->createPipeline(p_device, p_render_pass, p_vertex_shader, p_fragment_shader);
 	}
 
 	inline void dispose(const vk::Device& p_device)
 	{
+		this->destroyPipeline(p_device);
 		this->destroyPipelineLayout(p_device);
 		this->destroyDescriptorSetLayout(p_device);
 	}
@@ -592,20 +661,137 @@ private:
 		this->pipeline_layout = p_device.createPipelineLayout(l_pipelinelayout_create_info);
 	}
 
+	inline void createPipeline(const vk::Device& p_device, const RenderPass& p_renderPass,
+				const std::string& p_vertex_shader, const std::string& p_fragment_shader)
+	{
+		vk::GraphicsPipelineCreateInfo l_pipeline_graphcis_create_info;
+		l_pipeline_graphcis_create_info.setLayout(this->pipeline_layout);
+		l_pipeline_graphcis_create_info.setRenderPass(p_renderPass.l_render_pass);
+
+		vk::PipelineInputAssemblyStateCreateInfo l_inputassembly_state;
+		l_inputassembly_state.setTopology(vk::PrimitiveTopology::eTriangleList);
+		l_inputassembly_state.setPrimitiveRestartEnable(false);
+
+		vk::PipelineRasterizationStateCreateInfo l_rasterization_state;
+		l_rasterization_state.setPolygonMode(vk::PolygonMode::eFill);
+		l_rasterization_state.setCullMode(vk::CullModeFlagBits::eBack);
+		l_rasterization_state.setFrontFace(vk::FrontFace::eClockwise);
+		l_rasterization_state.setLineWidth(1.0f);
+		l_rasterization_state.setDepthClampEnable(false);
+		l_rasterization_state.setRasterizerDiscardEnable(false);
+		l_rasterization_state.setDepthBiasEnable(false);
+
+		vk::PipelineColorBlendAttachmentState l_blendattachment_state;
+		l_blendattachment_state.setColorWriteMask(vk::ColorComponentFlags(0xf));
+		l_blendattachment_state.setBlendEnable(false);
+		vk::PipelineColorBlendStateCreateInfo l_blendattachment_state_create;
+		l_blendattachment_state_create.setAttachmentCount(1);
+		l_blendattachment_state_create.setPAttachments(&l_blendattachment_state);
+
+		vk::PipelineViewportStateCreateInfo l_viewport_state;
+		l_viewport_state.setViewportCount(1);
+		l_viewport_state.setScissorCount(1);
+
+		com::Vector<vk::DynamicState> l_dynamicstates_enabled(2);
+		l_dynamicstates_enabled.Size = 2;
+		l_dynamicstates_enabled[0] = vk::DynamicState::eViewport;
+		l_dynamicstates_enabled[1] = vk::DynamicState::eScissor;
+		vk::PipelineDynamicStateCreateInfo l_dynamicstates;
+		l_dynamicstates.setDynamicStateCount((uint32_t)l_dynamicstates_enabled.Size);
+		l_dynamicstates.setPDynamicStates(l_dynamicstates_enabled.Memory);
+
+		/*
+		vk::PipelineDepthStencilStateCreateInfo l_depthstencil_state;
+		l_depthstencil_state.setDepthTestEnable(false);
+		l_depthstencil_state.setStencilTestEnable(false);
+		*/
+
+		vk::PipelineMultisampleStateCreateInfo l_multisample_state;
+		l_multisample_state.setRasterizationSamples(vk::SampleCountFlagBits::e1);
+		l_multisample_state.setPSampleMask(nullptr);
+
+
+
+		vk::VertexInputBindingDescription l_vertex_input_binding;
+		l_vertex_input_binding.setBinding(0);
+		l_vertex_input_binding.setStride(sizeof(Vertex));
+		l_vertex_input_binding.setInputRate(vk::VertexInputRate::eVertex);
+
+		//vertex input
+		com::Vector<vk::VertexInputAttributeDescription> l_vertex_input_attributes(2);
+		l_vertex_input_attributes.Size = l_vertex_input_attributes.Capacity;
+
+		l_vertex_input_attributes[0].setBinding(0);
+		l_vertex_input_attributes[0].setLocation(0);
+		l_vertex_input_attributes[0].setFormat(vk::Format::eR32G32B32Sfloat);
+		l_vertex_input_attributes[0].setOffset(offsetof(Vertex, position));
+
+		l_vertex_input_attributes[1].setBinding(0);
+		l_vertex_input_attributes[1].setLocation(1);
+		l_vertex_input_attributes[1].setFormat(vk::Format::eR32G32B32Sfloat);
+		l_vertex_input_attributes[1].setOffset(offsetof(Vertex, color));
+
+		vk::PipelineVertexInputStateCreateInfo l_vertex_input_create;
+		l_vertex_input_create.setVertexBindingDescriptionCount(1);
+		l_vertex_input_create.setPVertexBindingDescriptions(&l_vertex_input_binding);
+		l_vertex_input_create.setVertexAttributeDescriptionCount((uint32_t)l_vertex_input_attributes.Size);
+		l_vertex_input_create.setPVertexAttributeDescriptions(l_vertex_input_attributes.Memory);
+
+		Step vertex_shader;
+		Step fragment_shader;
+
+		vertex_shader.shader_module = load_shadermodule(p_device, p_vertex_shader);
+		vertex_shader.stage = vk::ShaderStageFlagBits::eVertex;
+		vertex_shader.entry_name = "main";
+
+		fragment_shader.shader_module = load_shadermodule(p_device, p_fragment_shader);
+		fragment_shader.stage = vk::ShaderStageFlagBits::eFragment;
+		fragment_shader.entry_name = "main";
+
+
+		com::Vector<vk::PipelineShaderStageCreateInfo> l_shaderStages(2);
+		l_shaderStages.Size = l_shaderStages.Capacity;
+		vk::PipelineShaderStageCreateInfo& l_vertex_stage = l_shaderStages[0];
+		l_vertex_stage = vk::PipelineShaderStageCreateInfo();
+		*(vk::StructureType*)&l_vertex_stage.sType = vk::StructureType::ePipelineShaderStageCreateInfo;
+		l_vertex_stage.setStage(vk::ShaderStageFlagBits::eVertex);
+		l_vertex_stage.setModule(vertex_shader.shader_module);
+		l_vertex_stage.setPName(vertex_shader.entry_name.c_str());
+
+
+		vk::PipelineShaderStageCreateInfo& l_fragment_stage = l_shaderStages[1];
+		l_fragment_stage = vk::PipelineShaderStageCreateInfo();
+		*(vk::StructureType*)& l_fragment_stage.sType = vk::StructureType::ePipelineShaderStageCreateInfo;
+		l_fragment_stage.setStage(vk::ShaderStageFlagBits::eFragment);
+		l_fragment_stage.setModule(fragment_shader.shader_module);
+		l_fragment_stage.setPName(fragment_shader.entry_name.c_str());
+
+		l_pipeline_graphcis_create_info.setStageCount((uint32_t)l_shaderStages.Size);
+		l_pipeline_graphcis_create_info.setPStages(l_shaderStages.Memory);
+
+		l_pipeline_graphcis_create_info.setPVertexInputState(&l_vertex_input_create);
+		l_pipeline_graphcis_create_info.setPInputAssemblyState(&l_inputassembly_state);
+		l_pipeline_graphcis_create_info.setPRasterizationState(&l_rasterization_state);
+		l_pipeline_graphcis_create_info.setPColorBlendState(&l_blendattachment_state_create);
+		l_pipeline_graphcis_create_info.setPMultisampleState(&l_multisample_state);
+		l_pipeline_graphcis_create_info.setPViewportState(&l_viewport_state);
+		l_pipeline_graphcis_create_info.setPDynamicState(&l_dynamicstates);
+
+		this->pipeline = p_device.createGraphicsPipeline(vk::PipelineCache(), l_pipeline_graphcis_create_info);
+
+		dispose_shaderModule(p_device, vertex_shader.shader_module);
+		dispose_shaderModule(p_device, fragment_shader.shader_module);
+	}
+
+	inline void destroyPipeline(const vk::Device& p_device)
+	{
+		p_device.destroyPipeline(this->pipeline);
+	}
+
 	inline void destroyPipelineLayout(const vk::Device& p_device)
 	{
 		p_device.destroyPipelineLayout(this->pipeline_layout);
 	}
-
-	/*
-	vk::PipelineShaderStageCreateInfo build_vertex_stage_creation()
-	{
-		vk::PipelineShaderStageCreateInfo l_return;
-		l_return.setModule(this->vertex_shader_module);
-		l_return.setStage(vk::ShaderStageFlagBits::eVertex);
-		l_return.setPName("main");
-	}
-	*/
 
 	static vk::ShaderModule load_shadermodule(const vk::Device& p_device, const std::string& p_file_path)
 	{
@@ -633,8 +819,134 @@ private:
 
 		return nullptr;
 	}
+
+	static void dispose_shaderModule(const vk::Device& p_device, const vk::ShaderModule& p_shader_module)
+	{
+		p_device.destroyShaderModule(p_shader_module);
+	}
 };
 
+
+enum Staging;
+enum NotStaging;
+
+template<class ElementType = char, class StagingUsage = Staging>
+struct GPUBuffer
+{
+	vk::DeviceMemory memory;
+	vk::Buffer buffer;
+
+	inline void allocate(size_t p_element_number, const void* p_source, const RenderAPI& p_render)
+	{
+		this->buffer = GPUBuffer_Allocate<StagingUsage>::allocate(p_element_number * sizeof(ElementType), p_source, p_render);
+	};
+};
+
+template<class StagingUsage>
+struct GPUBuffer_Allocate { };
+
+template<>
+struct GPUBuffer_Allocate<Staging>
+{
+	inline static vk::Buffer allocate(size_t p_size, const void* p_source, const RenderAPI& p_render)
+	{
+		vk::BufferCreateInfo l_buffercreate_info;
+		l_buffercreate_info.setUsage(vk::BufferUsageFlagBits::eTransferSrc);
+		l_buffercreate_info.setSize(p_size);
+		vk::Buffer l_buffer = p_render.device.createBuffer(l_buffercreate_info);
+
+		vk::MemoryRequirements l_requirements = p_render.device.getBufferMemoryRequirements(l_buffer);
+
+		vk::MemoryAllocateInfo l_memory_allocate_info;
+		l_memory_allocate_info.setAllocationSize(l_requirements.size);
+		l_memory_allocate_info.setMemoryTypeIndex(
+			p_render.getMemoryTypeIndex(l_requirements.memoryTypeBits, vk::MemoryPropertyFlags(vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent)));
+
+		void* l_data;
+		vk::DeviceMemory l_memory = p_render.device.allocateMemory(l_memory_allocate_info);
+		l_data = p_render.device.mapMemory(l_memory, 0, l_memory_allocate_info.allocationSize);
+		//TODO
+		return l_buffer;
+	};
+};
+
+template<>
+struct GPUBuffer_Allocate<NotStaging>
+{
+	inline static vk::Buffer allocate(size_t p_size, const void* p_source, const RenderAPI& p_render)
+	{
+		//TODO
+		return nullptr;
+	};
+};
+
+
+struct Render
+{
+	Window window;
+	RenderAPI renderApi;
+
+	Shader shaderTest;
+	GPUBuffer<> l_test;
+
+	inline Render()
+	{
+		this->window = Window(800, 600, "MyGame");
+		this->renderApi.init(window);
+		this->shaderTest = Shader(this->renderApi.device, this->renderApi.renderpass, "E:/GameProjects/CPPTestVS/Render/shader/TriVert.spv", "E:/GameProjects/CPPTestVS/Render/shader/TriFrag.spv");
+		// this->l_test.allocate(10);
+	};
+
+	inline void dispose()
+	{
+		this->shaderTest.dispose(this->renderApi.device);
+		this->renderApi.dispose();
+		this->window.dispose();
+	};
+
+private:
+	
+	inline void createVertexBuffer(const vk::Device& p_device, bool p_use_staging_buffer)
+	{
+		com::Vector<Vertex> l_vertexBuffer(3);
+		l_vertexBuffer.Size = l_vertexBuffer.Capacity;
+		l_vertexBuffer[0].position = vec3f(0.0f, -0.5f, 0.0f);
+		l_vertexBuffer[0].color = vec3f(1.0f, 0.0f, 0.0f);
+		l_vertexBuffer[0].position = vec3f(0.5f, 0.5f, 0.0f);
+		l_vertexBuffer[0].color = vec3f(0.0f, 1.0f, 0.0f);
+		l_vertexBuffer[0].position = vec3f(-0.5f, 0.5f, 0.0f);
+		l_vertexBuffer[0].color = vec3f(0.0f, 0.0f, 1.0f);
+
+		com::Vector<uint32_t> l_indices(3);
+		l_indices.Size = l_indices.Capacity;
+		l_indices[0] = 0; l_indices[1] = 1; l_indices[2] = 2;
+
+		vk::MemoryAllocateInfo l_mem_alloc_info;
+		vk::MemoryRequirements l_mem_req;
+		if (p_use_staging_buffer)
+		{
+			struct StagingBuffer
+			{
+				vk::DeviceMemory memory;
+				vk::Buffer buffer;
+			};
+
+			StagingBuffer l_vertices;
+			StagingBuffer l_indices;
+
+			vk::BufferCreateInfo l_vertex_buf_create_info;
+			l_vertex_buf_create_info.setSize(l_vertexBuffer.Size);
+			l_vertex_buf_create_info.setUsage(vk::BufferUsageFlagBits::eTransferSrc);
+			l_vertices.buffer = p_device.createBuffer(l_vertex_buf_create_info);
+			l_mem_req = p_device.getBufferMemoryRequirements(l_vertices.buffer);
+			l_mem_alloc_info.setAllocationSize(l_mem_req.size);
+
+			// l_mem_alloc_info.setAllocationSize(p_device.getBufferMemoryRequirements(l_vertices.buffer).size);
+			// p_device.mapMemory(l_vertices.buffer, 0, )
+		}
+
+	}
+};
 
 RenderHandle create_render()
 {
@@ -658,3 +970,4 @@ void render_window_pool_event(const RenderHandle& p_render)
 	Render* l_render = (Render*)p_render;
 	rdwindow::window_pool_event(l_render->window.Handle);
 };
+

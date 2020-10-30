@@ -13,7 +13,7 @@ namespace com
 	template <class TYPE>
 	inline size_t getElementOffset(const size_t p_index)
 	{
-		return sizeof(TYPE) * p_index;
+		return sizeof(TYPE) * p_index; 
 	};
 
 	Vector_TemplateHeader
@@ -113,6 +113,12 @@ namespace com
 		}
 
 		return (*this);
+	};
+
+	Vector_TemplateHeader
+		inline size_t Vector_ClassName::capacity_in_bytes()
+	{
+		return this->Capacity * sizeof(TYPE);
 	};
 
 	Vector_TemplateHeader
