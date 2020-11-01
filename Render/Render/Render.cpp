@@ -1,6 +1,9 @@
+#pragma once
+
 #include <interface/Render/render.hpp>
 #include <driver/Render/rdwindow.hpp>
 #include "Math/math.hpp"
+#include "Common/Container/pool.hpp"
 #include "Common/Container/vector.hpp"
 #include <fstream>
 #include <stdlib.h>
@@ -16,7 +19,7 @@ struct Window
 	short int Height;
 
 	Window() = default;
-	inline Window(const short int p_width, const short int p_height, const std::string &p_title)
+	inline Window(const short int p_width, const short int p_height, const std::string& p_title)
 	{
 		this->Handle = rdwindow::create_window(p_width, p_height, p_title);
 		this->Width = p_width;
@@ -168,20 +171,20 @@ public:
 	com::Vector<vk::Framebuffer> framebuffers;
 
 private:
-	const vk::Instance *instance;
+	const vk::Instance* instance;
 	const vk::PhysicalDevice* physicalDevice;
-	const vk::Device *device;
-	const vk::SurfaceKHR *surface;
-	const Window *window;
+	const vk::Device* device;
+	const vk::SurfaceKHR* surface;
+	const Window* window;
 
 	vk::SurfaceCapabilitiesKHR surface_capabilities;
 
 public:
 	inline SwapChain() = default;
 
-	inline void init(const vk::Instance &p_instance, const vk::Device &p_device,
+	inline void init(const vk::Instance& p_instance, const vk::Device& p_device,
 		const vk::PhysicalDevice& p_physical_device,
-		const vk::SurfaceKHR& p_surface, const Window &p_window)
+		const vk::SurfaceKHR& p_surface, const Window& p_window)
 	{
 		this->instance = &p_instance;
 		this->device = &p_device;
@@ -402,9 +405,9 @@ struct RenderAPI
 	VkDebugUtilsMessengerEXT debugMessenger;
 	vk::PhysicalDevice graphics_device;
 	VkPhysicalDeviceMemoryProperties device_memory_properties;
-	
+
 	vk::Device device;
-	
+
 	vk::SurfaceKHR surface;
 
 	vk::Queue graphics_queue;
@@ -430,11 +433,11 @@ struct RenderAPI
 	Sync synchronization;
 
 	bool validationLayers_enabled;
-	com::Vector<const char *> validation_layers;
+	com::Vector<const char*> validation_layers;
 
 	RenderAPI() = default;
 
-	inline void init(const Window &p_window)
+	inline void init(const Window& p_window)
 	{
 		this->createInstance();
 		this->createDebugCallback();
@@ -467,7 +470,7 @@ struct RenderAPI
 		{
 			if ((p_typeBits & 1) == 1)
 			{
-				
+
 				if ((vk::MemoryPropertyFlags(this->device_memory_properties.memoryTypes[i].propertyFlags) & p_properties) == p_properties)
 				{
 					return i;
@@ -488,7 +491,7 @@ private:
 		vk::InstanceCreateInfo l_instance_create_info{};
 		l_instance_create_info.setPApplicationInfo(&l_app_info);
 
-		com::Vector<const char *> l_extensions;
+		com::Vector<const char*> l_extensions;
 		this->validationLayers(l_instance_create_info, this->validation_layers);
 		this->extensions(l_instance_create_info, l_extensions);
 		this->instance = vk::createInstance(l_instance_create_info);
@@ -499,7 +502,7 @@ private:
 		this->instance.destroy();
 	};
 
-	inline void validationLayers(vk::InstanceCreateInfo &p_instance_create_info, com::Vector<const char *> &p_validationLayers)
+	inline void validationLayers(vk::InstanceCreateInfo& p_instance_create_info, com::Vector<const char*>& p_validationLayers)
 	{
 #if !NDEBUG
 		this->validationLayers_enabled = true;
@@ -542,14 +545,14 @@ private:
 		}
 	}
 
-	inline void extensions(vk::InstanceCreateInfo &p_instance_create_info, com::Vector<const char *> &p_extensions)
+	inline void extensions(vk::InstanceCreateInfo& p_instance_create_info, com::Vector<const char*>& p_extensions)
 	{
 		uint32_t l_glfw_extension_count = 0;
-		const char **l_glfw_extensions;
+		const char** l_glfw_extensions;
 		l_glfw_extensions = glfwGetRequiredInstanceExtensions(&l_glfw_extension_count);
 
-		p_extensions = com::Vector<const char *>(l_glfw_extension_count);
-		p_extensions.insert_at(com::MemorySlice<const char *>(*l_glfw_extensions, (size_t)l_glfw_extension_count), 0);
+		p_extensions = com::Vector<const char*>(l_glfw_extension_count);
+		p_extensions.insert_at(com::MemorySlice<const char*>(*l_glfw_extensions, (size_t)l_glfw_extension_count), 0);
 
 		if (this->validationLayers_enabled)
 		{
@@ -593,8 +596,8 @@ private:
 	static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
 		VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
 		VkDebugUtilsMessageTypeFlagsEXT messageType,
-		const VkDebugUtilsMessengerCallbackDataEXT *pCallbackData,
-		void *pUserData)
+		const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
+		void* pUserData)
 	{
 
 		std::string l_severity = "";
@@ -622,7 +625,7 @@ private:
 		for (int i = 0; i < l_physical_devices.size(); i++)
 		{
 			bool l_device_match = false;
-			vk::PhysicalDevice &l_physical_device = l_physical_devices[i];
+			vk::PhysicalDevice& l_physical_device = l_physical_devices[i];
 			uint32_t l_graphics_queue_family = QueueFamilyDefault;
 			uint32_t l_present_queue_family = QueueFamilyDefault;
 
@@ -634,43 +637,43 @@ private:
 					if (strcmp(l_device_extensions[k].extensionName, VK_KHR_SWAPCHAIN_EXTENSION_NAME) == 0)
 					{
 
-						 // vk::SurfaceCapabilitiesKHR l_surface_capabilities = l_physical_device.getSurfaceCapabilitiesKHR(this->surface);
-						 auto l_supported_surface_formats = l_physical_device.getSurfaceFormatsKHR(this->surface);
-						 auto l_supported_present_modes = l_physical_device.getSurfacePresentModesKHR(this->surface);
+						// vk::SurfaceCapabilitiesKHR l_surface_capabilities = l_physical_device.getSurfaceCapabilitiesKHR(this->surface);
+						auto l_supported_surface_formats = l_physical_device.getSurfaceFormatsKHR(this->surface);
+						auto l_supported_present_modes = l_physical_device.getSurfacePresentModesKHR(this->surface);
 
-						 if (l_supported_surface_formats.size() > 0 && l_supported_present_modes.size() > 0)
-						 {
-							 auto l_queueFamilies = l_physical_device.getQueueFamilyProperties();
-							 l_graphics_queue_family = QueueFamilyDefault;
-							 l_present_queue_family = QueueFamilyDefault;
+						if (l_supported_surface_formats.size() > 0 && l_supported_present_modes.size() > 0)
+						{
+							auto l_queueFamilies = l_physical_device.getQueueFamilyProperties();
+							l_graphics_queue_family = QueueFamilyDefault;
+							l_present_queue_family = QueueFamilyDefault;
 
-							 for (int j = 0; j < l_queueFamilies.size(); j++)
-							 {
-								 if (l_queueFamilies[j].queueFlags & vk::QueueFlags(VkQueueFlagBits::VK_QUEUE_GRAPHICS_BIT))
-								 {
-									 l_graphics_queue_family = j;
-								 }
-								  
-								 if (l_physical_device.getSurfaceSupportKHR(j, this->surface))
-								 {
-									 l_present_queue_family = j;
-								 }
+							for (int j = 0; j < l_queueFamilies.size(); j++)
+							{
+								if (l_queueFamilies[j].queueFlags & vk::QueueFlags(VkQueueFlagBits::VK_QUEUE_GRAPHICS_BIT))
+								{
+									l_graphics_queue_family = j;
+								}
 
-								 if (l_graphics_queue_family != QueueFamilyDefault && l_present_queue_family != QueueFamilyDefault)
-								 {
-									 l_device_match = true;
-									 break;
-								 }
-							 }
-						 }
+								if (l_physical_device.getSurfaceSupportKHR(j, this->surface))
+								{
+									l_present_queue_family = j;
+								}
+
+								if (l_graphics_queue_family != QueueFamilyDefault && l_present_queue_family != QueueFamilyDefault)
+								{
+									l_device_match = true;
+									break;
+								}
+							}
+						}
 
 
 						break;
 					}
 				}
 
-				
-				
+
+
 			}
 
 			if (l_device_match)
@@ -706,7 +709,7 @@ private:
 
 		com::Vector<const char*> l_devices_extensions(1);
 		l_devices_extensions.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
-		
+
 		l_device_create_info.setEnabledExtensionCount((uint32_t)l_devices_extensions.Size);
 		l_device_create_info.setPpEnabledExtensionNames(l_devices_extensions.Memory);
 
@@ -715,7 +718,7 @@ private:
 		this->present_queue = this->device.getQueue(this->present_queue_family, 0);
 	}
 
-	inline void createSwapChain(const Window &p_window)
+	inline void createSwapChain(const Window& p_window)
 	{
 		this->swap_chain.init(this->instance, this->device, this->graphics_device, this->surface, p_window);
 	}
@@ -823,10 +826,11 @@ private:
 
 	inline void define_draw_commands()
 	{
-		
+
 	}
 
 };
+
 
 struct Vertex
 {
@@ -834,6 +838,7 @@ struct Vertex
 	vec3f color;
 };
 
+typedef size_t ShaderHandle;
 struct Shader
 {
 	struct Step
@@ -847,7 +852,7 @@ struct Shader
 	vk::PipelineLayout pipeline_layout;
 	vk::Pipeline pipeline;
 
-	Shader() : descriptorset_layout(nullptr), pipeline_layout(nullptr)
+	Shader() : descriptorset_layout(nullptr), pipeline_layout(nullptr), pipeline(nullptr)
 	{
 		
 	}
@@ -864,6 +869,10 @@ struct Shader
 		this->destroyPipeline(p_device);
 		this->destroyPipelineLayout(p_device);
 		this->destroyDescriptorSetLayout(p_device);
+
+		this->descriptorset_layout = nullptr;
+		this->pipeline = nullptr;
+		this->pipeline_layout = nullptr;
 	}
 
 private:
@@ -1061,7 +1070,6 @@ private:
 	}
 };
 
-
 enum Staging;
 enum NotStaging;
 
@@ -1232,6 +1240,7 @@ struct Mesh
 	}
 };
 
+typedef size_t MaterialHandle;
 struct Material
 {
 	//TODO, descriptor set
@@ -1239,19 +1248,94 @@ struct Material
 	Material(){}
 };
 
+typedef size_t RenderableObjectHandle;
+
 struct RenderableObject
 {
-	const Mesh* mesh;
+	com::PoolToken<Mesh> mesh;
 
 	RenderableObject(){}
-	RenderableObject(const Mesh& p_mesh) : mesh(&p_mesh) {	}
+	RenderableObject(const com::PoolToken<Mesh>& p_mesh) : mesh(p_mesh) {	}
 
-	inline void draw(CommandBuffer& p_commandbuffer)
+	inline void dispose()
+	{
+		this->mesh = com::PoolToken<Mesh>();
+	}
+
+	inline void draw(CommandBuffer& p_commandbuffer, com::Pool<Mesh>& p_mesh_heap)
 	{
 		vk::DeviceSize l_offsets[1] = { 0 };
-		p_commandbuffer.command_buffer.bindVertexBuffers(0, 1, &this->mesh->vertices.buffer.buffer.buffer, l_offsets);
-		p_commandbuffer.command_buffer.bindIndexBuffer(this->mesh->indices.buffer.buffer.buffer, 0, vk::IndexType::eUint32);
-		p_commandbuffer.command_buffer.drawIndexed(this->mesh->indices_length, 1, 0, 0, 1);
+		p_commandbuffer.command_buffer.bindVertexBuffers(0, 1, &p_mesh_heap[this->mesh].vertices.buffer.buffer.buffer, l_offsets);
+		p_commandbuffer.command_buffer.bindIndexBuffer(p_mesh_heap[this->mesh].indices.buffer.buffer.buffer, 0, vk::IndexType::eUint32);
+		p_commandbuffer.command_buffer.drawIndexed(p_mesh_heap[this->mesh].indices_length, 1, 0, 0, 1);
+	}
+};
+
+struct RenderHeap
+{
+	com::OptionalPool<Shader> shaders;
+	com::Pool<com::Vector<com::PoolToken<Optional<Material>>>> shaders_to_materials;
+
+	com::OptionalPool<Material> materials;
+	com::Pool<com::Vector<com::PoolToken<Optional<RenderableObject>>>> material_to_renderableobjects;
+
+	com::OptionalPool<RenderableObject> renderableobjects;
+
+	com::Pool<Mesh> meshes;
+
+	inline com::PoolToken<Optional<Shader>> pushShader(Shader& p_shader)
+	{
+		com::PoolToken<Optional<Shader>> l_shader_handle = this->shaders.alloc_element(p_shader);
+		this->shaders_to_materials.alloc_element(com::Vector<com::PoolToken<Optional<Material>>>());
+		return l_shader_handle;
+	}
+
+	inline void disposeShader(const com::PoolToken<Optional<Shader>> p_shader, const vk::Device& p_device)
+	{
+		Optional<Shader>& l_shader = this->shaders[p_shader];
+		l_shader.value.dispose(p_device);
+		this->shaders.release_element(p_shader);
+
+		com::Vector<com::PoolToken<Optional<Material>>>& l_shader_to_materials = this->shaders_to_materials[p_shader.Index];
+		for (size_t i = 0; i < l_shader_to_materials.Size; i++)
+		{
+			this->disposeMaterial(l_shader_to_materials[i]);
+		}
+		this->shaders_to_materials.release_element(p_shader.Index);
+	}
+
+	inline com::PoolToken<Optional<Material>> pushMaterial(const com::PoolToken<Optional<Shader>> p_shaderhandle, Material& p_material)
+	{
+		com::PoolToken<Optional<Material>> l_material_handle = this->materials.alloc_element(p_material);
+		this->material_to_renderableobjects.alloc_element(com::Vector<com::PoolToken<Optional<RenderableObject>>>());
+		this->shaders_to_materials[p_shaderhandle.Index].push_back(l_material_handle);
+		return l_material_handle;
+	}
+
+	inline void disposeMaterial(const com::PoolToken<Optional<Material>> p_material)
+	{
+		this->materials.release_element(p_material);
+
+		com::Vector<com::PoolToken<Optional<RenderableObject>>>& l_material_to_renderableobjects = this->material_to_renderableobjects[p_material.Index];
+		for (size_t i = 0; i < l_material_to_renderableobjects.Size; i++)
+		{
+			this->disposeRenderableObject(l_material_to_renderableobjects[i]);
+		}
+		this->material_to_renderableobjects.release_element(p_material.Index);
+	}
+
+	inline com::PoolToken<Optional<RenderableObject>> pushRendereableObject(const com::PoolToken<Optional<Material>> p_materialhandle, RenderableObject& p_renderableObject)
+	{
+		com::PoolToken<Optional<RenderableObject>> l_renderableobjet_handle = this->renderableobjects.alloc_element(p_renderableObject);
+		this->material_to_renderableobjects[p_materialhandle.Index].push_back(l_renderableobjet_handle);
+		return l_renderableobjet_handle;
+	}
+
+	inline void disposeRenderableObject(const com::PoolToken<Optional<RenderableObject>> p_renderableObject)
+	{
+		Optional<RenderableObject>& l_renderableobject = this->renderableobjects[p_renderableObject];
+		l_renderableobject.value.dispose();
+		this->renderableobjects.release_element(p_renderableObject);
 	}
 };
 
@@ -1260,16 +1344,16 @@ struct Render
 	Window window;
 	RenderAPI renderApi;
 
-	Shader shaderTest;
+	RenderHeap heap;
+	com::PoolToken<Optional<Shader>> shader;
 	// vk::DescriptorSet descriptorset;
-	Mesh l_mesh;
-	RenderableObject l_obj;
+	com::PoolToken<Mesh> l_mesh;
 
 	inline Render()
 	{
 		this->window = Window(800, 600, "MyGame");
 		this->renderApi.init(window);
-		this->shaderTest = Shader(this->renderApi.device, this->renderApi.swap_chain.renderpass, "E:/GameProjects/CPPTestVS/Render/shader/TriVert.spv", "E:/GameProjects/CPPTestVS/Render/shader/TriFrag.spv");
+		this->shader = this->heap.pushShader(Shader(this->renderApi.device, this->renderApi.swap_chain.renderpass, "E:/GameProjects/CPPTestVS/Render/shader/TriVert.spv", "E:/GameProjects/CPPTestVS/Render/shader/TriFrag.spv"));
 		this->createVertexBuffer();
 
 		this->draw();
@@ -1278,7 +1362,7 @@ struct Render
 	inline void dispose()
 	{
 		this->destroyVertexBuffer();
-		this->shaderTest.dispose(this->renderApi.device);
+		this->heap.disposeShader(this->shader, this->renderApi.device);
 		this->renderApi.dispose();
 		this->window.dispose();
 	};
@@ -1300,13 +1384,15 @@ private:
 		l_indicesBuffer.Size = l_indicesBuffer.Capacity;
 		l_indicesBuffer[0] = 0; l_indicesBuffer[1] = 1; l_indicesBuffer[2] = 2;
 
-		this->l_mesh = Mesh(l_vertexBuffer, l_indicesBuffer, this->renderApi);
-		this->l_obj = RenderableObject(this->l_mesh);
+		this->l_mesh = this->heap.meshes.alloc_element(Mesh(l_vertexBuffer, l_indicesBuffer, this->renderApi));
+		com::PoolToken<Optional<Material>> l_material = this->heap.pushMaterial(this->shader, Material());
+		this->heap.pushRendereableObject(l_material, RenderableObject(this->l_mesh));
 	}
 
 	inline void destroyVertexBuffer()
 	{
-		this->l_mesh.dispose(this->renderApi.device);
+		this->heap.meshes[this->l_mesh].dispose(this->renderApi.device);
+		this->heap.meshes.release_element(this->l_mesh);
 	}
 
 	/*
@@ -1364,9 +1450,34 @@ private:
 		l_command_buffer.command_buffer.setViewport(0,1,&l_viewport);
 		l_command_buffer.command_buffer.setScissor(0, 1, &l_windowarea);
 		//l_command_buffer.command_buffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, this->shaderTest.pipeline_layout, 0, 1, )
-		l_command_buffer.command_buffer.bindPipeline(vk::PipelineBindPoint::eGraphics, this->shaderTest.pipeline);
 
-		this->l_obj.draw(l_command_buffer);
+		for (size_t l_shader_index = 0; l_shader_index < this->heap.shaders.size(); l_shader_index++)
+		{
+			Optional<Shader>& l_shader = this->heap.shaders[l_shader_index];
+			if (l_shader.hasValue)
+			{
+				l_command_buffer.command_buffer.bindPipeline(vk::PipelineBindPoint::eGraphics, l_shader.value.pipeline);
+
+				com::Vector<com::PoolToken<Optional<Material>>>& l_materials = this->heap.shaders_to_materials[l_shader_index];
+				for (size_t l_material_index = 0; l_material_index < l_materials.Size; l_material_index ++)
+				{
+					Optional<Material>& l_material = this->heap.materials[l_materials[l_material_index]];
+					if (l_material.hasValue)
+					{
+						com::Vector<com::PoolToken<Optional<RenderableObject>>>& l_renderableobjects = this->heap.material_to_renderableobjects[l_material_index];
+						for (size_t l_renderableobject_index = 0; l_renderableobject_index < l_renderableobjects.Size; l_renderableobject_index++)
+						{
+							Optional<RenderableObject>& l_renderableobject = this->heap.renderableobjects[l_renderableobject_index];
+							if (l_renderableobject.hasValue)
+							{
+								this->heap.renderableobjects[l_renderableobject_index].value.draw(l_command_buffer, this->heap.meshes);
+							}
+						}
+					}
+				}
+				
+			}
+		}
 
 		l_command_buffer.command_buffer.endRenderPass();
 
