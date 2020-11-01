@@ -225,6 +225,24 @@ public:
 		this->device->destroySwapchainKHR(this->handle);
 	}
 
+	inline uint32_t getNextImage(vk::Semaphore p_presentcomplete_semaphore)
+	{
+		return this->device->acquireNextImageKHR(this->handle, UINT64_MAX, p_presentcomplete_semaphore, nullptr).value;
+	}
+
+	inline void presentImage(vk::Queue p_queue, const uint32_t p_imageindex, vk::Semaphore p_wait_semaphore)
+	{
+		vk::PresentInfoKHR l_present_info;
+		l_present_info.setPNext(nullptr);
+		l_present_info.setSwapchainCount(1);
+		l_present_info.setPSwapchains(&this->handle);
+		l_present_info.setPImageIndices(&p_imageindex);
+		l_present_info.setWaitSemaphoreCount(1);
+		l_present_info.setPWaitSemaphores(&p_wait_semaphore);
+		p_queue.presentKHR(l_present_info);
+	}
+private:
+
 	inline void pick_surface_format()
 	{
 		auto l_surface_formats = this->physicalDevice->getSurfaceFormatsKHR(*this->surface);
@@ -398,8 +416,18 @@ struct RenderAPI
 	SwapChain swap_chain;
 
 	vk::CommandPool command_pool;
+	vk::DescriptorPool descriptor_pool;
 
 	com::Vector<CommandBuffer> draw_commandbuffers;
+
+	struct Sync
+	{
+		vk::Semaphore present_complete_semaphore;
+		vk::Semaphore render_complete_semaphore;
+		com::Vector<vk::Fence> draw_command_fences;
+	};
+
+	Sync synchronization;
 
 	bool validationLayers_enabled;
 	com::Vector<const char *> validation_layers;
@@ -416,10 +444,14 @@ struct RenderAPI
 		this->createCommandBufferPool();
 		this->createSwapChain(p_window);
 		this->create_draw_commandbuffers();
+		this->create_synchronization();
+		this->create_descriptor_pool();
 	};
 
 	inline void dispose()
 	{
+		this->destroy_descriptor_pool();
+		this->destroy_synchronization();
 		this->destroy_draw_commandbuffers();
 		this->destroySwapChain();
 		this->destroyCommandBufferPool();
@@ -720,7 +752,6 @@ private:
 		this->device.destroyCommandPool(this->command_pool);
 	}
 
-
 	inline void create_draw_commandbuffers()
 	{
 		this->draw_commandbuffers = com::Vector<CommandBuffer>(this->swap_chain.framebuffers.Size);
@@ -740,10 +771,61 @@ private:
 		this->draw_commandbuffers.Size = 0;
 	}
 
+	inline void create_synchronization()
+	{
+		vk::SemaphoreCreateInfo l_semaphore_create_info;
+		l_semaphore_create_info.setPNext(nullptr);
+
+		this->synchronization.present_complete_semaphore = this->device.createSemaphore(l_semaphore_create_info);
+		this->synchronization.render_complete_semaphore = this->device.createSemaphore(l_semaphore_create_info);
+
+		vk::FenceCreateInfo l_fence_create_info;
+		l_fence_create_info.setFlags(vk::FenceCreateFlags(vk::FenceCreateFlagBits::eSignaled));
+
+		this->synchronization.draw_command_fences = com::Vector<vk::Fence>(this->draw_commandbuffers.Size);
+		this->synchronization.draw_command_fences.Size = this->synchronization.draw_command_fences.Capacity;
+		for (int i = 0; i < this->synchronization.draw_command_fences.Size; i++)
+		{
+			this->synchronization.draw_command_fences[i] = this->device.createFence(l_fence_create_info);
+		}
+	}
+
+	inline void destroy_synchronization()
+	{
+		for (int i = 0; i < this->synchronization.draw_command_fences.Size; i++)
+		{
+			this->device.destroyFence(this->synchronization.draw_command_fences[i]);
+		}
+
+		this->device.destroySemaphore(this->synchronization.present_complete_semaphore);
+		this->device.destroySemaphore(this->synchronization.render_complete_semaphore);
+	}
+
+	inline void create_descriptor_pool()
+	{
+		vk::DescriptorPoolSize l_types[1];
+		l_types[0] = vk::DescriptorPoolSize();
+		l_types[0].setDescriptorCount(1);
+
+		vk::DescriptorPoolCreateInfo l_descriptor_pool_create_info;
+		l_descriptor_pool_create_info.setPNext(nullptr);
+		l_descriptor_pool_create_info.setPoolSizeCount(1);
+		l_descriptor_pool_create_info.setPPoolSizes(l_types);
+		l_descriptor_pool_create_info.setMaxSets(1);
+
+		this->descriptor_pool = this->device.createDescriptorPool(l_descriptor_pool_create_info);
+	}
+
+	inline void destroy_descriptor_pool()
+	{
+		this->device.destroyDescriptorPool(this->descriptor_pool);
+	}
+
 	inline void define_draw_commands()
 	{
 		
 	}
+
 };
 
 struct Vertex
@@ -763,7 +845,6 @@ struct Shader
 
 	vk::DescriptorSetLayout descriptorset_layout;
 	vk::PipelineLayout pipeline_layout;
-	vk::RenderPass render_pass;
 	vk::Pipeline pipeline;
 
 	Shader() : descriptorset_layout(nullptr), pipeline_layout(nullptr)
@@ -1011,20 +1092,21 @@ template<class ElementType>
 struct GPUBuffer<ElementType, Staging>
 {
 	AGPUBuffer<ElementType> buffer;
-	AGPUBuffer<ElementType> staging_buffer;
 
 	inline void allocate(size_t p_element_number, const void* p_source, vk::BufferUsageFlags p_usageflags, const RenderAPI& p_render)
 	{
 		CommandBuffer l_copy_cmd = CommandBuffer(p_render.device, p_render.command_pool, p_render.graphics_queue);
 		l_copy_cmd.begin();
 
-		this->allocate_buffered(l_copy_cmd, p_element_number, p_source, p_usageflags, p_render);
+		AGPUBuffer<ElementType> l_staging_buffer;
+		this->allocate_buffered(l_copy_cmd, p_element_number, p_source, p_usageflags, p_render, &l_staging_buffer);
 
 		l_copy_cmd.flush(p_render.device);
-		this->staging_buffer.dispose(p_render.device);
+		l_staging_buffer.dispose(p_render.device);
 	}
 
-	inline void allocate_buffered(CommandBuffer& p_commandBuffer, size_t p_element_number, const void* p_source, vk::BufferUsageFlags p_usageflags, const RenderAPI& p_render)
+	inline void allocate_buffered(CommandBuffer& p_commandBuffer, size_t p_element_number, const void* p_source, vk::BufferUsageFlags p_usageflags, const RenderAPI& p_render, 
+		AGPUBuffer<ElementType>* out_staging_buffer)
 	{
 		size_t l_buffer_size = p_element_number * sizeof(ElementType);
 
@@ -1032,9 +1114,9 @@ struct GPUBuffer<ElementType, Staging>
 		vk::BufferCreateInfo l_buffercreate_info;
 		l_buffercreate_info.setUsage(vk::BufferUsageFlagBits::eTransferSrc);
 		l_buffercreate_info.setSize(l_buffer_size);
-		this->staging_buffer.buffer = p_render.device.createBuffer(l_buffercreate_info);
+		out_staging_buffer->buffer = p_render.device.createBuffer(l_buffercreate_info);
 
-		vk::MemoryRequirements l_requirements = p_render.device.getBufferMemoryRequirements(this->staging_buffer.buffer);
+		vk::MemoryRequirements l_requirements = p_render.device.getBufferMemoryRequirements(out_staging_buffer->buffer);
 
 		vk::MemoryAllocateInfo l_memory_allocate_info;
 		l_memory_allocate_info.setAllocationSize(l_requirements.size);
@@ -1042,11 +1124,11 @@ struct GPUBuffer<ElementType, Staging>
 			p_render.getMemoryTypeIndex(l_requirements.memoryTypeBits, vk::MemoryPropertyFlags(vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent)));
 
 		void* l_staging_data;
-		this->staging_buffer.memory = p_render.device.allocateMemory(l_memory_allocate_info);
-		l_staging_data = p_render.device.mapMemory(this->staging_buffer.memory, 0, l_memory_allocate_info.allocationSize);
+		out_staging_buffer->memory = p_render.device.allocateMemory(l_memory_allocate_info);
+		l_staging_data = p_render.device.mapMemory(out_staging_buffer->memory, 0, l_memory_allocate_info.allocationSize);
 		memcpy(l_staging_data, p_source, l_buffer_size);
-		p_render.device.unmapMemory(this->staging_buffer.memory);
-		p_render.device.bindBufferMemory(this->staging_buffer.buffer, this->staging_buffer.memory, 0);
+		p_render.device.unmapMemory(out_staging_buffer->memory);
+		p_render.device.bindBufferMemory(out_staging_buffer->buffer, out_staging_buffer->memory, 0);
 
 
 		//Actual buffer
@@ -1062,13 +1144,12 @@ struct GPUBuffer<ElementType, Staging>
 
 		vk::BufferCopy l_buffer_copy_regions;
 		l_buffer_copy_regions.setSize(l_buffer_size);
-		p_commandBuffer.command_buffer.copyBuffer(this->staging_buffer.buffer, this->buffer.buffer, 1, &l_buffer_copy_regions);
+		p_commandBuffer.command_buffer.copyBuffer(out_staging_buffer->buffer, this->buffer.buffer, 1, &l_buffer_copy_regions);
 	}
 
 	inline void dispose(const vk::Device& p_device)
 	{
 		this->buffer.dispose(p_device);
-		this->staging_buffer.dispose(p_device);
 	}
 };
 
@@ -1086,10 +1167,39 @@ struct VertexBuffer
 	};
 
 
-	inline void allocate_buffered(CommandBuffer& p_commandBuffer, size_t p_element_number, const void* p_source, const RenderAPI& p_render)
+	inline void allocate_buffered(CommandBuffer& p_commandBuffer, size_t p_element_number, const void* p_source, const RenderAPI& p_render, AGPUBuffer<ElementType>* out_staging_buffer)
 	{
-		this->buffer.allocate_buffered(p_commandBuffer, p_element_number, p_source, vk::BufferUsageFlags(vk::BufferUsageFlagBits::eVertexBuffer), p_render);
+		this->buffer.allocate_buffered(p_commandBuffer, p_element_number, p_source, vk::BufferUsageFlags(vk::BufferUsageFlagBits::eVertexBuffer), p_render, out_staging_buffer);
 	};
+
+	inline void dispose(const vk::Device& p_device)
+	{
+		this->buffer.dispose(p_device);
+	}
+};
+
+template<class ElementType = char, class StagingUsage = Staging>
+struct IndexBuffer
+{
+	GPUBuffer<ElementType, StagingUsage> buffer;
+
+	IndexBuffer() {};
+
+	inline void allocate(size_t p_element_number, const void* p_source, const RenderAPI& p_render)
+	{
+		this->buffer.allocate(p_element_number, p_source, vk::BufferUsageFlags(vk::BufferUsageFlagBits::eIndexBuffer), p_render);
+	};
+
+
+	inline void allocate_buffered(CommandBuffer& p_commandBuffer, size_t p_element_number, const void* p_source, const RenderAPI& p_render, AGPUBuffer<ElementType>* out_staging_buffer)
+	{
+		this->buffer.allocate_buffered(p_commandBuffer, p_element_number, p_source, vk::BufferUsageFlags(vk::BufferUsageFlagBits::eIndexBuffer), p_render, out_staging_buffer);
+	};
+
+	inline void dispose(const vk::Device& p_device)
+	{
+		this->buffer.dispose(p_device);
+	}
 };
 
 struct Render
@@ -1098,7 +1208,9 @@ struct Render
 	RenderAPI renderApi;
 
 	Shader shaderTest;
-	GPUBuffer<> l_test;
+	vk::DescriptorSet descriptorset;
+	VertexBuffer<Vertex> l_test_vertex_buffer;
+	IndexBuffer<uint32_t> l_test_indices_buffer;
 
 	inline Render()
 	{
@@ -1106,6 +1218,8 @@ struct Render
 		this->renderApi.init(window);
 		this->shaderTest = Shader(this->renderApi.device, this->renderApi.swap_chain.renderpass, "E:/GameProjects/CPPTestVS/Render/shader/TriVert.spv", "E:/GameProjects/CPPTestVS/Render/shader/TriFrag.spv");
 		this->createVertexBuffer();
+
+		this->draw();
 	};
 
 	inline void dispose()
@@ -1124,10 +1238,10 @@ private:
 		l_vertexBuffer.Size = l_vertexBuffer.Capacity;
 		l_vertexBuffer[0].position = vec3f(0.0f, -0.5f, 0.0f);
 		l_vertexBuffer[0].color = vec3f(1.0f, 0.0f, 0.0f);
-		l_vertexBuffer[0].position = vec3f(0.5f, 0.5f, 0.0f);
-		l_vertexBuffer[0].color = vec3f(0.0f, 1.0f, 0.0f);
-		l_vertexBuffer[0].position = vec3f(-0.5f, 0.5f, 0.0f);
-		l_vertexBuffer[0].color = vec3f(0.0f, 0.0f, 1.0f);
+		l_vertexBuffer[1].position = vec3f(0.5f, 0.5f, 0.0f);
+		l_vertexBuffer[1].color = vec3f(0.0f, 1.0f, 0.0f);
+		l_vertexBuffer[2].position = vec3f(-0.5f, 0.5f, 0.0f);
+		l_vertexBuffer[2].color = vec3f(0.0f, 0.0f, 1.0f);
 
 		com::Vector<uint32_t> l_indicesBuffer(3);
 		l_indicesBuffer.Size = l_indicesBuffer.Capacity;
@@ -1137,23 +1251,101 @@ private:
 		CommandBuffer l_copy_cmd = CommandBuffer(this->renderApi.device, this->renderApi.command_pool, this->renderApi.graphics_queue);
 		l_copy_cmd.begin();
 
-		VertexBuffer<Vertex> l_vertices;
-		l_vertices.allocate_buffered(l_copy_cmd, l_vertexBuffer.Size, l_vertexBuffer.Memory, this->renderApi);
-
-		VertexBuffer<uint32_t> l_indices;
-		l_indices.allocate_buffered(l_copy_cmd, l_indicesBuffer.Size, l_indicesBuffer.Memory, this->renderApi);
-
+		AGPUBuffer<Vertex> l_vertexBuffer_staging;
+		AGPUBuffer<uint32_t> l_indexBuffer_staging;
+		this->l_test_vertex_buffer.allocate_buffered(l_copy_cmd, l_vertexBuffer.Size, l_vertexBuffer.Memory, this->renderApi, &l_vertexBuffer_staging);
+		this->l_test_indices_buffer.allocate_buffered(l_copy_cmd, l_indicesBuffer.Size, l_indicesBuffer.Memory, this->renderApi, &l_indexBuffer_staging);
 		l_copy_cmd.flush(this->renderApi.device);
+		l_vertexBuffer_staging.dispose(this->renderApi.device);
+		l_indexBuffer_staging.dispose(this->renderApi.device);
 	}
 
 	inline void destroyVertexBuffer()
 	{
-		this->l_test.dispose(this->renderApi.device);
+		this->l_test_vertex_buffer.dispose(this->renderApi.device);
+		this->l_test_indices_buffer.dispose(this->renderApi.device);
 	}
 
-	inline void create_synchronization()
+	/*
+	inline void createDescriptorSet()
 	{
-		//TODO
+		vk::DescriptorSetAllocateInfo l_descriptorset_allocate;
+		l_descriptorset_allocate.setDescriptorPool(this->renderApi.descriptor_pool);
+		l_descriptorset_allocate.setDescriptorSetCount(1);
+		l_descriptorset_allocate.setPSetLayouts(&this->shaderTest.descriptorset_layout);
+		this->descriptorset = this->renderApi.device.allocateDescriptorSets(l_descriptorset_allocate)[0];
+
+		vk::WriteDescriptorSet l_swritedescriptorset;
+		l_swritedescriptorset.setDstSet(this->descriptorset);
+		l_swritedescriptorset.setDescriptorCount(1);
+		l_swritedescriptorset.setDescriptorType(vk::DescriptorType::eUniformBuffer);
+		//l_swritedescriptorset.setPBufferInfo();
+		l_swritedescriptorset.setDstBinding(0);
+	}
+	*/
+
+	inline void draw()
+	{
+		uint32_t l_render_image_index = this->renderApi.swap_chain.getNextImage(this->renderApi.synchronization.present_complete_semaphore);
+		this->renderApi.device.waitForFences(1, &this->renderApi.synchronization.draw_command_fences[l_render_image_index], true, UINT64_MAX);
+		this->renderApi.device.resetFences(1, &this->renderApi.synchronization.draw_command_fences[l_render_image_index]);
+
+
+		vk::ClearValue l_clear;
+		l_clear.color.setFloat32({ 0.0f, 0.0f, 0.2f, 1.0f });
+
+		vk::RenderPassBeginInfo l_renderpass_begin;
+		l_renderpass_begin.setPNext(nullptr);
+		l_renderpass_begin.setRenderPass(this->renderApi.swap_chain.renderpass.l_render_pass);
+		vk::Rect2D l_renderArea;
+		l_renderArea.setOffset(vk::Offset2D(0,0));
+		l_renderArea.setExtent(this->renderApi.swap_chain.extend);
+		l_renderpass_begin.setRenderArea(l_renderArea);
+		l_renderpass_begin.setClearValueCount(1);
+		l_renderpass_begin.setPClearValues(&l_clear);
+		l_renderpass_begin.setFramebuffer(this->renderApi.swap_chain.framebuffers[l_render_image_index]);
+
+		vk::Viewport l_viewport;
+		l_viewport.setHeight(this->window.Height);
+		l_viewport.setWidth(this->window.Width);
+		l_viewport.setMinDepth(0.0f);
+		l_viewport.setMaxDepth(1.0f);
+
+		vk::Rect2D l_windowarea;
+		l_windowarea.setOffset(vk::Offset2D(0, 0));
+		l_windowarea.setExtent(vk::Extent2D(this->window.Width, this->window.Height));
+
+		CommandBuffer& l_command_buffer = this->renderApi.draw_commandbuffers[l_render_image_index];
+		l_command_buffer.begin();
+		l_command_buffer.command_buffer.beginRenderPass(l_renderpass_begin, vk::SubpassContents::eInline);
+		l_command_buffer.command_buffer.setViewport(0,1,&l_viewport);
+		l_command_buffer.command_buffer.setScissor(0, 1, &l_windowarea);
+		//l_command_buffer.command_buffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, this->shaderTest.pipeline_layout, 0, 1, )
+		l_command_buffer.command_buffer.bindPipeline(vk::PipelineBindPoint::eGraphics, this->shaderTest.pipeline);
+
+		vk::DeviceSize l_offsets[1] = { 0 };
+		l_command_buffer.command_buffer.bindVertexBuffers(0,1, &this->l_test_vertex_buffer.buffer.buffer.buffer, l_offsets);
+		l_command_buffer.command_buffer.bindIndexBuffer(this->l_test_indices_buffer.buffer.buffer.buffer, 0, vk::IndexType::eUint32);
+		l_command_buffer.command_buffer.drawIndexed(3, 1, 0, 0, 1);
+
+		l_command_buffer.command_buffer.endRenderPass();
+
+		l_command_buffer.end();
+
+
+		vk::PipelineStageFlags l_pipelinestage_wait = vk::PipelineStageFlags(vk::PipelineStageFlagBits::eColorAttachmentOutput);
+		vk::SubmitInfo l_submit;
+		l_submit.setPWaitDstStageMask(&l_pipelinestage_wait);
+		l_submit.setWaitSemaphoreCount(1);
+		l_submit.setPWaitSemaphores(&this->renderApi.synchronization.present_complete_semaphore);
+		l_submit.setSignalSemaphoreCount(1);
+		l_submit.setPSignalSemaphores(&this->renderApi.synchronization.render_complete_semaphore);
+		l_submit.setCommandBufferCount(1);
+		l_submit.setPCommandBuffers(&l_command_buffer.command_buffer);
+
+
+		this->renderApi.graphics_queue.submit(1, &l_submit, this->renderApi.synchronization.draw_command_fences[l_render_image_index]);
+		this->renderApi.swap_chain.presentImage(this->renderApi.present_queue, l_render_image_index, this->renderApi.synchronization.render_complete_semaphore);
 	}
 };
 
