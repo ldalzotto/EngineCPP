@@ -111,7 +111,7 @@ struct CommandBuffer
 		l_renderpass_begin.setPNext(nullptr);
 		l_renderpass_begin.setRenderPass(p_renderpass.l_render_pass);
 		l_renderpass_begin.setRenderArea(p_rendered_screen);
-		l_renderpass_begin.setClearValueCount(p_clear_values.Size);
+		l_renderpass_begin.setClearValueCount((uint32_t)p_clear_values.Size);
 		l_renderpass_begin.setPClearValues(p_clear_values.Memory);
 
 		this->command_buffer.beginRenderPass(l_renderpass_begin, vk::SubpassContents::eInline);
@@ -1190,7 +1190,6 @@ struct IndexBuffer
 		this->buffer.allocate(p_element_number, p_source, vk::BufferUsageFlags(vk::BufferUsageFlagBits::eIndexBuffer), p_render);
 	};
 
-
 	inline void allocate_buffered(CommandBuffer& p_commandBuffer, size_t p_element_number, const void* p_source, const RenderAPI& p_render, AGPUBuffer<ElementType>* out_staging_buffer)
 	{
 		this->buffer.allocate_buffered(p_commandBuffer, p_element_number, p_source, vk::BufferUsageFlags(vk::BufferUsageFlagBits::eIndexBuffer), p_render, out_staging_buffer);
@@ -1202,15 +1201,69 @@ struct IndexBuffer
 	}
 };
 
+struct Mesh
+{
+	VertexBuffer<Vertex> vertices;
+	IndexBuffer<uint32_t> indices;
+	size_t indices_length;
+
+	Mesh(){}
+
+	inline Mesh(const com::Vector<Vertex>& p_vertcies, const com::Vector<uint32_t>& p_indices, const RenderAPI& p_render)
+	{
+		CommandBuffer l_copy_cmd = CommandBuffer(p_render.device, p_render.command_pool, p_render.graphics_queue);
+		l_copy_cmd.begin();
+
+		AGPUBuffer<Vertex> l_vertexBuffer_staging;
+		AGPUBuffer<uint32_t> l_indexBuffer_staging;
+		this->vertices.allocate_buffered(l_copy_cmd, p_vertcies.Size, p_vertcies.Memory, p_render, &l_vertexBuffer_staging);
+		this->indices.allocate_buffered(l_copy_cmd, p_indices.Size, p_indices.Memory, p_render, &l_indexBuffer_staging);
+		l_copy_cmd.flush(p_render.device);
+		l_vertexBuffer_staging.dispose(p_render.device);
+		l_indexBuffer_staging.dispose(p_render.device);
+
+		this->indices_length = p_indices.Size;
+	}
+
+	inline void dispose(const vk::Device& p_device)
+	{
+		this->vertices.dispose(p_device);
+		this->indices.dispose(p_device);
+	}
+};
+
+struct Material
+{
+	//TODO, descriptor set
+
+	Material(){}
+};
+
+struct RenderableObject
+{
+	const Mesh* mesh;
+
+	RenderableObject(){}
+	RenderableObject(const Mesh& p_mesh) : mesh(&p_mesh) {	}
+
+	inline void draw(CommandBuffer& p_commandbuffer)
+	{
+		vk::DeviceSize l_offsets[1] = { 0 };
+		p_commandbuffer.command_buffer.bindVertexBuffers(0, 1, &this->mesh->vertices.buffer.buffer.buffer, l_offsets);
+		p_commandbuffer.command_buffer.bindIndexBuffer(this->mesh->indices.buffer.buffer.buffer, 0, vk::IndexType::eUint32);
+		p_commandbuffer.command_buffer.drawIndexed(this->mesh->indices_length, 1, 0, 0, 1);
+	}
+};
+
 struct Render
 {
 	Window window;
 	RenderAPI renderApi;
 
 	Shader shaderTest;
-	vk::DescriptorSet descriptorset;
-	VertexBuffer<Vertex> l_test_vertex_buffer;
-	IndexBuffer<uint32_t> l_test_indices_buffer;
+	// vk::DescriptorSet descriptorset;
+	Mesh l_mesh;
+	RenderableObject l_obj;
 
 	inline Render()
 	{
@@ -1247,23 +1300,13 @@ private:
 		l_indicesBuffer.Size = l_indicesBuffer.Capacity;
 		l_indicesBuffer[0] = 0; l_indicesBuffer[1] = 1; l_indicesBuffer[2] = 2;
 
-			
-		CommandBuffer l_copy_cmd = CommandBuffer(this->renderApi.device, this->renderApi.command_pool, this->renderApi.graphics_queue);
-		l_copy_cmd.begin();
-
-		AGPUBuffer<Vertex> l_vertexBuffer_staging;
-		AGPUBuffer<uint32_t> l_indexBuffer_staging;
-		this->l_test_vertex_buffer.allocate_buffered(l_copy_cmd, l_vertexBuffer.Size, l_vertexBuffer.Memory, this->renderApi, &l_vertexBuffer_staging);
-		this->l_test_indices_buffer.allocate_buffered(l_copy_cmd, l_indicesBuffer.Size, l_indicesBuffer.Memory, this->renderApi, &l_indexBuffer_staging);
-		l_copy_cmd.flush(this->renderApi.device);
-		l_vertexBuffer_staging.dispose(this->renderApi.device);
-		l_indexBuffer_staging.dispose(this->renderApi.device);
+		this->l_mesh = Mesh(l_vertexBuffer, l_indicesBuffer, this->renderApi);
+		this->l_obj = RenderableObject(this->l_mesh);
 	}
 
 	inline void destroyVertexBuffer()
 	{
-		this->l_test_vertex_buffer.dispose(this->renderApi.device);
-		this->l_test_indices_buffer.dispose(this->renderApi.device);
+		this->l_mesh.dispose(this->renderApi.device);
 	}
 
 	/*
@@ -1312,7 +1355,7 @@ private:
 		l_viewport.setMaxDepth(1.0f);
 
 		vk::Rect2D l_windowarea;
-		l_windowarea.setOffset(vk::Offset2D(0, 0));
+		l_windowarea.setOffset(vk::Offset2D(0, 0)); 
 		l_windowarea.setExtent(vk::Extent2D(this->window.Width, this->window.Height));
 
 		CommandBuffer& l_command_buffer = this->renderApi.draw_commandbuffers[l_render_image_index];
@@ -1323,10 +1366,7 @@ private:
 		//l_command_buffer.command_buffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, this->shaderTest.pipeline_layout, 0, 1, )
 		l_command_buffer.command_buffer.bindPipeline(vk::PipelineBindPoint::eGraphics, this->shaderTest.pipeline);
 
-		vk::DeviceSize l_offsets[1] = { 0 };
-		l_command_buffer.command_buffer.bindVertexBuffers(0,1, &this->l_test_vertex_buffer.buffer.buffer.buffer, l_offsets);
-		l_command_buffer.command_buffer.bindIndexBuffer(this->l_test_indices_buffer.buffer.buffer.buffer, 0, vk::IndexType::eUint32);
-		l_command_buffer.command_buffer.drawIndexed(3, 1, 0, 0, 1);
+		this->l_obj.draw(l_command_buffer);
 
 		l_command_buffer.command_buffer.endRenderPass();
 

@@ -19,7 +19,7 @@ namespace com
 		Vector(Vector&& p_other);
 		Vector(size_t p_initialSize, const Allocator &p_allocator = Allocator());
 		~Vector();
-		TYPE& operator[](int i);
+		TYPE& operator[](size_t i);
 
 		Vector& operator=(const Vector& p_other);
 		Vector& operator=(Vector&& p_other);

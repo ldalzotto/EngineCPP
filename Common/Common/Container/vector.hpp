@@ -64,7 +64,7 @@ namespace com
 	};
 
 	Vector_TemplateHeader
-		inline TYPE& Vector_ClassName::operator[](int i)
+		inline TYPE& Vector_ClassName::operator[](size_t i)
 	{
 		return this->Memory[i];
 	};
