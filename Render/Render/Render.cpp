@@ -311,6 +311,179 @@ struct CommandBuffer
 	}
 };
 
+
+
+enum Staging {};
+enum NotStaging {};
+
+enum BufferMemory {};
+enum ImageMemory {};
+
+template<class BufferType>
+struct BufferMemoryType { };
+
+template<>
+struct BufferMemoryType<BufferMemory>
+{
+	vk::Buffer buffer;
+};
+
+template<>
+struct BufferMemoryType<ImageMemory>
+{
+	vk::Image buffer;
+};
+
+template<class ElementType = char, class BufferType = BufferMemory, class StagingUsage = Staging>
+struct AGPUBuffer
+{
+	vk::DeviceMemory memory;
+	BufferMemoryType<BufferType> buffer;
+
+	inline void dispose(const Device& p_device)
+	{
+		if (this->memory)
+		{
+			p_device.device.freeMemory(this->memory);
+			p_device.device.destroyBuffer(this->buffer.buffer);
+			this->memory = nullptr;
+			this->buffer.buffer = nullptr;
+		}
+	};
+
+	inline void bindBufferMemory(const Device& p_device, vk::DeviceSize p_memoryoffset)
+	{
+		p_device.device.bindBufferMemory(this->buffer.buffer, this->memory, p_memoryoffset);
+	};
+};
+
+template<class ElementType = char, class StagingUsage = Staging>
+struct GPUBuffer {};
+
+template<class ElementType>
+using StaginBuffer = GPUBuffer<ElementType, NotStaging>;
+
+template<class ElementType>
+struct GPUBuffer<ElementType, Staging>
+{
+	AGPUBuffer<ElementType, BufferMemory, Staging> _buffer;
+
+	inline void allocate(size_t p_element_number, const void* p_source, vk::BufferUsageFlags p_usageflags, const Device& p_device, const vk::CommandPool p_commandpool)
+	{
+		CommandBuffer l_copy_cmd = CommandBuffer(p_device, p_commandpool, p_device.graphics_queue);
+		l_copy_cmd.begin();
+
+		StaginBuffer<ElementType> l_staging_buffer;
+		this->allocate_buffered(l_copy_cmd, p_element_number, p_source, p_usageflags, p_render, &l_staging_buffer);
+
+		l_copy_cmd.flush(p_render.device);
+		l_staging_buffer.dispose(p_render.device);
+	}
+
+	inline void allocate_buffered(CommandBuffer& p_commandBuffer, size_t p_element_number, const void* p_source, vk::BufferUsageFlags p_usageflags, const Device& p_device,
+		StaginBuffer<ElementType>* out_staging_buffer)
+	{
+		size_t l_buffer_size = p_element_number * sizeof(ElementType);
+
+		//STAGING
+		out_staging_buffer->allocate(p_element_number, p_source, vk::BufferUsageFlagBits::eTransferSrc, vk::MemoryPropertyFlags(vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent),
+			p_device);
+
+		//Actual buffer
+		vk::BufferCreateInfo l_buffercreate_info;
+		l_buffercreate_info.setUsage(p_usageflags | vk::BufferUsageFlags(vk::BufferUsageFlagBits::eTransferDst));
+		l_buffercreate_info.setSize(l_buffer_size);
+		this->_buffer.buffer.buffer = p_device.device.createBuffer(l_buffercreate_info);
+
+		vk::MemoryRequirements l_requirements = p_device.device.getBufferMemoryRequirements(this->_buffer.buffer.buffer);
+
+		vk::MemoryAllocateInfo l_memory_allocate_info;
+		l_memory_allocate_info.setAllocationSize(l_requirements.size);
+		l_memory_allocate_info.setMemoryTypeIndex(
+			p_device.getMemoryTypeIndex(l_requirements.memoryTypeBits, vk::MemoryPropertyFlags(vk::MemoryPropertyFlagBits::eDeviceLocal)));
+		this->_buffer.memory = p_device.device.allocateMemory(l_memory_allocate_info);
+		this->_buffer.bindBufferMemory(p_device, 0);
+
+		vk::BufferCopy l_buffer_copy_regions;
+		l_buffer_copy_regions.setSize(l_buffer_size);
+		p_commandBuffer.command_buffer.copyBuffer(out_staging_buffer->_buffer.buffer.buffer, this->_buffer.buffer.buffer, 1, &l_buffer_copy_regions);
+	}
+
+	inline void dispose(const Device& p_device)
+	{
+		this->_buffer.dispose(p_device);
+	}
+};
+
+template<class ElementType>
+struct GPUBuffer<ElementType, NotStaging>
+{
+	AGPUBuffer<ElementType, BufferMemory, Staging> _buffer;
+
+	inline void allocate(size_t p_element_number, const void* p_source, vk::BufferUsageFlags p_usageflags,
+		vk::MemoryPropertyFlags p_memoryproperty_flags, const Device& p_device)
+	{
+		size_t l_buffer_size = p_element_number * sizeof(ElementType);
+
+		//STAGING
+		vk::BufferCreateInfo l_buffercreate_info;
+		l_buffercreate_info.setUsage(p_usageflags);
+		l_buffercreate_info.setSize(l_buffer_size);
+		this->_buffer.buffer.buffer = p_device.device.createBuffer(l_buffercreate_info);
+
+		vk::MemoryRequirements l_requirements = p_device.device.getBufferMemoryRequirements(this->_buffer.buffer.buffer);
+
+		vk::MemoryAllocateInfo l_memory_allocate_info;
+		l_memory_allocate_info.setAllocationSize(l_requirements.size);
+		l_memory_allocate_info.setMemoryTypeIndex(
+			p_device.getMemoryTypeIndex(l_requirements.memoryTypeBits, p_memoryproperty_flags));
+
+		void* l_staging_data;
+		this->_buffer.memory = p_device.device.allocateMemory(l_memory_allocate_info);
+		l_staging_data = p_device.device.mapMemory(this->_buffer.memory, 0, l_memory_allocate_info.allocationSize);
+		memcpy(l_staging_data, p_source, l_buffer_size);
+		p_device.device.unmapMemory(this->_buffer.memory);
+		this->_buffer.bindBufferMemory(p_device, 0);
+	}
+
+	inline void dispose(const Device& p_device)
+	{
+		this->_buffer.dispose(p_device);
+	}
+};
+
+template<class ElementType = char, class StagingUsage = Staging>
+struct VertexBuffer : public GPUBuffer<ElementType, StagingUsage>
+{
+	inline void allocate_specialized(size_t p_element_number, const void* p_source, const Device& p_device)
+	{
+		this->allocate(p_element_number, p_source, vk::BufferUsageFlags(vk::BufferUsageFlagBits::eVertexBuffer), p_device);
+	};
+
+	inline void allocate_buffered_specialized(CommandBuffer& p_commandBuffer, size_t p_element_number, const void* p_source, const Device& p_device,
+		GPUBuffer<ElementType, NotStaging>* out_staging_buffer)
+	{
+		this->allocate_buffered(p_commandBuffer, p_element_number, p_source, vk::BufferUsageFlags(vk::BufferUsageFlagBits::eVertexBuffer), p_device, out_staging_buffer);
+	};
+};
+
+template<class ElementType = char, class StagingUsage = Staging>
+struct IndexBuffer : public GPUBuffer<ElementType, StagingUsage>
+{
+	inline void allocate_specialized(size_t p_element_number, const void* p_source, const Device& p_device)
+	{
+		this->allocate(p_element_number, p_source, vk::BufferUsageFlags(vk::BufferUsageFlagBits::eIndexBuffer), p_device);
+	};
+
+	inline void allocate_buffered_specialized(CommandBuffer& p_commandBuffer, size_t p_element_number, const void* p_source, const Device& p_device,
+		GPUBuffer<ElementType, NotStaging>* out_staging_buffer)
+	{
+		this->allocate_buffered(p_commandBuffer, p_element_number, p_source, vk::BufferUsageFlags(vk::BufferUsageFlagBits::eIndexBuffer), p_device, out_staging_buffer);
+	};
+};
+
+
+
 struct SwapChain
 {
 public:
@@ -667,7 +840,7 @@ private:
 #if !NDEBUG
 		this->validation_layer.enabled = true;
 #else
-		this->validationLayers_enabled = false;
+		this->validation_layer.enabled = false;
 #endif
 		if (this->validation_layer.enabled)
 		{
@@ -901,7 +1074,6 @@ private:
 	}
 
 };
-
 
 struct Vertex
 {
@@ -1140,143 +1312,176 @@ private:
 	}
 };
 
+/*
 enum Staging {};
 enum NotStaging {};
 
+enum BufferMemory {};
+enum ImageMemory {};
 
-template<class ElementType = char, class StagingUsage = Staging>
+template<class BufferType>
+struct BufferMemoryType { };
+
+template<>
+struct BufferMemoryType<BufferMemory> 
+{
+	vk::Buffer buffer;
+};
+
+template<>
+struct BufferMemoryType<ImageMemory>
+{
+	vk::Image buffer;
+};
+
+template<class ElementType = char, class BufferType = BufferMemory, class StagingUsage = Staging>
 struct AGPUBuffer
 {
 	vk::DeviceMemory memory;
-	vk::Buffer buffer;
+	BufferMemoryType<BufferType> buffer;
 
 	inline void dispose(const Device& p_device)
 	{
 		if (this->memory)
 		{
 			p_device.device.freeMemory(this->memory);
-			p_device.device.destroyBuffer(this->buffer);
+			p_device.device.destroyBuffer(this->buffer.buffer);
 			this->memory = nullptr;
-			this->buffer = nullptr;
-		}	
-	}
-};
+			this->buffer.buffer = nullptr;
+		}
+	};
 
+	inline void bindBufferMemory(const Device& p_device, vk::DeviceSize p_memoryoffset)
+	{
+		p_device.device.bindBufferMemory(this->buffer.buffer, this->memory, p_memoryoffset);
+	};
+};
 
 template<class ElementType = char, class StagingUsage = Staging>
 struct GPUBuffer {};
 
 template<class ElementType>
+using StaginBuffer = GPUBuffer<ElementType, NotStaging>;
+
+template<class ElementType>
 struct GPUBuffer<ElementType, Staging>
 {
-	AGPUBuffer<ElementType> buffer;
+	AGPUBuffer<ElementType, BufferMemory, Staging> _buffer;
 
-	inline void allocate(size_t p_element_number, const void* p_source, vk::BufferUsageFlags p_usageflags, const RenderAPI& p_render)
+	inline void allocate(size_t p_element_number, const void* p_source, vk::BufferUsageFlags p_usageflags, const Device& p_device, const vk::CommandPool p_commandpool)
 	{
-		CommandBuffer l_copy_cmd = CommandBuffer(p_render.device, p_render.command_pool, p_render.graphics_queue);
+		CommandBuffer l_copy_cmd = CommandBuffer(p_device, p_commandpool, p_device.graphics_queue);
 		l_copy_cmd.begin();
 
-		AGPUBuffer<ElementType> l_staging_buffer;
+		StaginBuffer<ElementType> l_staging_buffer;
 		this->allocate_buffered(l_copy_cmd, p_element_number, p_source, p_usageflags, p_render, &l_staging_buffer);
 
 		l_copy_cmd.flush(p_render.device);
 		l_staging_buffer.dispose(p_render.device);
 	}
 
-	inline void allocate_buffered(CommandBuffer& p_commandBuffer, size_t p_element_number, const void* p_source, vk::BufferUsageFlags p_usageflags, const RenderAPI& p_render, 
-		AGPUBuffer<ElementType>* out_staging_buffer)
+	inline void allocate_buffered(CommandBuffer& p_commandBuffer, size_t p_element_number, const void* p_source, vk::BufferUsageFlags p_usageflags, const Device& p_device, 
+		StaginBuffer<ElementType>* out_staging_buffer)
+	{
+		size_t l_buffer_size = p_element_number * sizeof(ElementType);
+
+		//STAGING
+		out_staging_buffer->allocate(p_element_number, p_source, vk::BufferUsageFlagBits::eTransferSrc, vk::MemoryPropertyFlags(vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent),
+			p_device);
+
+		//Actual buffer
+		vk::BufferCreateInfo l_buffercreate_info;
+		l_buffercreate_info.setUsage(p_usageflags | vk::BufferUsageFlags(vk::BufferUsageFlagBits::eTransferDst));
+		l_buffercreate_info.setSize(l_buffer_size);
+		this->_buffer.buffer.buffer = p_device.device.createBuffer(l_buffercreate_info);
+
+		vk::MemoryRequirements l_requirements = p_device.device.getBufferMemoryRequirements(this->_buffer.buffer.buffer);
+
+		vk::MemoryAllocateInfo l_memory_allocate_info;
+		l_memory_allocate_info.setAllocationSize(l_requirements.size);
+		l_memory_allocate_info.setMemoryTypeIndex(
+			p_device.getMemoryTypeIndex(l_requirements.memoryTypeBits, vk::MemoryPropertyFlags(vk::MemoryPropertyFlagBits::eDeviceLocal)));
+		this->_buffer.memory = p_device.device.allocateMemory(l_memory_allocate_info);
+		this->_buffer.bindBufferMemory(p_device, 0);
+
+		vk::BufferCopy l_buffer_copy_regions;
+		l_buffer_copy_regions.setSize(l_buffer_size);
+		p_commandBuffer.command_buffer.copyBuffer(out_staging_buffer->_buffer.buffer.buffer, this->_buffer.buffer.buffer, 1, &l_buffer_copy_regions);
+	}
+
+	inline void dispose(const Device& p_device)
+	{
+		this->_buffer.dispose(p_device);
+	}
+};
+
+template<class ElementType>
+struct GPUBuffer<ElementType, NotStaging>
+{
+	AGPUBuffer<ElementType, BufferMemory, Staging> _buffer;
+
+	inline void allocate(size_t p_element_number, const void* p_source, vk::BufferUsageFlags p_usageflags, 
+								vk::MemoryPropertyFlags p_memoryproperty_flags, const Device& p_device)
 	{
 		size_t l_buffer_size = p_element_number * sizeof(ElementType);
 
 		//STAGING
 		vk::BufferCreateInfo l_buffercreate_info;
-		l_buffercreate_info.setUsage(vk::BufferUsageFlagBits::eTransferSrc);
+		l_buffercreate_info.setUsage(p_usageflags);
 		l_buffercreate_info.setSize(l_buffer_size);
-		out_staging_buffer->buffer = p_render.device.device.createBuffer(l_buffercreate_info);
+		this->_buffer.buffer.buffer = p_device.device.createBuffer(l_buffercreate_info);
 
-		vk::MemoryRequirements l_requirements = p_render.device.device.getBufferMemoryRequirements(out_staging_buffer->buffer);
+		vk::MemoryRequirements l_requirements = p_device.device.getBufferMemoryRequirements(this->_buffer.buffer.buffer);
 
 		vk::MemoryAllocateInfo l_memory_allocate_info;
 		l_memory_allocate_info.setAllocationSize(l_requirements.size);
 		l_memory_allocate_info.setMemoryTypeIndex(
-			p_render.device.getMemoryTypeIndex(l_requirements.memoryTypeBits, vk::MemoryPropertyFlags(vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent)));
+			p_device.getMemoryTypeIndex(l_requirements.memoryTypeBits, p_memoryproperty_flags));
 
 		void* l_staging_data;
-		out_staging_buffer->memory = p_render.device.device.allocateMemory(l_memory_allocate_info);
-		l_staging_data = p_render.device.device.mapMemory(out_staging_buffer->memory, 0, l_memory_allocate_info.allocationSize);
+		this->_buffer.memory = p_device.device.allocateMemory(l_memory_allocate_info);
+		l_staging_data = p_device.device.mapMemory(this->_buffer.memory, 0, l_memory_allocate_info.allocationSize);
 		memcpy(l_staging_data, p_source, l_buffer_size);
-		p_render.device.device.unmapMemory(out_staging_buffer->memory);
-		p_render.device.device.bindBufferMemory(out_staging_buffer->buffer, out_staging_buffer->memory, 0);
-
-
-		//Actual buffer
-		l_buffercreate_info.setUsage(p_usageflags | vk::BufferUsageFlags(vk::BufferUsageFlagBits::eTransferDst));
-		this->buffer.buffer = p_render.device.device.createBuffer(l_buffercreate_info);
-
-		l_requirements = p_render.device.device.getBufferMemoryRequirements(this->buffer.buffer);
-		l_memory_allocate_info.setAllocationSize(l_requirements.size);
-		l_memory_allocate_info.setMemoryTypeIndex(
-			p_render.device.getMemoryTypeIndex(l_requirements.memoryTypeBits, vk::MemoryPropertyFlags(vk::MemoryPropertyFlagBits::eDeviceLocal)));
-		this->buffer.memory = p_render.device.device.allocateMemory(l_memory_allocate_info);
-		p_render.device.device.bindBufferMemory(this->buffer.buffer, this->buffer.memory, 0);
-
-		vk::BufferCopy l_buffer_copy_regions;
-		l_buffer_copy_regions.setSize(l_buffer_size);
-		p_commandBuffer.command_buffer.copyBuffer(out_staging_buffer->buffer, this->buffer.buffer, 1, &l_buffer_copy_regions);
+		p_device.device.unmapMemory(this->_buffer.memory);
+		this->_buffer.bindBufferMemory(p_device, 0);
 	}
 
 	inline void dispose(const Device& p_device)
 	{
-		this->buffer.dispose(p_device);
+		this->_buffer.dispose(p_device);
 	}
 };
 
 template<class ElementType = char, class StagingUsage = Staging>
-struct VertexBuffer
+struct VertexBuffer : public GPUBuffer<ElementType, StagingUsage>
 {
-	GPUBuffer<ElementType, StagingUsage> buffer;
-
-	VertexBuffer() {};
-
-	inline void allocate(size_t p_element_number, const void* p_source, const RenderAPI& p_render)
+	inline void allocate_specialized(size_t p_element_number, const void* p_source, const RenderAPI& p_render)
 	{
-		this->buffer.allocate(p_element_number, p_source, vk::BufferUsageFlags(vk::BufferUsageFlagBits::eVertexBuffer), p_render);
+		this->allocate(p_element_number, p_source, vk::BufferUsageFlags(vk::BufferUsageFlagBits::eVertexBuffer), p_render);
 	};
 
-
-	inline void allocate_buffered(CommandBuffer& p_commandBuffer, size_t p_element_number, const void* p_source, const RenderAPI& p_render, AGPUBuffer<ElementType>* out_staging_buffer)
+	inline void allocate_buffered_specialized(CommandBuffer& p_commandBuffer, size_t p_element_number, const void* p_source, const Device& p_device, 
+				GPUBuffer<ElementType, NotStaging>* out_staging_buffer)
 	{
-		this->buffer.allocate_buffered(p_commandBuffer, p_element_number, p_source, vk::BufferUsageFlags(vk::BufferUsageFlagBits::eVertexBuffer), p_render, out_staging_buffer);
+		this->allocate_buffered(p_commandBuffer, p_element_number, p_source, vk::BufferUsageFlags(vk::BufferUsageFlagBits::eVertexBuffer), p_device, out_staging_buffer);
 	};
-
-	inline void dispose(const Device& p_device)
-	{
-		this->buffer.dispose(p_device);
-	}
 };
 
 template<class ElementType = char, class StagingUsage = Staging>
-struct IndexBuffer
+struct IndexBuffer : public GPUBuffer<ElementType, StagingUsage>
 {
-	GPUBuffer<ElementType, StagingUsage> buffer;
-
-	IndexBuffer() {};
-
-	inline void allocate(size_t p_element_number, const void* p_source, const RenderAPI& p_render)
+	inline void allocate_specialized(size_t p_element_number, const void* p_source, const Device& p_device)
 	{
-		this->buffer.allocate(p_element_number, p_source, vk::BufferUsageFlags(vk::BufferUsageFlagBits::eIndexBuffer), p_render);
+		this->allocate(p_element_number, p_source, vk::BufferUsageFlags(vk::BufferUsageFlagBits::eIndexBuffer), p_device);
 	};
 
-	inline void allocate_buffered(CommandBuffer& p_commandBuffer, size_t p_element_number, const void* p_source, const RenderAPI& p_render, AGPUBuffer<ElementType>* out_staging_buffer)
+	inline void allocate_buffered_specialized(CommandBuffer& p_commandBuffer, size_t p_element_number, const void* p_source, const Device& p_device, 
+		GPUBuffer<ElementType, NotStaging>* out_staging_buffer)
 	{
-		this->buffer.allocate_buffered(p_commandBuffer, p_element_number, p_source, vk::BufferUsageFlags(vk::BufferUsageFlagBits::eIndexBuffer), p_render, out_staging_buffer);
+		this->allocate_buffered(p_commandBuffer, p_element_number, p_source, vk::BufferUsageFlags(vk::BufferUsageFlagBits::eIndexBuffer), p_device, out_staging_buffer);
 	};
-
-	inline void dispose(const Device& p_device)
-	{
-		this->buffer.dispose(p_device);
-	}
 };
+*/
 
 struct Mesh
 {
@@ -1291,10 +1496,10 @@ struct Mesh
 		CommandBuffer l_copy_cmd = CommandBuffer(p_render.device, p_render.command_pool, p_render.device.graphics_queue);
 		l_copy_cmd.begin();
 
-		AGPUBuffer<Vertex> l_vertexBuffer_staging;
-		AGPUBuffer<uint32_t> l_indexBuffer_staging;
-		this->vertices.allocate_buffered(l_copy_cmd, p_vertcies.Size, p_vertcies.Memory, p_render, &l_vertexBuffer_staging);
-		this->indices.allocate_buffered(l_copy_cmd, p_indices.Size, p_indices.Memory, p_render, &l_indexBuffer_staging);
+		GPUBuffer<Vertex, NotStaging> l_vertexBuffer_staging;
+		GPUBuffer<uint32_t, NotStaging> l_indexBuffer_staging;
+		this->vertices.allocate_buffered_specialized(l_copy_cmd, p_vertcies.Size, p_vertcies.Memory, p_render.device, &l_vertexBuffer_staging);
+		this->indices.allocate_buffered_specialized(l_copy_cmd, p_indices.Size, p_indices.Memory, p_render.device, &l_indexBuffer_staging);
 		l_copy_cmd.flush(p_render.device);
 		l_vertexBuffer_staging.dispose(p_render.device);
 		l_indexBuffer_staging.dispose(p_render.device);
@@ -1331,8 +1536,8 @@ struct RenderableObject
 	inline void draw(CommandBuffer& p_commandbuffer, com::Pool<Mesh>& p_mesh_heap)
 	{
 		vk::DeviceSize l_offsets[1] = { 0 };
-		p_commandbuffer.command_buffer.bindVertexBuffers(0, 1, &p_mesh_heap[this->mesh].vertices.buffer.buffer.buffer, l_offsets);
-		p_commandbuffer.command_buffer.bindIndexBuffer(p_mesh_heap[this->mesh].indices.buffer.buffer.buffer, 0, vk::IndexType::eUint32);
+		p_commandbuffer.command_buffer.bindVertexBuffers(0, 1, &p_mesh_heap[this->mesh].vertices._buffer.buffer.buffer, l_offsets);
+		p_commandbuffer.command_buffer.bindIndexBuffer(p_mesh_heap[this->mesh].indices._buffer.buffer.buffer, 0, vk::IndexType::eUint32);
 		p_commandbuffer.command_buffer.drawIndexed(p_mesh_heap[this->mesh].indices_length, 1, 0, 0, 1);
 	}
 };
