@@ -6,7 +6,7 @@ namespace Math
 	template <unsigned N, class TYPE>
 	struct Vector
 	{
-		
+		Vector() = default;
 	};
 
 	template <class TYPE>

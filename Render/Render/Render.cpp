@@ -12,14 +12,14 @@ using namespace Math;
 
 #define DEFAULT_FENCE_TIMEOUT 2000
 
-struct Window
+struct RenderWindow
 {
 	WindowHandle Handle;
 	short int Width;
 	short int Height;
 
-	Window() = default;
-	inline Window(const short int p_width, const short int p_height, const std::string& p_title)
+	RenderWindow() = default;
+	inline RenderWindow(const short int p_width, const short int p_height, const std::string& p_title)
 	{
 		this->Handle = rdwindow::create_window(p_width, p_height, p_title);
 		this->Width = p_width;
@@ -31,14 +31,156 @@ struct Window
 	};
 };
 
+
+struct ValidationLayer
+{
+	bool enabled;
+	com::Vector<const char*> layers;
+};
+
+struct Device
+{
+	static const uint32_t QueueFamilyDefault = -1;
+
+	vk::PhysicalDevice graphics_device;
+	VkPhysicalDeviceMemoryProperties device_memory_properties;
+	vk::Device device;
+
+	vk::Queue graphics_queue;
+	uint32_t graphics_queue_family = QueueFamilyDefault;
+
+	vk::Queue present_queue;
+	uint32_t present_queue_family = QueueFamilyDefault;
+
+	inline void destroy()
+	{
+		this->device.destroy();
+	}
+
+	inline uint32_t getMemoryTypeIndex(uint32_t p_typeBits, vk::MemoryPropertyFlags p_properties) const
+	{
+		for (uint32_t i = 0; i < this->device_memory_properties.memoryTypeCount; i++)
+		{
+			if ((p_typeBits & 1) == 1)
+			{
+
+				if ((vk::MemoryPropertyFlags(this->device_memory_properties.memoryTypes[i].propertyFlags) & p_properties) == p_properties)
+				{
+					return i;
+				}
+			}
+			p_typeBits >>= 1;
+		}
+
+		return -1;
+	}
+
+	inline void createPhysicalDevice(const ValidationLayer& p_validation_layers)
+	{
+		vk::DeviceQueueCreateInfo l_devicequeue_create_info;
+		l_devicequeue_create_info.setQueueFamilyIndex(this->graphics_queue_family);
+		l_devicequeue_create_info.setQueueCount(1);
+		const float l_priority = 1.0f;
+		l_devicequeue_create_info.setPQueuePriorities(&l_priority);
+
+		vk::PhysicalDeviceFeatures l_devicefeatures;
+		vk::DeviceCreateInfo l_device_create_info;
+		l_device_create_info.setPQueueCreateInfos(&l_devicequeue_create_info);
+		l_device_create_info.setQueueCreateInfoCount(1);
+		l_device_create_info.setPEnabledFeatures(&l_devicefeatures);
+
+
+		if (p_validation_layers.enabled)
+		{
+			l_device_create_info.setEnabledLayerCount((uint32_t)p_validation_layers.layers.Size);
+			l_device_create_info.setPpEnabledLayerNames(p_validation_layers.layers.Memory);
+		}
+
+		com::Vector<const char*> l_devices_extensions(1);
+		l_devices_extensions.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
+
+		l_device_create_info.setEnabledExtensionCount((uint32_t)l_devices_extensions.Size);
+		l_device_create_info.setPpEnabledExtensionNames(l_devices_extensions.Memory);
+
+		this->device = this->graphics_device.createDevice(l_device_create_info);
+		this->graphics_queue = this->device.getQueue(this->graphics_queue_family, 0);
+		this->present_queue = this->device.getQueue(this->present_queue_family, 0);
+	}
+
+	inline void getPhysicalDevice(vk::Instance p_instance, vk::SurfaceKHR p_surface)
+	{
+		auto l_physical_devices = p_instance.enumeratePhysicalDevices();
+		for (int i = 0; i < l_physical_devices.size(); i++)
+		{
+			bool l_device_match = false;
+			vk::PhysicalDevice& l_physical_device = l_physical_devices[i];
+			uint32_t l_graphics_queue_family = QueueFamilyDefault;
+			uint32_t l_present_queue_family = QueueFamilyDefault;
+
+			if (l_physical_device.getProperties().deviceType == vk::PhysicalDeviceType::eDiscreteGpu && l_physical_device.getFeatures().geometryShader)
+			{
+				auto l_device_extensions = l_physical_device.enumerateDeviceExtensionProperties();
+				for (int k = 0; k < l_device_extensions.size(); k++)
+				{
+					if (strcmp(l_device_extensions[k].extensionName, VK_KHR_SWAPCHAIN_EXTENSION_NAME) == 0)
+					{
+
+						// vk::SurfaceCapabilitiesKHR l_surface_capabilities = l_physical_device.getSurfaceCapabilitiesKHR(this->surface);
+						auto l_supported_surface_formats = l_physical_device.getSurfaceFormatsKHR(p_surface);
+						auto l_supported_present_modes = l_physical_device.getSurfacePresentModesKHR(p_surface);
+
+						if (l_supported_surface_formats.size() > 0 && l_supported_present_modes.size() > 0)
+						{
+							auto l_queueFamilies = l_physical_device.getQueueFamilyProperties();
+							l_graphics_queue_family = QueueFamilyDefault;
+							l_present_queue_family = QueueFamilyDefault;
+
+							for (int j = 0; j < l_queueFamilies.size(); j++)
+							{
+								if (l_queueFamilies[j].queueFlags & vk::QueueFlags(VkQueueFlagBits::VK_QUEUE_GRAPHICS_BIT))
+								{
+									l_graphics_queue_family = j;
+								}
+
+								if (l_physical_device.getSurfaceSupportKHR(j, p_surface))
+								{
+									l_present_queue_family = j;
+								}
+
+								if (l_graphics_queue_family != QueueFamilyDefault && l_present_queue_family != QueueFamilyDefault)
+								{
+									l_device_match = true;
+									break;
+								}
+							}
+						}
+
+						break;
+					}
+				}
+			}
+
+			if (l_device_match)
+			{
+				this->graphics_device = l_physical_device;
+				this->device_memory_properties = l_physical_device.getMemoryProperties();
+				this->graphics_queue_family = l_graphics_queue_family;
+				this->present_queue_family = l_present_queue_family;
+			}
+		}
+	}
+
+};
+
+
 struct RenderPass
 {
 	vk::RenderPass l_render_pass;
 
-	void create(const vk::Device& p_device, vk::SurfaceFormatKHR p_surface_format)
+	void create(const Device& p_device, vk::SurfaceFormatKHR p_surface_format, vk::Format p_depth_format)
 	{
 		com::Vector<vk::AttachmentDescription> l_attachments(1);
-		l_attachments.Size = 1;
+		l_attachments.Size = l_attachments.Capacity;
 
 		vk::AttachmentDescription& l_color_attachment = l_attachments[0];
 		l_color_attachment = vk::AttachmentDescription();
@@ -46,10 +188,24 @@ struct RenderPass
 		l_color_attachment.setSamples(vk::SampleCountFlagBits::e1);
 		l_color_attachment.setLoadOp(vk::AttachmentLoadOp::eClear);
 		l_color_attachment.setStoreOp(vk::AttachmentStoreOp::eStore);
-		l_color_attachment.setStencilLoadOp(vk::AttachmentLoadOp::eDontCare);
-		l_color_attachment.setStencilStoreOp(vk::AttachmentStoreOp::eDontCare);
+		// l_color_attachment.setStencilLoadOp(vk::AttachmentLoadOp::eDontCare);
+		// l_color_attachment.setStencilStoreOp(vk::AttachmentStoreOp::eDontCare);
 		l_color_attachment.setInitialLayout(vk::ImageLayout::eUndefined);
 		l_color_attachment.setFinalLayout(vk::ImageLayout::ePresentSrcKHR);
+
+		//TODO Depth
+		/*
+		vk::AttachmentDescription& l_depth_attachment = l_attachments[1];
+		l_depth_attachment = vk::AttachmentDescription();
+		l_depth_attachment.setFormat(p_depth_format);
+		l_depth_attachment.setSamples(vk::SampleCountFlagBits::e1);
+		l_depth_attachment.setLoadOp(vk::AttachmentLoadOp::eClear);
+		l_depth_attachment.setStoreOp(vk::AttachmentStoreOp::eDontCare);
+		l_depth_attachment.setStencilLoadOp(vk::AttachmentLoadOp::eDontCare);
+		l_depth_attachment.setStencilStoreOp(vk::AttachmentStoreOp::eDontCare);
+		l_depth_attachment.setInitialLayout(vk::ImageLayout::eUndefined);
+		l_depth_attachment.setFinalLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal);
+		*/
 
 		com::Vector<vk::SubpassDescription> l_subpasses(1);
 		l_subpasses.Size = 1;
@@ -58,11 +214,18 @@ struct RenderPass
 		l_color_attachment_ref.setAttachment(0);
 		l_color_attachment_ref.setLayout(vk::ImageLayout::eColorAttachmentOptimal);
 
+		/*
+		vk::AttachmentReference l_depth_atttachment_ref;
+		l_depth_atttachment_ref.setAttachment(1);
+		l_depth_atttachment_ref.setLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal);
+		*/
+
 		vk::SubpassDescription& l_color_subpass = l_subpasses[0];
 		l_color_subpass = vk::SubpassDescription();
 		l_color_subpass.setPipelineBindPoint(vk::PipelineBindPoint::eGraphics);
 		l_color_subpass.setColorAttachmentCount(1);
 		l_color_subpass.setPColorAttachments(&l_color_attachment_ref);
+		// l_color_subpass.setPDepthStencilAttachment(&l_depth_atttachment_ref);
 
 		vk::RenderPassCreateInfo l_renderpass_create_info;
 		l_renderpass_create_info.setAttachmentCount((uint32_t)l_attachments.Size);
@@ -70,12 +233,12 @@ struct RenderPass
 		l_renderpass_create_info.setSubpassCount((uint32_t)l_subpasses.Size);
 		l_renderpass_create_info.setPSubpasses(l_subpasses.Memory);
 
-		this->l_render_pass = p_device.createRenderPass(l_renderpass_create_info);
+		this->l_render_pass = p_device.device.createRenderPass(l_renderpass_create_info);
 	}
 
-	void dispose(const vk::Device& p_device)
+	void dispose(const Device& p_device)
 	{
-		p_device.destroyRenderPass(this->l_render_pass);
+		p_device.device.destroyRenderPass(this->l_render_pass);
 	}
 };
 
@@ -86,7 +249,7 @@ struct CommandBuffer
 	const vk::Queue* queue = nullptr;
 	bool hasBegun = false;
 
-	inline CommandBuffer(const vk::Device& p_device, const vk::CommandPool& p_command_pool, const vk::Queue& p_queue)
+	inline CommandBuffer(const Device& p_device, const vk::CommandPool& p_command_pool, const vk::Queue& p_queue)
 	{
 		vk::CommandBufferAllocateInfo l_command_buffer_allocate_info;
 		this->pool = &p_command_pool;
@@ -94,7 +257,7 @@ struct CommandBuffer
 		l_command_buffer_allocate_info.setCommandPool(*this->pool);
 		l_command_buffer_allocate_info.setLevel(vk::CommandBufferLevel::ePrimary);
 		l_command_buffer_allocate_info.setCommandBufferCount(1);
-		auto l_command_buffers = p_device.allocateCommandBuffers(l_command_buffer_allocate_info);
+		auto l_command_buffers = p_device.device.allocateCommandBuffers(l_command_buffer_allocate_info);
 		this->command_buffer = l_command_buffers[0];
 	}
 
@@ -129,25 +292,24 @@ struct CommandBuffer
 		}
 	}
 
-	inline void flush(const vk::Device& p_device)
+	inline void flush(const Device& p_device)
 	{
 		this->end();
 
-		vk::Fence l_command_buffer_end_fence = p_device.createFence(vk::FenceCreateInfo());
+		vk::Fence l_command_buffer_end_fence = p_device.device.createFence(vk::FenceCreateInfo());
 
 		vk::SubmitInfo l_wait_for_end_submit;
 		l_wait_for_end_submit.setCommandBufferCount(1);
 		l_wait_for_end_submit.setPCommandBuffers(&this->command_buffer);
 		this->queue->submit(1, &l_wait_for_end_submit, l_command_buffer_end_fence);
 
-		p_device.waitForFences(1, &l_command_buffer_end_fence, true, DEFAULT_FENCE_TIMEOUT);
+		p_device.device.waitForFences(1, &l_command_buffer_end_fence, true, DEFAULT_FENCE_TIMEOUT);
 
-		p_device.destroyFence(l_command_buffer_end_fence);
-		p_device.freeCommandBuffers(*this->pool, 1, &this->command_buffer);
+		p_device.device.destroyFence(l_command_buffer_end_fence);
+		p_device.device.freeCommandBuffers(*this->pool, 1, &this->command_buffer);
 
 	}
 };
-
 
 struct SwapChain
 {
@@ -159,12 +321,16 @@ public:
 	} SwapChainBuffer;
 
 	vk::SwapchainKHR handle;
+	
 	vk::SurfaceFormatKHR surface_format;
+	vk::Format depth_format;
+
 	vk::PresentModeKHR present_mode;
 	vk::Extent2D extend;
 	uint32_t image_count;
 	std::vector<vk::Image> images;
 	com::Vector<SwapChainBuffer> buffers;
+	SwapChainBuffer depth_stencil;
 
 	RenderPass renderpass;
 
@@ -173,18 +339,18 @@ public:
 private:
 	const vk::Instance* instance;
 	const vk::PhysicalDevice* physicalDevice;
-	const vk::Device* device;
+	const Device* device;
 	const vk::SurfaceKHR* surface;
-	const Window* window;
+	const RenderWindow* window;
 
 	vk::SurfaceCapabilitiesKHR surface_capabilities;
 
 public:
 	inline SwapChain() = default;
 
-	inline void init(const vk::Instance& p_instance, const vk::Device& p_device,
+	inline void init(const vk::Instance& p_instance, const Device& p_device,
 		const vk::PhysicalDevice& p_physical_device,
-		const vk::SurfaceKHR& p_surface, const Window& p_window)
+		const vk::SurfaceKHR& p_surface, const RenderWindow& p_window)
 	{
 		this->instance = &p_instance;
 		this->device = &p_device;
@@ -213,9 +379,10 @@ public:
 		l_swapchain_create_info.setPresentMode(this->present_mode);
 		l_swapchain_create_info.setClipped(true);
 		l_swapchain_create_info.setOldSwapchain(nullptr);
-		this->handle = this->device->createSwapchainKHR(l_swapchain_create_info);
+		this->handle = this->device->device.createSwapchainKHR(l_swapchain_create_info);
 
 		this->create_images();
+		// this->create_depth();
 		this->createRenderPass(p_device);
 		this->create_framebuffers(p_device);
 	}
@@ -225,12 +392,12 @@ public:
 		this->destroy_framebuffers();
 		this->destroyRenderPass();
 		this->destroy_images();
-		this->device->destroySwapchainKHR(this->handle);
+		this->device->device.destroySwapchainKHR(this->handle);
 	}
 
 	inline uint32_t getNextImage(vk::Semaphore p_presentcomplete_semaphore)
 	{
-		return this->device->acquireNextImageKHR(this->handle, UINT64_MAX, p_presentcomplete_semaphore, nullptr).value;
+		return this->device->device.acquireNextImageKHR(this->handle, UINT64_MAX, p_presentcomplete_semaphore, nullptr).value;
 	}
 
 	inline void presentImage(vk::Queue p_queue, const uint32_t p_imageindex, vk::Semaphore p_wait_semaphore)
@@ -319,7 +486,7 @@ private:
 
 	inline void create_images()
 	{
-		this->images = this->device->getSwapchainImagesKHR(this->handle);
+		this->images = this->device->device.getSwapchainImagesKHR(this->handle);
 		this->buffers.resize(this->images.size());
 		for (int i = 0; i < this->images.size(); i++)
 		{
@@ -341,7 +508,7 @@ private:
 
 			SwapChainBuffer l_swapchainBuffer;
 			l_swapchainBuffer.image = l_image;
-			l_swapchainBuffer.view = this->device->createImageView(l_image_view_create_info);
+			l_swapchainBuffer.view = this->device->device.createImageView(l_image_view_create_info);
 
 			this->buffers.push_back(l_swapchainBuffer);
 		}
@@ -351,13 +518,34 @@ private:
 	{
 		for (int i = 0; i < this->buffers.Size; i++)
 		{
-			this->device->destroyImageView(this->buffers[i].view);
+			this->device->device.destroyImageView(this->buffers[i].view);
 		}
 	}
 
-	inline void createRenderPass(const vk::Device& p_device)
+	inline void create_depth_image()
 	{
-		this->renderpass.create(p_device, this->surface_format);
+		this->depth_format = vk::Format::eR16Sfloat;
+
+		//TODO Depth
+		/*
+		vk::ImageCreateInfo l_depth_image_create_info;
+		l_depth_image_create_info.setImageType(vk::ImageType::e2D);
+		l_depth_image_create_info.setFormat(this->depth_format);
+		l_depth_image_create_info.setExtent({ this->extend.width, this->extend.height, 1 });
+		l_depth_image_create_info.setMipLevels(1);
+		l_depth_image_create_info.setArrayLayers(1);
+		l_depth_image_create_info.setSamples(vk::SampleCountFlagBits::e1);
+		l_depth_image_create_info.setTiling(vk::ImageTiling::eOptimal);
+		l_depth_image_create_info.setUsage(vk::ImageUsageFlagBits::eDepthStencilAttachment);
+		l_depth_image_create_info.setInitialLayout(vk::ImageLayout::eUndefined);
+		vk::Image l_depth_image = this->device->createImage(l_depth_image_create_info);
+		igiihuihu
+		*/
+	}
+
+	inline void createRenderPass(const Device& p_device)
+	{
+		this->renderpass.create(p_device, this->surface_format, this->depth_format);
 	}
 
 	inline void destroyRenderPass()
@@ -365,7 +553,7 @@ private:
 		this->renderpass.dispose(*this->device);
 	}
 
-	inline void create_framebuffers(const vk::Device& p_device)
+	inline void create_framebuffers(const Device& p_device)
 	{
 		this->framebuffers = com::Vector<vk::Framebuffer>(this->image_count);
 		this->framebuffers.Size = this->framebuffers.Capacity;
@@ -383,7 +571,7 @@ private:
 			l_framebuffer_create.setHeight(this->window->Height);
 			l_framebuffer_create.setLayers(1);
 
-			this->framebuffers[i] = p_device.createFramebuffer(l_framebuffer_create);
+			this->framebuffers[i] = p_device.device.createFramebuffer(l_framebuffer_create);
 		}
 	}
 
@@ -391,30 +579,20 @@ private:
 	{
 		for (size_t i = 0; i < this->framebuffers.Size; i++)
 		{
-			this->device->destroyFramebuffer(this->framebuffers[i]);
+			this->device->device.destroyFramebuffer(this->framebuffers[i]);
 		}
 	}
-
 };
+
 
 struct RenderAPI
 {
-	static const uint32_t QueueFamilyDefault = -1;
-
 	vk::Instance instance;
 	VkDebugUtilsMessengerEXT debugMessenger;
-	vk::PhysicalDevice graphics_device;
-	VkPhysicalDeviceMemoryProperties device_memory_properties;
-
-	vk::Device device;
+	
+	Device device;
 
 	vk::SurfaceKHR surface;
-
-	vk::Queue graphics_queue;
-	uint32_t graphics_queue_family = QueueFamilyDefault;
-
-	vk::Queue present_queue;
-	uint32_t present_queue_family = QueueFamilyDefault;
 
 	SwapChain swap_chain;
 
@@ -432,18 +610,18 @@ struct RenderAPI
 
 	Sync synchronization;
 
-	bool validationLayers_enabled;
-	com::Vector<const char*> validation_layers;
+	ValidationLayer validation_layer;
+	
 
 	RenderAPI() = default;
 
-	inline void init(const Window& p_window)
+	inline void init(const RenderWindow& p_window)
 	{
 		this->createInstance();
 		this->createDebugCallback();
 		this->createSurface(p_window);
-		this->getPhysicalDevice();
-		this->createPhysicalDevice();
+		this->device.getPhysicalDevice(this->instance, this->surface);
+		this->device.createPhysicalDevice(this->validation_layer);
 		this->createCommandBufferPool();
 		this->createSwapChain(p_window);
 		this->create_draw_commandbuffers();
@@ -464,24 +642,6 @@ struct RenderAPI
 		this->destroyInstance();
 	}
 
-	uint32_t getMemoryTypeIndex(uint32_t p_typeBits, vk::MemoryPropertyFlags p_properties) const
-	{
-		for (uint32_t i = 0; i < this->device_memory_properties.memoryTypeCount; i++)
-		{
-			if ((p_typeBits & 1) == 1)
-			{
-
-				if ((vk::MemoryPropertyFlags(this->device_memory_properties.memoryTypes[i].propertyFlags) & p_properties) == p_properties)
-				{
-					return i;
-				}
-			}
-			p_typeBits >>= 1;
-		}
-
-		return -1;
-	}
-
 private:
 	inline void createInstance()
 	{
@@ -492,7 +652,7 @@ private:
 		l_instance_create_info.setPApplicationInfo(&l_app_info);
 
 		com::Vector<const char*> l_extensions;
-		this->validationLayers(l_instance_create_info, this->validation_layers);
+		this->validationLayers(l_instance_create_info, this->validation_layer.layers);
 		this->extensions(l_instance_create_info, l_extensions);
 		this->instance = vk::createInstance(l_instance_create_info);
 	};
@@ -505,11 +665,11 @@ private:
 	inline void validationLayers(vk::InstanceCreateInfo& p_instance_create_info, com::Vector<const char*>& p_validationLayers)
 	{
 #if !NDEBUG
-		this->validationLayers_enabled = true;
+		this->validation_layer.enabled = true;
 #else
 		this->validationLayers_enabled = false;
 #endif
-		if (this->validationLayers_enabled)
+		if (this->validation_layer.enabled)
 		{
 			p_validationLayers = com::Vector<const char*>(1);
 			p_validationLayers.Size = 1;
@@ -552,9 +712,11 @@ private:
 		l_glfw_extensions = glfwGetRequiredInstanceExtensions(&l_glfw_extension_count);
 
 		p_extensions = com::Vector<const char*>(l_glfw_extension_count);
-		p_extensions.insert_at(com::MemorySlice<const char*>(*l_glfw_extensions, (size_t)l_glfw_extension_count), 0);
+        
+        auto l_memoryslice = com::MemorySlice<const char*>(*l_glfw_extensions, (size_t)l_glfw_extension_count);
+		p_extensions.insert_at(l_memoryslice, 0);
 
-		if (this->validationLayers_enabled)
+		if (this->validation_layer.enabled)
 		{
 			p_extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
 		}
@@ -565,7 +727,7 @@ private:
 
 	inline void createDebugCallback()
 	{
-		if (this->validationLayers_enabled)
+		if (this->validation_layer.enabled)
 		{
 			VkDebugUtilsMessengerCreateInfoEXT l_createinfo = {};
 			l_createinfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
@@ -583,7 +745,7 @@ private:
 
 	inline void destroyDebugCallback()
 	{
-		if (this->validationLayers_enabled)
+		if (this->validation_layer.enabled)
 		{
 			auto func = (PFN_vkDestroyDebugUtilsMessengerEXT)vkGetInstanceProcAddr((VkInstance)instance, "vkDestroyDebugUtilsMessengerEXT");
 			if (func != nullptr)
@@ -619,108 +781,9 @@ private:
 		return VK_FALSE;
 	}
 
-	inline void getPhysicalDevice()
+	inline void createSwapChain(const RenderWindow& p_window)
 	{
-		auto l_physical_devices = this->instance.enumeratePhysicalDevices();
-		for (int i = 0; i < l_physical_devices.size(); i++)
-		{
-			bool l_device_match = false;
-			vk::PhysicalDevice& l_physical_device = l_physical_devices[i];
-			uint32_t l_graphics_queue_family = QueueFamilyDefault;
-			uint32_t l_present_queue_family = QueueFamilyDefault;
-
-			if (l_physical_device.getProperties().deviceType == vk::PhysicalDeviceType::eDiscreteGpu && l_physical_device.getFeatures().geometryShader)
-			{
-				auto l_device_extensions = l_physical_device.enumerateDeviceExtensionProperties();
-				for (int k = 0; k < l_device_extensions.size(); k++)
-				{
-					if (strcmp(l_device_extensions[k].extensionName, VK_KHR_SWAPCHAIN_EXTENSION_NAME) == 0)
-					{
-
-						// vk::SurfaceCapabilitiesKHR l_surface_capabilities = l_physical_device.getSurfaceCapabilitiesKHR(this->surface);
-						auto l_supported_surface_formats = l_physical_device.getSurfaceFormatsKHR(this->surface);
-						auto l_supported_present_modes = l_physical_device.getSurfacePresentModesKHR(this->surface);
-
-						if (l_supported_surface_formats.size() > 0 && l_supported_present_modes.size() > 0)
-						{
-							auto l_queueFamilies = l_physical_device.getQueueFamilyProperties();
-							l_graphics_queue_family = QueueFamilyDefault;
-							l_present_queue_family = QueueFamilyDefault;
-
-							for (int j = 0; j < l_queueFamilies.size(); j++)
-							{
-								if (l_queueFamilies[j].queueFlags & vk::QueueFlags(VkQueueFlagBits::VK_QUEUE_GRAPHICS_BIT))
-								{
-									l_graphics_queue_family = j;
-								}
-
-								if (l_physical_device.getSurfaceSupportKHR(j, this->surface))
-								{
-									l_present_queue_family = j;
-								}
-
-								if (l_graphics_queue_family != QueueFamilyDefault && l_present_queue_family != QueueFamilyDefault)
-								{
-									l_device_match = true;
-									break;
-								}
-							}
-						}
-
-
-						break;
-					}
-				}
-
-
-
-			}
-
-			if (l_device_match)
-			{
-				this->graphics_device = l_physical_device;
-				this->device_memory_properties = this->graphics_device.getMemoryProperties();
-				this->graphics_queue_family = l_graphics_queue_family;
-				this->present_queue_family = l_present_queue_family;
-			}
-		}
-	}
-
-	inline void createPhysicalDevice()
-	{
-		vk::DeviceQueueCreateInfo l_devicequeue_create_info;
-		l_devicequeue_create_info.setQueueFamilyIndex(this->graphics_queue_family);
-		l_devicequeue_create_info.setQueueCount(1);
-		const float l_priority = 1.0f;
-		l_devicequeue_create_info.setPQueuePriorities(&l_priority);
-
-		vk::PhysicalDeviceFeatures l_devicefeatures;
-
-		vk::DeviceCreateInfo l_device_create_info;
-		l_device_create_info.setPQueueCreateInfos(&l_devicequeue_create_info);
-		l_device_create_info.setQueueCreateInfoCount(1);
-		l_device_create_info.setPEnabledFeatures(&l_devicefeatures);
-
-		if (this->validationLayers_enabled)
-		{
-			l_device_create_info.setEnabledLayerCount((uint32_t)this->validation_layers.Size);
-			l_device_create_info.setPpEnabledLayerNames(this->validation_layers.Memory);
-		}
-
-		com::Vector<const char*> l_devices_extensions(1);
-		l_devices_extensions.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
-
-		l_device_create_info.setEnabledExtensionCount((uint32_t)l_devices_extensions.Size);
-		l_device_create_info.setPpEnabledExtensionNames(l_devices_extensions.Memory);
-
-		this->device = this->graphics_device.createDevice(l_device_create_info);
-		this->graphics_queue = this->device.getQueue(this->graphics_queue_family, 0);
-		this->present_queue = this->device.getQueue(this->present_queue_family, 0);
-	}
-
-	inline void createSwapChain(const Window& p_window)
-	{
-		this->swap_chain.init(this->instance, this->device, this->graphics_device, this->surface, p_window);
+		this->swap_chain.init(this->instance, this->device, this->device.graphics_device, this->surface, p_window);
 	}
 
 	inline void destroySwapChain()
@@ -728,13 +791,21 @@ private:
 		this->swap_chain.dispose();
 	}
 
-	inline void createSurface(const Window& p_window)
+	inline void createSurface(const RenderWindow& p_window)
 	{
 
+#ifdef _WIN32
 		vk::Win32SurfaceCreateInfoKHR l_surfeca_create_info;
 		l_surfeca_create_info.setHwnd(rdwindow::get_window_native(p_window.Handle));
 		l_surfeca_create_info.setHinstance(GetModuleHandle(nullptr));
 		this->surface = this->instance.createWin32SurfaceKHR(l_surfeca_create_info);
+#endif
+#ifdef linux
+        vk::XlibSurfaceCreateInfoKHR l_surfeca_create_info;
+        l_surfeca_create_info.setWindow(rdwindow::get_window_native(p_window.Handle));
+        l_surfeca_create_info.setDpy(XOpenDisplay(nullptr));
+        this->surface = this->instance.createXlibSurfaceKHR(l_surfeca_create_info);
+#endif
 	};
 
 	inline void destroySurface()
@@ -745,14 +816,14 @@ private:
 	inline void createCommandBufferPool()
 	{
 		vk::CommandPoolCreateInfo l_command_pool_create_info;
-		l_command_pool_create_info.setQueueFamilyIndex(this->graphics_queue_family);
+		l_command_pool_create_info.setQueueFamilyIndex(this->device.graphics_queue_family);
 		l_command_pool_create_info.setFlags(vk::CommandPoolCreateFlags(vk::CommandPoolCreateFlagBits::eResetCommandBuffer));
-		this->command_pool = this->device.createCommandPool(l_command_pool_create_info);
+		this->command_pool = this->device.device.createCommandPool(l_command_pool_create_info);
 	}
 
 	inline void destroyCommandBufferPool()
 	{
-		this->device.destroyCommandPool(this->command_pool);
+		this->device.device.destroyCommandPool(this->command_pool);
 	}
 
 	inline void create_draw_commandbuffers()
@@ -761,7 +832,7 @@ private:
 		this->draw_commandbuffers.Size = this->draw_commandbuffers.Capacity;
 		for (int i = 0; i < this->draw_commandbuffers.Size; i++)
 		{
-			this->draw_commandbuffers[i] = CommandBuffer(this->device, this->command_pool, this->graphics_queue);
+			this->draw_commandbuffers[i] = CommandBuffer(this->device, this->command_pool, this->device.graphics_queue);
 		}
 	}
 
@@ -779,8 +850,8 @@ private:
 		vk::SemaphoreCreateInfo l_semaphore_create_info;
 		l_semaphore_create_info.setPNext(nullptr);
 
-		this->synchronization.present_complete_semaphore = this->device.createSemaphore(l_semaphore_create_info);
-		this->synchronization.render_complete_semaphore = this->device.createSemaphore(l_semaphore_create_info);
+		this->synchronization.present_complete_semaphore = this->device.device.createSemaphore(l_semaphore_create_info);
+		this->synchronization.render_complete_semaphore = this->device.device.createSemaphore(l_semaphore_create_info);
 
 		vk::FenceCreateInfo l_fence_create_info;
 		l_fence_create_info.setFlags(vk::FenceCreateFlags(vk::FenceCreateFlagBits::eSignaled));
@@ -789,7 +860,7 @@ private:
 		this->synchronization.draw_command_fences.Size = this->synchronization.draw_command_fences.Capacity;
 		for (int i = 0; i < this->synchronization.draw_command_fences.Size; i++)
 		{
-			this->synchronization.draw_command_fences[i] = this->device.createFence(l_fence_create_info);
+			this->synchronization.draw_command_fences[i] = this->device.device.createFence(l_fence_create_info);
 		}
 	}
 
@@ -797,11 +868,11 @@ private:
 	{
 		for (int i = 0; i < this->synchronization.draw_command_fences.Size; i++)
 		{
-			this->device.destroyFence(this->synchronization.draw_command_fences[i]);
+			this->device.device.destroyFence(this->synchronization.draw_command_fences[i]);
 		}
 
-		this->device.destroySemaphore(this->synchronization.present_complete_semaphore);
-		this->device.destroySemaphore(this->synchronization.render_complete_semaphore);
+		this->device.device.destroySemaphore(this->synchronization.present_complete_semaphore);
+		this->device.device.destroySemaphore(this->synchronization.render_complete_semaphore);
 	}
 
 	inline void create_descriptor_pool()
@@ -816,12 +887,12 @@ private:
 		l_descriptor_pool_create_info.setPPoolSizes(l_types);
 		l_descriptor_pool_create_info.setMaxSets(1);
 
-		this->descriptor_pool = this->device.createDescriptorPool(l_descriptor_pool_create_info);
+		this->descriptor_pool = this->device.device.createDescriptorPool(l_descriptor_pool_create_info);
 	}
 
 	inline void destroy_descriptor_pool()
 	{
-		this->device.destroyDescriptorPool(this->descriptor_pool);
+		this->device.device.destroyDescriptorPool(this->descriptor_pool);
 	}
 
 	inline void define_draw_commands()
@@ -838,7 +909,6 @@ struct Vertex
 	vec3f color;
 };
 
-typedef size_t ShaderHandle;
 struct Shader
 {
 	struct Step
@@ -857,14 +927,14 @@ struct Shader
 		
 	}
 
-	Shader(const vk::Device& p_device, const RenderPass& p_render_pass, const std::string& p_vertex_shader, const std::string& p_fragment_shader)
+	Shader(const Device& p_device, const RenderPass& p_render_pass, const std::string& p_vertex_shader, const std::string& p_fragment_shader)
 	{
 		this->createDescriptorSetLayout(p_device);
 		this->createPipelineLayout(p_device);
 		this->createPipeline(p_device, p_render_pass, p_vertex_shader, p_fragment_shader);
 	}
 
-	inline void dispose(const vk::Device& p_device)
+	inline void dispose(const Device& p_device)
 	{
 		this->destroyPipeline(p_device);
 		this->destroyPipelineLayout(p_device);
@@ -877,7 +947,7 @@ struct Shader
 
 private:
 
-	inline void createDescriptorSetLayout(const vk::Device& p_device)
+	inline void createDescriptorSetLayout(const Device& p_device)
 	{
 		// Vertex uniform buffer
 		//TODO -> layout bindings are arrays
@@ -889,23 +959,23 @@ private:
 		l_descriptorLayout_create_info.setBindingCount(1);
 		l_descriptorLayout_create_info.setPBindings(&l_layout_binding);
 		
-		this->descriptorset_layout = p_device.createDescriptorSetLayout(l_descriptorLayout_create_info);
+		this->descriptorset_layout = p_device.device.createDescriptorSetLayout(l_descriptorLayout_create_info);
 	}
 
-	inline void destroyDescriptorSetLayout(const vk::Device& p_device)
+	inline void destroyDescriptorSetLayout(const Device& p_device)
 	{
-		p_device.destroyDescriptorSetLayout(this->descriptorset_layout);
+		p_device.device.destroyDescriptorSetLayout(this->descriptorset_layout);
 	}
 
-	inline void createPipelineLayout(const vk::Device& p_device)
+	inline void createPipelineLayout(const Device& p_device)
 	{
 		vk::PipelineLayoutCreateInfo l_pipelinelayout_create_info;
 		l_pipelinelayout_create_info.setSetLayoutCount(1);
 		l_pipelinelayout_create_info.setPSetLayouts(&this->descriptorset_layout);
-		this->pipeline_layout = p_device.createPipelineLayout(l_pipelinelayout_create_info);
+		this->pipeline_layout = p_device.device.createPipelineLayout(l_pipelinelayout_create_info);
 	}
 
-	inline void createPipeline(const vk::Device& p_device, const RenderPass& p_renderPass,
+	inline void createPipeline(const Device& p_device, const RenderPass& p_renderPass,
 				const std::string& p_vertex_shader, const std::string& p_fragment_shader)
 	{
 		vk::GraphicsPipelineCreateInfo l_pipeline_graphcis_create_info;
@@ -946,7 +1016,7 @@ private:
 
 		/*
 		vk::PipelineDepthStencilStateCreateInfo l_depthstencil_state;
-		l_depthstencil_state.setDepthTestEnable(false);
+		l_depthstencil_state.setDepthTestEnable(true);
 		l_depthstencil_state.setStencilTestEnable(false);
 		*/
 
@@ -1021,23 +1091,23 @@ private:
 		l_pipeline_graphcis_create_info.setPViewportState(&l_viewport_state);
 		l_pipeline_graphcis_create_info.setPDynamicState(&l_dynamicstates);
 
-		this->pipeline = p_device.createGraphicsPipeline(vk::PipelineCache(), l_pipeline_graphcis_create_info);
+		this->pipeline = p_device.device.createGraphicsPipeline(vk::PipelineCache(), l_pipeline_graphcis_create_info);
 
 		dispose_shaderModule(p_device, vertex_shader.shader_module);
 		dispose_shaderModule(p_device, fragment_shader.shader_module);
 	}
 
-	inline void destroyPipeline(const vk::Device& p_device)
+	inline void destroyPipeline(const Device& p_device)
 	{
-		p_device.destroyPipeline(this->pipeline);
+		p_device.device.destroyPipeline(this->pipeline);
 	}
 
-	inline void destroyPipelineLayout(const vk::Device& p_device)
+	inline void destroyPipelineLayout(const Device& p_device)
 	{
-		p_device.destroyPipelineLayout(this->pipeline_layout);
+		p_device.device.destroyPipelineLayout(this->pipeline_layout);
 	}
 
-	inline static vk::ShaderModule load_shadermodule(const vk::Device& p_device, const std::string& p_file_path)
+	inline static vk::ShaderModule load_shadermodule(const Device& p_device, const std::string& p_file_path)
 	{
 		size_t l_size;
 		std::string l_shader_code{};
@@ -1058,20 +1128,20 @@ private:
 			vk::ShaderModuleCreateInfo l_shader_module_create_info;
 			l_shader_module_create_info.setCodeSize(l_size);
 			l_shader_module_create_info.setPCode((uint32_t*)l_shader_code.c_str());
-			return p_device.createShaderModule(l_shader_module_create_info);
+			return p_device.device.createShaderModule(l_shader_module_create_info);
 		}
 
 		return nullptr;
 	}
 
-	inline static void dispose_shaderModule(const vk::Device& p_device, const vk::ShaderModule& p_shader_module)
+	inline static void dispose_shaderModule(const Device& p_device, const vk::ShaderModule& p_shader_module)
 	{
-		p_device.destroyShaderModule(p_shader_module);
+		p_device.device.destroyShaderModule(p_shader_module);
 	}
 };
 
-enum Staging;
-enum NotStaging;
+enum Staging {};
+enum NotStaging {};
 
 
 template<class ElementType = char, class StagingUsage = Staging>
@@ -1080,12 +1150,12 @@ struct AGPUBuffer
 	vk::DeviceMemory memory;
 	vk::Buffer buffer;
 
-	inline void dispose(const vk::Device& p_device)
+	inline void dispose(const Device& p_device)
 	{
 		if (this->memory)
 		{
-			p_device.freeMemory(this->memory);
-			p_device.destroyBuffer(this->buffer);
+			p_device.device.freeMemory(this->memory);
+			p_device.device.destroyBuffer(this->buffer);
 			this->memory = nullptr;
 			this->buffer = nullptr;
 		}	
@@ -1122,45 +1192,44 @@ struct GPUBuffer<ElementType, Staging>
 		vk::BufferCreateInfo l_buffercreate_info;
 		l_buffercreate_info.setUsage(vk::BufferUsageFlagBits::eTransferSrc);
 		l_buffercreate_info.setSize(l_buffer_size);
-		out_staging_buffer->buffer = p_render.device.createBuffer(l_buffercreate_info);
+		out_staging_buffer->buffer = p_render.device.device.createBuffer(l_buffercreate_info);
 
-		vk::MemoryRequirements l_requirements = p_render.device.getBufferMemoryRequirements(out_staging_buffer->buffer);
+		vk::MemoryRequirements l_requirements = p_render.device.device.getBufferMemoryRequirements(out_staging_buffer->buffer);
 
 		vk::MemoryAllocateInfo l_memory_allocate_info;
 		l_memory_allocate_info.setAllocationSize(l_requirements.size);
 		l_memory_allocate_info.setMemoryTypeIndex(
-			p_render.getMemoryTypeIndex(l_requirements.memoryTypeBits, vk::MemoryPropertyFlags(vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent)));
+			p_render.device.getMemoryTypeIndex(l_requirements.memoryTypeBits, vk::MemoryPropertyFlags(vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent)));
 
 		void* l_staging_data;
-		out_staging_buffer->memory = p_render.device.allocateMemory(l_memory_allocate_info);
-		l_staging_data = p_render.device.mapMemory(out_staging_buffer->memory, 0, l_memory_allocate_info.allocationSize);
+		out_staging_buffer->memory = p_render.device.device.allocateMemory(l_memory_allocate_info);
+		l_staging_data = p_render.device.device.mapMemory(out_staging_buffer->memory, 0, l_memory_allocate_info.allocationSize);
 		memcpy(l_staging_data, p_source, l_buffer_size);
-		p_render.device.unmapMemory(out_staging_buffer->memory);
-		p_render.device.bindBufferMemory(out_staging_buffer->buffer, out_staging_buffer->memory, 0);
+		p_render.device.device.unmapMemory(out_staging_buffer->memory);
+		p_render.device.device.bindBufferMemory(out_staging_buffer->buffer, out_staging_buffer->memory, 0);
 
 
 		//Actual buffer
 		l_buffercreate_info.setUsage(p_usageflags | vk::BufferUsageFlags(vk::BufferUsageFlagBits::eTransferDst));
-		this->buffer.buffer = p_render.device.createBuffer(l_buffercreate_info);
+		this->buffer.buffer = p_render.device.device.createBuffer(l_buffercreate_info);
 
-		l_requirements = p_render.device.getBufferMemoryRequirements(this->buffer.buffer);
+		l_requirements = p_render.device.device.getBufferMemoryRequirements(this->buffer.buffer);
 		l_memory_allocate_info.setAllocationSize(l_requirements.size);
 		l_memory_allocate_info.setMemoryTypeIndex(
-			p_render.getMemoryTypeIndex(l_requirements.memoryTypeBits, vk::MemoryPropertyFlags(vk::MemoryPropertyFlagBits::eDeviceLocal)));
-		this->buffer.memory = p_render.device.allocateMemory(l_memory_allocate_info);
-		p_render.device.bindBufferMemory(this->buffer.buffer, this->buffer.memory, 0);
+			p_render.device.getMemoryTypeIndex(l_requirements.memoryTypeBits, vk::MemoryPropertyFlags(vk::MemoryPropertyFlagBits::eDeviceLocal)));
+		this->buffer.memory = p_render.device.device.allocateMemory(l_memory_allocate_info);
+		p_render.device.device.bindBufferMemory(this->buffer.buffer, this->buffer.memory, 0);
 
 		vk::BufferCopy l_buffer_copy_regions;
 		l_buffer_copy_regions.setSize(l_buffer_size);
 		p_commandBuffer.command_buffer.copyBuffer(out_staging_buffer->buffer, this->buffer.buffer, 1, &l_buffer_copy_regions);
 	}
 
-	inline void dispose(const vk::Device& p_device)
+	inline void dispose(const Device& p_device)
 	{
 		this->buffer.dispose(p_device);
 	}
 };
-
 
 template<class ElementType = char, class StagingUsage = Staging>
 struct VertexBuffer
@@ -1180,7 +1249,7 @@ struct VertexBuffer
 		this->buffer.allocate_buffered(p_commandBuffer, p_element_number, p_source, vk::BufferUsageFlags(vk::BufferUsageFlagBits::eVertexBuffer), p_render, out_staging_buffer);
 	};
 
-	inline void dispose(const vk::Device& p_device)
+	inline void dispose(const Device& p_device)
 	{
 		this->buffer.dispose(p_device);
 	}
@@ -1203,7 +1272,7 @@ struct IndexBuffer
 		this->buffer.allocate_buffered(p_commandBuffer, p_element_number, p_source, vk::BufferUsageFlags(vk::BufferUsageFlagBits::eIndexBuffer), p_render, out_staging_buffer);
 	};
 
-	inline void dispose(const vk::Device& p_device)
+	inline void dispose(const Device& p_device)
 	{
 		this->buffer.dispose(p_device);
 	}
@@ -1219,7 +1288,7 @@ struct Mesh
 
 	inline Mesh(const com::Vector<Vertex>& p_vertcies, const com::Vector<uint32_t>& p_indices, const RenderAPI& p_render)
 	{
-		CommandBuffer l_copy_cmd = CommandBuffer(p_render.device, p_render.command_pool, p_render.graphics_queue);
+		CommandBuffer l_copy_cmd = CommandBuffer(p_render.device, p_render.command_pool, p_render.device.graphics_queue);
 		l_copy_cmd.begin();
 
 		AGPUBuffer<Vertex> l_vertexBuffer_staging;
@@ -1233,22 +1302,19 @@ struct Mesh
 		this->indices_length = p_indices.Size;
 	}
 
-	inline void dispose(const vk::Device& p_device)
+	inline void dispose(const Device& p_device)
 	{
 		this->vertices.dispose(p_device);
 		this->indices.dispose(p_device);
 	}
 };
 
-typedef size_t MaterialHandle;
 struct Material
 {
 	//TODO, descriptor set
 
 	Material(){}
 };
-
-typedef size_t RenderableObjectHandle;
 
 struct RenderableObject
 {
@@ -1289,8 +1355,13 @@ struct RenderHeap
 		this->shaders_to_materials.alloc_element(com::Vector<com::PoolToken<Optional<Material>>>());
 		return l_shader_handle;
 	}
+	
+	inline com::PoolToken<Optional<Shader>> pushShader(Shader&& p_shader)
+    {
+        return this->pushShader((Shader&)p_shader);
+    }
 
-	inline void disposeShader(const com::PoolToken<Optional<Shader>> p_shader, const vk::Device& p_device)
+	inline void disposeShader(const com::PoolToken<Optional<Shader>> p_shader, const Device& p_device)
 	{
 		Optional<Shader>& l_shader = this->shaders[p_shader];
 		l_shader.value.dispose(p_device);
@@ -1341,7 +1412,7 @@ struct RenderHeap
 
 struct Render
 {
-	Window window;
+	RenderWindow window;
 	RenderAPI renderApi;
 
 	RenderHeap heap;
@@ -1351,7 +1422,7 @@ struct Render
 
 	inline Render()
 	{
-		this->window = Window(800, 600, "MyGame");
+		this->window = RenderWindow(800, 600, "MyGame");
 		this->renderApi.init(window);
 		this->shader = this->heap.pushShader(Shader(this->renderApi.device, this->renderApi.swap_chain.renderpass, "E:/GameProjects/CPPTestVS/Render/shader/TriVert.spv", "E:/GameProjects/CPPTestVS/Render/shader/TriFrag.spv"));
 		this->createVertexBuffer();
@@ -1385,8 +1456,10 @@ private:
 		l_indicesBuffer[0] = 0; l_indicesBuffer[1] = 1; l_indicesBuffer[2] = 2;
 
 		this->l_mesh = this->heap.meshes.alloc_element(Mesh(l_vertexBuffer, l_indicesBuffer, this->renderApi));
-		com::PoolToken<Optional<Material>> l_material = this->heap.pushMaterial(this->shader, Material());
-		this->heap.pushRendereableObject(l_material, RenderableObject(this->l_mesh));
+        Material tmp_material = Material();
+		com::PoolToken<Optional<Material>> l_material = this->heap.pushMaterial(this->shader, tmp_material);
+        RenderableObject tmp_renderableobject = RenderableObject(this->l_mesh);
+		this->heap.pushRendereableObject(l_material, tmp_renderableobject);
 	}
 
 	inline void destroyVertexBuffer()
@@ -1416,8 +1489,8 @@ private:
 	inline void draw()
 	{
 		uint32_t l_render_image_index = this->renderApi.swap_chain.getNextImage(this->renderApi.synchronization.present_complete_semaphore);
-		this->renderApi.device.waitForFences(1, &this->renderApi.synchronization.draw_command_fences[l_render_image_index], true, UINT64_MAX);
-		this->renderApi.device.resetFences(1, &this->renderApi.synchronization.draw_command_fences[l_render_image_index]);
+		this->renderApi.device.device.waitForFences(1, &this->renderApi.synchronization.draw_command_fences[l_render_image_index], true, UINT64_MAX);
+		this->renderApi.device.device.resetFences(1, &this->renderApi.synchronization.draw_command_fences[l_render_image_index]);
 
 
 		vk::ClearValue l_clear;
@@ -1495,8 +1568,8 @@ private:
 		l_submit.setPCommandBuffers(&l_command_buffer.command_buffer);
 
 
-		this->renderApi.graphics_queue.submit(1, &l_submit, this->renderApi.synchronization.draw_command_fences[l_render_image_index]);
-		this->renderApi.swap_chain.presentImage(this->renderApi.present_queue, l_render_image_index, this->renderApi.synchronization.render_complete_semaphore);
+		this->renderApi.device.graphics_queue.submit(1, &l_submit, this->renderApi.synchronization.draw_command_fences[l_render_image_index]);
+		this->renderApi.swap_chain.presentImage(this->renderApi.device.present_queue, l_render_image_index, this->renderApi.synchronization.render_complete_semaphore);
 	}
 };
 

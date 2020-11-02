@@ -257,11 +257,11 @@ namespace Math
 		return normalize(
 			Quaternion(
 				add(
-					add(mul(p_left.Vec, p_right.w),
-						mul(p_right.Vec, p_left.w)),
-					cross(p_left.Vec, p_right.Vec)
+					add(mul(p_left.Vec3s.Vec, p_right.w),
+						mul(p_right.Vec3s.Vec, p_left.w)),
+					cross(p_left.Vec3s.Vec, p_right.Vec3s.Vec)
 				),
-				(p_left.w * p_right.w) - dot(p_left.Vec, p_right.Vec)
+				(p_left.w * p_right.w) - dot(p_left.Vec3s.Vec, p_right.Vec3s.Vec)
 			)
 		);
 	}
@@ -269,8 +269,8 @@ namespace Math
 	inline Quaternion conjugate(const Quaternion& p_left)
 	{
 		return Quaternion(
-			mul(p_left.Vec, -1.0f),
-			p_left.Scal
+			mul(p_left.Vec3s.Vec, -1.0f),
+			p_left.Vec3s.Scal
 		);
 	};
 
@@ -289,7 +289,7 @@ namespace Math
 	{
 		Quaternion l_vectorAsQuat(p_vector, 0.0f);
 		Quaternion l_rotatedVector = mul(p_rotation, l_vectorAsQuat);
-		return normalize(mul(l_rotatedVector, conjugate(p_rotation)).Vec);
+		return normalize(mul(l_rotatedVector, conjugate(p_rotation)).Vec3s.Vec);
 	};
 
 	inline Quaternion cross(const Quaternion& p_left, const  Quaternion& p_right)

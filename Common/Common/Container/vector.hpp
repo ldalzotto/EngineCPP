@@ -3,6 +3,7 @@
 #include "vector_def.hpp"
 
 #include <stdlib.h>
+#include <string.h>
 
 namespace com
 {
@@ -229,4 +230,6 @@ namespace com
 
 		return 0;
 	};
+
+
 }

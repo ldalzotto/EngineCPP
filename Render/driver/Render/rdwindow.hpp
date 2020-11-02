@@ -1,3 +1,4 @@
+#pragma once
 
 #include <GLFW/glfwinclude.h>
 #include <string>
@@ -26,9 +27,18 @@ struct rdwindow
 		return glfwPollEvents();
 	}
 
+#ifdef _WIN32
 	inline static HWND get_window_native(const WindowHandle& p_windowHandle)
 	{
 		return glfwGetWin32Window(p_windowHandle);
 	}
+#endif
+
+#ifdef linux
+    inline static Window get_window_native(const WindowHandle& p_windowHandle)
+    {
+        return glfwGetX11Window(p_windowHandle);
+    };
+#endif
 
 };
