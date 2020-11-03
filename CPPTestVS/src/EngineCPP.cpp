@@ -66,18 +66,12 @@ int main()
 	l_vf.swap(0, 1);
 	
 	com::Vector<float> l_vf2 = l_vf;
-	// l_vf2.copy(l_vf);
-	//(10);
 	
 	l_vf2 = com::Vector<float>(100);
 
 	com::Pool<float> l_pool(10);
 	com::PoolToken<float> l_zd = l_pool.alloc_element(5.0f);
 	float& l_f = l_pool.resolve(l_zd);
-	
-	// l_vf.dispose();
-	// l_pool.dispose();
-
 	
 	EngineHandle l_engine = engine_create();
 	engine_mainloop(l_engine);

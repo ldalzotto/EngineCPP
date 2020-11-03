@@ -1,5 +1,3 @@
-#pragma once
-
 #include <interface/Render/render.hpp>
 #include <driver/Render/rdwindow.hpp>
 #include "Math/math.hpp"
@@ -179,7 +177,7 @@ struct RenderPass
 
 	void create(const Device& p_device, vk::SurfaceFormatKHR p_surface_format, vk::Format p_depth_format)
 	{
-		com::Vector<vk::AttachmentDescription> l_attachments(1);
+		com::Vector<vk::AttachmentDescription> l_attachments(2);
 		l_attachments.Size = l_attachments.Capacity;
 
 		vk::AttachmentDescription& l_color_attachment = l_attachments[0];
@@ -188,13 +186,11 @@ struct RenderPass
 		l_color_attachment.setSamples(vk::SampleCountFlagBits::e1);
 		l_color_attachment.setLoadOp(vk::AttachmentLoadOp::eClear);
 		l_color_attachment.setStoreOp(vk::AttachmentStoreOp::eStore);
-		// l_color_attachment.setStencilLoadOp(vk::AttachmentLoadOp::eDontCare);
-		// l_color_attachment.setStencilStoreOp(vk::AttachmentStoreOp::eDontCare);
+		l_color_attachment.setStencilLoadOp(vk::AttachmentLoadOp::eDontCare);
+		l_color_attachment.setStencilStoreOp(vk::AttachmentStoreOp::eDontCare);
 		l_color_attachment.setInitialLayout(vk::ImageLayout::eUndefined);
 		l_color_attachment.setFinalLayout(vk::ImageLayout::ePresentSrcKHR);
-
-		//TODO Depth
-		/*
+				
 		vk::AttachmentDescription& l_depth_attachment = l_attachments[1];
 		l_depth_attachment = vk::AttachmentDescription();
 		l_depth_attachment.setFormat(p_depth_format);
@@ -205,8 +201,7 @@ struct RenderPass
 		l_depth_attachment.setStencilStoreOp(vk::AttachmentStoreOp::eDontCare);
 		l_depth_attachment.setInitialLayout(vk::ImageLayout::eUndefined);
 		l_depth_attachment.setFinalLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal);
-		*/
-
+		
 		com::Vector<vk::SubpassDescription> l_subpasses(1);
 		l_subpasses.Size = 1;
 
@@ -214,18 +209,16 @@ struct RenderPass
 		l_color_attachment_ref.setAttachment(0);
 		l_color_attachment_ref.setLayout(vk::ImageLayout::eColorAttachmentOptimal);
 
-		/*
 		vk::AttachmentReference l_depth_atttachment_ref;
 		l_depth_atttachment_ref.setAttachment(1);
 		l_depth_atttachment_ref.setLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal);
-		*/
 
 		vk::SubpassDescription& l_color_subpass = l_subpasses[0];
 		l_color_subpass = vk::SubpassDescription();
 		l_color_subpass.setPipelineBindPoint(vk::PipelineBindPoint::eGraphics);
 		l_color_subpass.setColorAttachmentCount(1);
 		l_color_subpass.setPColorAttachments(&l_color_attachment_ref);
-		// l_color_subpass.setPDepthStencilAttachment(&l_depth_atttachment_ref);
+		l_color_subpass.setPDepthStencilAttachment(&l_depth_atttachment_ref);
 
 		vk::RenderPassCreateInfo l_renderpass_create_info;
 		l_renderpass_create_info.setAttachmentCount((uint32_t)l_attachments.Size);
@@ -326,12 +319,22 @@ template<>
 struct BufferMemoryType<BufferMemory>
 {
 	vk::Buffer buffer;
+
+	inline void destroy(const Device& p_device)
+	{
+		p_device.device.destroyBuffer(this->buffer);
+	}
 };
 
 template<>
 struct BufferMemoryType<ImageMemory>
 {
 	vk::Image buffer;
+
+	inline void destroy(const Device& p_device)
+	{
+		p_device.device.destroyImage(this->buffer);
+	}
 };
 
 template<class ElementType = char, class BufferType = BufferMemory, class StagingUsage = Staging>
@@ -345,7 +348,7 @@ struct AGPUBuffer
 		if (this->memory)
 		{
 			p_device.device.freeMemory(this->memory);
-			p_device.device.destroyBuffer(this->buffer.buffer);
+			this->buffer.destroy(p_device);
 			this->memory = nullptr;
 			this->buffer.buffer = nullptr;
 		}
@@ -354,6 +357,11 @@ struct AGPUBuffer
 	inline void bindBufferMemory(const Device& p_device, vk::DeviceSize p_memoryoffset)
 	{
 		p_device.device.bindBufferMemory(this->buffer.buffer, this->memory, p_memoryoffset);
+	};
+
+	inline void bindImageMemory(const Device& p_device, vk::DeviceSize p_memoryoffset)
+	{
+		p_device.device.bindImageMemory(this->buffer.buffer, this->memory, p_memoryoffset);
 	};
 };
 
@@ -374,10 +382,10 @@ struct GPUBuffer<ElementType, Staging>
 		l_copy_cmd.begin();
 
 		StaginBuffer<ElementType> l_staging_buffer;
-		this->allocate_buffered(l_copy_cmd, p_element_number, p_source, p_usageflags, p_render, &l_staging_buffer);
+		this->allocate_buffered(l_copy_cmd, p_element_number, p_source, p_usageflags, p_device, &l_staging_buffer);
 
-		l_copy_cmd.flush(p_render.device);
-		l_staging_buffer.dispose(p_render.device);
+		l_copy_cmd.flush(p_device);
+		l_staging_buffer.dispose(p_device);
 	}
 
 	inline void allocate_buffered(CommandBuffer& p_commandBuffer, size_t p_element_number, const void* p_source, vk::BufferUsageFlags p_usageflags, const Device& p_device,
@@ -482,6 +490,19 @@ struct IndexBuffer : public GPUBuffer<ElementType, StagingUsage>
 	};
 };
 
+struct ImageBuffer : public AGPUBuffer<char, ImageMemory, NotStaging>
+{
+	inline void allocate(vk::ImageCreateInfo p_imagecreateinfo, const Device& p_device)
+	{
+		this->buffer.buffer = p_device.device.createImage(p_imagecreateinfo);
+		vk::MemoryAllocateInfo l_memory_allocate_info;
+		vk::MemoryRequirements l_memory_requirements = p_device.device.getImageMemoryRequirements(this->buffer.buffer);
+		l_memory_allocate_info.setAllocationSize(l_memory_requirements.size);
+		l_memory_allocate_info.setMemoryTypeIndex(p_device.getMemoryTypeIndex(l_memory_requirements.memoryTypeBits, vk::MemoryPropertyFlags(vk::MemoryPropertyFlagBits::eDeviceLocal)));
+		this->memory = p_device.device.allocateMemory(l_memory_allocate_info);
+		this->bindImageMemory(p_device, 0);
+	}
+};
 
 
 struct SwapChain
@@ -501,8 +522,13 @@ public:
 	vk::PresentModeKHR present_mode;
 	vk::Extent2D extend;
 	uint32_t image_count;
+
 	std::vector<vk::Image> images;
 	com::Vector<SwapChainBuffer> buffers;
+
+	ImageBuffer depth_image;
+	vk::ImageView depth_image_view;
+
 	SwapChainBuffer depth_stencil;
 
 	RenderPass renderpass;
@@ -555,7 +581,7 @@ public:
 		this->handle = this->device->device.createSwapchainKHR(l_swapchain_create_info);
 
 		this->create_images();
-		// this->create_depth();
+		this->create_depth_image();
 		this->createRenderPass(p_device);
 		this->create_framebuffers(p_device);
 	}
@@ -564,6 +590,7 @@ public:
 	{
 		this->destroy_framebuffers();
 		this->destroyRenderPass();
+		this->destroy_depth_image();
 		this->destroy_images();
 		this->device->device.destroySwapchainKHR(this->handle);
 	}
@@ -697,10 +724,9 @@ private:
 
 	inline void create_depth_image()
 	{
-		this->depth_format = vk::Format::eR16Sfloat;
-
-		//TODO Depth
-		/*
+		//TODO -> format check
+		this->depth_format = vk::Format::eD16Unorm;
+		
 		vk::ImageCreateInfo l_depth_image_create_info;
 		l_depth_image_create_info.setImageType(vk::ImageType::e2D);
 		l_depth_image_create_info.setFormat(this->depth_format);
@@ -711,9 +737,30 @@ private:
 		l_depth_image_create_info.setTiling(vk::ImageTiling::eOptimal);
 		l_depth_image_create_info.setUsage(vk::ImageUsageFlagBits::eDepthStencilAttachment);
 		l_depth_image_create_info.setInitialLayout(vk::ImageLayout::eUndefined);
-		vk::Image l_depth_image = this->device->createImage(l_depth_image_create_info);
-		igiihuihu
-		*/
+		
+		this->depth_image.allocate(l_depth_image_create_info, *this->device);
+		
+		vk::ImageViewCreateInfo l_depth_view_create_info;
+		l_depth_view_create_info.setImage(this->depth_image.buffer.buffer);
+		l_depth_view_create_info.setViewType(vk::ImageViewType::e2D);
+		l_depth_view_create_info.setFormat(this->depth_format);
+		l_depth_view_create_info.setComponents(vk::ComponentMapping());
+		
+		vk::ImageSubresourceRange l_image_subresource;
+		l_image_subresource.setBaseMipLevel(0);
+		l_image_subresource.setLevelCount(1);
+		l_image_subresource.setBaseArrayLayer(0);
+		l_image_subresource.setLayerCount(1);
+		l_image_subresource.setAspectMask(vk::ImageAspectFlagBits::eDepth);
+		l_depth_view_create_info.setSubresourceRange(l_image_subresource);
+
+		this->depth_image_view = this->device->device.createImageView(l_depth_view_create_info);
+	}
+
+	inline void destroy_depth_image()
+	{
+		this->device->device.destroyImageView(this->depth_image_view);
+		this->depth_image.dispose(*this->device);
 	}
 
 	inline void createRenderPass(const Device& p_device)
@@ -732,9 +779,10 @@ private:
 		this->framebuffers.Size = this->framebuffers.Capacity;
 		for (size_t i = 0; i < this->framebuffers.Size; i++)
 		{
-			com::Vector<vk::ImageView> l_attachments(1);
+			com::Vector<vk::ImageView> l_attachments(2);
 			l_attachments.Size = l_attachments.Capacity;
 			l_attachments[0] = this->buffers[i].view;
+			l_attachments[1] = this->depth_image_view;
 
 			vk::FramebufferCreateInfo l_framebuffer_create;
 			l_framebuffer_create.setRenderPass(this->renderpass.l_render_pass);
@@ -1186,11 +1234,18 @@ private:
 		l_dynamicstates.setDynamicStateCount((uint32_t)l_dynamicstates_enabled.Size);
 		l_dynamicstates.setPDynamicStates(l_dynamicstates_enabled.Memory);
 
-		/*
 		vk::PipelineDepthStencilStateCreateInfo l_depthstencil_state;
 		l_depthstencil_state.setDepthTestEnable(true);
+		l_depthstencil_state.setDepthWriteEnable(true);
+		l_depthstencil_state.setDepthCompareOp(vk::CompareOp::eLessOrEqual);
+		l_depthstencil_state.setDepthBoundsTestEnable(false);
+		vk::StencilOpState l_back;
+		l_back.setCompareOp(vk::CompareOp::eAlways);
+		l_back.setFailOp(vk::StencilOp::eKeep);
+		l_back.setPassOp(vk::StencilOp::eKeep);
+		l_depthstencil_state.setBack(l_back);
+		l_depthstencil_state.setFront(l_back);
 		l_depthstencil_state.setStencilTestEnable(false);
-		*/
 
 		vk::PipelineMultisampleStateCreateInfo l_multisample_state;
 		l_multisample_state.setRasterizationSamples(vk::SampleCountFlagBits::e1);
@@ -1261,6 +1316,7 @@ private:
 		l_pipeline_graphcis_create_info.setPColorBlendState(&l_blendattachment_state_create);
 		l_pipeline_graphcis_create_info.setPMultisampleState(&l_multisample_state);
 		l_pipeline_graphcis_create_info.setPViewportState(&l_viewport_state);
+		l_pipeline_graphcis_create_info.setPDepthStencilState(&l_depthstencil_state);
 		l_pipeline_graphcis_create_info.setPDynamicState(&l_dynamicstates);
 
 		this->pipeline = p_device.device.createGraphicsPipeline(vk::PipelineCache(), l_pipeline_graphcis_create_info);
@@ -1527,8 +1583,10 @@ private:
 		this->renderApi.device.device.resetFences(1, &this->renderApi.synchronization.draw_command_fences[l_render_image_index]);
 
 
-		vk::ClearValue l_clear;
-		l_clear.color.setFloat32({ 0.0f, 0.0f, 0.2f, 1.0f });
+		vk::ClearValue l_clear[2];
+		l_clear[0].color.setFloat32({ 0.0f, 0.0f, 0.2f, 1.0f });
+		l_clear[1].depthStencil.setDepth(1.0f);
+		l_clear[1].depthStencil.setStencil(0.0f);
 
 		vk::RenderPassBeginInfo l_renderpass_begin;
 		l_renderpass_begin.setPNext(nullptr);
@@ -1537,8 +1595,8 @@ private:
 		l_renderArea.setOffset(vk::Offset2D(0,0));
 		l_renderArea.setExtent(this->renderApi.swap_chain.extend);
 		l_renderpass_begin.setRenderArea(l_renderArea);
-		l_renderpass_begin.setClearValueCount(1);
-		l_renderpass_begin.setPClearValues(&l_clear);
+		l_renderpass_begin.setClearValueCount(2);
+		l_renderpass_begin.setPClearValues(l_clear);
 		l_renderpass_begin.setFramebuffer(this->renderApi.swap_chain.framebuffers[l_render_image_index]);
 
 		vk::Viewport l_viewport;
