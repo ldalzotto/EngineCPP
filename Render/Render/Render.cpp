@@ -202,7 +202,7 @@ struct RenderPass
 		l_color_attachment.setStencilStoreOp(vk::AttachmentStoreOp::eDontCare);
 		l_color_attachment.setInitialLayout(vk::ImageLayout::eUndefined);
 		l_color_attachment.setFinalLayout(vk::ImageLayout::ePresentSrcKHR);
-				
+
 		vk::AttachmentDescription& l_depth_attachment = l_attachments[1];
 		l_depth_attachment = vk::AttachmentDescription();
 		l_depth_attachment.setFormat(p_depth_format);
@@ -213,7 +213,7 @@ struct RenderPass
 		l_depth_attachment.setStencilStoreOp(vk::AttachmentStoreOp::eDontCare);
 		l_depth_attachment.setInitialLayout(vk::ImageLayout::eUndefined);
 		l_depth_attachment.setFinalLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal);
-		
+
 		com::Vector<vk::SubpassDescription> l_subpasses(1);
 		l_subpasses.Size = 1;
 
@@ -321,18 +321,18 @@ struct CommandBuffer
 //        allowing to push only slice of src or dst buffer. Widht bound check on debug ?
 
 // What kind of memory ? Buffer or Image ? Binding methods call to vulkan will change depending of this
-struct MemoryType{};
-struct BufferType : public MemoryType{};
+struct MemoryType {};
+struct BufferType : public MemoryType {};
 struct ImageType : public MemoryType {};
 
 
-struct WriteMethod{};
+struct WriteMethod {};
 
 // * HostWrite : Allow mapping to host memory.
-struct HostWrite : public MemoryType{};
+struct HostWrite : public MemoryType {};
 // * GPUWrite : Allow writing by copying from a source buffer.
 //              Cannot be accesses from from host.
-struct GPUWrite : public MemoryType{};
+struct GPUWrite : public MemoryType {};
 
 template<class BufferType>
 struct BufferMemoryStructure { };
@@ -360,7 +360,7 @@ struct BufferMemoryStructure<ImageType>
 };
 
 template<class ElementType, class WriteMethod>
-struct MappedMemory{};
+struct MappedMemory {};
 
 template<class ElementType>
 struct MappedMemory<ElementType, HostWrite>
@@ -402,7 +402,7 @@ struct MappedMemory<ElementType, HostWrite>
 };
 
 template<class ElementType>
-struct MappedMemory<ElementType, GPUWrite>{};
+struct MappedMemory<ElementType, GPUWrite> {};
 
 // A GPUMemory is a combinaison of three components : 
 // * ElementType -> provide type safety to mapped data access and buffer size calculation
@@ -415,6 +415,11 @@ struct GPUMemory
 	BufferMemoryStructure<MemoryType> buffer;
 	MappedMemory<ElementType, WriteMethod> mapped_memory = MappedMemory<ElementType, WriteMethod>();
 	size_t Capacity;
+
+	inline vk::Buffer getBuffer() const { return this->buffer.buffer; }
+	inline void setBuffer(vk::Buffer p_buffer) { this->buffer.buffer = p_buffer; }
+	inline vk::Image getImage() const { return this->buffer.buffer; }
+	inline void setImage(vk::Image p_image) { this->buffer.buffer = p_image; }
 };
 
 // Templated structure that holds BufferType memory.
@@ -465,11 +470,11 @@ public:
 		size_t l_buffer_size = p_element_number * sizeof(ElementType);
 
 		vk::BufferCreateInfo l_buffercreate_info;
-		l_buffercreate_info.setUsage(vk::BufferUsageFlags(p_usageflags | vk::BufferUsageFlagBits::eTransferSrc) );
+		l_buffercreate_info.setUsage(vk::BufferUsageFlags(p_usageflags | vk::BufferUsageFlagBits::eTransferSrc));
 		l_buffercreate_info.setSize(l_buffer_size);
-		p_gpumemory.buffer.buffer = p_device.device.createBuffer(l_buffercreate_info);
+		p_gpumemory.setBuffer(p_device.device.createBuffer(l_buffercreate_info));
 
-		vk::MemoryRequirements l_requirements = p_device.device.getBufferMemoryRequirements(p_gpumemory.buffer.buffer);
+		vk::MemoryRequirements l_requirements = p_device.device.getBufferMemoryRequirements(p_gpumemory.getBuffer());
 
 		vk::MemoryAllocateInfo l_memory_allocate_info;
 		l_memory_allocate_info.setAllocationSize(l_requirements.size);
@@ -485,9 +490,9 @@ public:
 	// <char, ImageType, GPUWrite>
 	inline static void allocate(GPUMemory<char, ImageType, GPUWrite>& p_gpumemory, const vk::ImageCreateInfo& p_imagecreateinfo, const Device& p_device)
 	{
-		p_gpumemory.buffer.buffer = p_device.device.createImage(p_imagecreateinfo);
+		p_gpumemory.setImage(p_device.device.createImage(p_imagecreateinfo));
 		vk::MemoryAllocateInfo l_memory_allocate_info;
-		vk::MemoryRequirements l_memory_requirements = p_device.device.getImageMemoryRequirements(p_gpumemory.buffer.buffer);
+		vk::MemoryRequirements l_memory_requirements = p_device.device.getImageMemoryRequirements(p_gpumemory.getImage());
 		l_memory_allocate_info.setAllocationSize(l_memory_requirements.size);
 		l_memory_allocate_info.setMemoryTypeIndex(p_device.getMemoryTypeIndex(l_memory_requirements.memoryTypeBits, vk::MemoryPropertyFlags(vk::MemoryPropertyFlagBits::eDeviceLocal)));
 		p_gpumemory.memory = p_device.device.allocateMemory(l_memory_allocate_info);
@@ -504,9 +509,9 @@ public:
 		vk::BufferCreateInfo l_buffercreate_info;
 		l_buffercreate_info.setUsage(p_usageflags | vk::BufferUsageFlags(vk::BufferUsageFlagBits::eTransferDst));
 		l_buffercreate_info.setSize(l_buffer_size);
-		p_gpumemory.buffer.buffer = p_device.device.createBuffer(l_buffercreate_info);
+		p_gpumemory.setBuffer(p_device.device.createBuffer(l_buffercreate_info));
 
-		vk::MemoryRequirements l_requirements = p_device.device.getBufferMemoryRequirements(p_gpumemory.buffer.buffer);
+		vk::MemoryRequirements l_requirements = p_device.device.getBufferMemoryRequirements(p_gpumemory.getBuffer());
 
 		vk::MemoryAllocateInfo l_memory_allocate_info;
 		l_memory_allocate_info.setAllocationSize(l_requirements.size);
@@ -521,6 +526,7 @@ public:
 	template<class ElementType, class MemoryType>
 	inline static void push(GPUMemory<ElementType, MemoryType, HostWrite>& p_gpumemory, const ElementType* p_source, const Device& p_device)
 	{
+		//Buffer is already mapped
 		p_gpumemory.mapped_memory.copyFrom(p_source);
 	}
 
@@ -541,14 +547,14 @@ public:
 
 	template<class ElementType, class MemoryType>
 	inline static void push_commandbuffer(GPUMemory<ElementType, MemoryType, GPUWrite>& p_gpumemory, const ElementType* p_source, const Device& p_device,
-							CommandBuffer& p_commandBuffer, StagingMemory<ElementType>* out_staging_buffer)
+		CommandBuffer& p_commandBuffer, StagingMemory<ElementType>* out_staging_buffer)
 	{
 		out_staging_buffer->allocate(p_gpumemory.Capacity, p_device);
 		out_staging_buffer->push(p_source, p_device);
-		
+
 		vk::BufferCopy l_buffer_copy_regions;
 		l_buffer_copy_regions.setSize(p_gpumemory.Capacity * sizeof(ElementType));
-		p_commandBuffer.command_buffer.copyBuffer(out_staging_buffer->buffer.buffer, p_gpumemory.buffer.buffer, 1, &l_buffer_copy_regions);
+		p_commandBuffer.command_buffer.copyBuffer(out_staging_buffer->getBuffer(), p_gpumemory.getBuffer(), 1, &l_buffer_copy_regions);
 	}
 
 	// <ElementType, BufferType, WriteMethod>
@@ -562,10 +568,7 @@ public:
 				GPUMemoryKernel::unmap(p_gpumemory, p_device);
 			}
 
-			p_device.device.freeMemory(p_gpumemory.memory);
-			p_gpumemory.buffer.destroy(p_device);
-			p_gpumemory.memory = nullptr;
-			p_gpumemory.buffer.buffer = nullptr;
+			GPUMemoryKernel::destroy_buffer(p_gpumemory, p_device);
 		}
 	};
 
@@ -575,10 +578,7 @@ public:
 	{
 		if (p_gpumemory.memory)
 		{
-			p_device.device.freeMemory(p_gpumemory.memory);
-			p_gpumemory.buffer.destroy(p_device);
-			p_gpumemory.memory = nullptr;
-			p_gpumemory.buffer.buffer = nullptr;
+			GPUMemoryKernel::destroy_buffer(p_gpumemory, p_device);
 		}
 	};
 
@@ -607,6 +607,15 @@ private:
 	{
 		p_device.device.bindImageMemory(p_gpumemory.buffer.buffer, p_gpumemory.memory, p_memoryoffset);
 	};
+
+	template<class ElementType, class MemoryType, class WriteMethod>
+	inline static void destroy_buffer(GPUMemory<ElementType, MemoryType, WriteMethod>& p_gpumemory, const Device& p_device)
+	{
+		p_device.device.freeMemory(p_gpumemory.memory);
+		p_gpumemory.buffer.destroy(p_device);
+		p_gpumemory.memory = nullptr;
+		p_gpumemory.buffer.buffer = nullptr;
+	}
 
 };
 
@@ -713,7 +722,7 @@ public:
 	} SwapChainBuffer;
 
 	vk::SwapchainKHR handle;
-	
+
 	vk::SurfaceFormatKHR surface_format;
 	vk::Format depth_format;
 
@@ -924,7 +933,7 @@ private:
 	{
 		//TODO -> format check
 		this->depth_format = vk::Format::eD16Unorm;
-		
+
 		vk::ImageCreateInfo l_depth_image_create_info;
 		l_depth_image_create_info.setImageType(vk::ImageType::e2D);
 		l_depth_image_create_info.setFormat(this->depth_format);
@@ -935,15 +944,15 @@ private:
 		l_depth_image_create_info.setTiling(vk::ImageTiling::eOptimal);
 		l_depth_image_create_info.setUsage(vk::ImageUsageFlagBits::eDepthStencilAttachment);
 		l_depth_image_create_info.setInitialLayout(vk::ImageLayout::eUndefined);
-		
+
 		this->depth_image.allocate(l_depth_image_create_info, *this->device);
-		
+
 		vk::ImageViewCreateInfo l_depth_view_create_info;
 		l_depth_view_create_info.setImage(this->depth_image.buffer.buffer);
 		l_depth_view_create_info.setViewType(vk::ImageViewType::e2D);
 		l_depth_view_create_info.setFormat(this->depth_format);
 		l_depth_view_create_info.setComponents(vk::ComponentMapping());
-		
+
 		vk::ImageSubresourceRange l_image_subresource;
 		l_image_subresource.setBaseMipLevel(0);
 		l_image_subresource.setLevelCount(1);
@@ -1008,7 +1017,7 @@ struct RenderAPI
 {
 	vk::Instance instance;
 	VkDebugUtilsMessengerEXT debugMessenger;
-	
+
 	Device device;
 
 	vk::SurfaceKHR surface;
@@ -1030,7 +1039,7 @@ struct RenderAPI
 	Sync synchronization;
 
 	ValidationLayer validation_layer;
-	
+
 
 	RenderAPI() = default;
 
@@ -1131,8 +1140,8 @@ private:
 		l_glfw_extensions = glfwGetRequiredInstanceExtensions(&l_glfw_extension_count);
 
 		p_extensions = com::Vector<const char*>(l_glfw_extension_count);
-        
-        auto l_memoryslice = com::MemorySlice<const char*>(*l_glfw_extensions, (size_t)l_glfw_extension_count);
+
+		auto l_memoryslice = com::MemorySlice<const char*>(*l_glfw_extensions, (size_t)l_glfw_extension_count);
 		p_extensions.insert_at(l_memoryslice, 0);
 
 		if (this->validation_layer.enabled)
@@ -1220,10 +1229,10 @@ private:
 		this->surface = this->instance.createWin32SurfaceKHR(l_surfeca_create_info);
 #endif
 #ifdef linux
-        vk::XlibSurfaceCreateInfoKHR l_surfeca_create_info;
-        l_surfeca_create_info.setWindow(rdwindow::get_window_native(p_window.Handle));
-        l_surfeca_create_info.setDpy(XOpenDisplay(nullptr));
-        this->surface = this->instance.createXlibSurfaceKHR(l_surfeca_create_info);
+		vk::XlibSurfaceCreateInfoKHR l_surfeca_create_info;
+		l_surfeca_create_info.setWindow(rdwindow::get_window_native(p_window.Handle));
+		l_surfeca_create_info.setDpy(XOpenDisplay(nullptr));
+		this->surface = this->instance.createXlibSurfaceKHR(l_surfeca_create_info);
 #endif
 	};
 
@@ -1318,6 +1327,35 @@ private:
 	{
 
 	}
+};
+
+
+template<class ElementType>
+struct ShaderParameterLayout
+{
+	vk::DescriptorSetLayout descriptorset_layout;
+
+	inline void create(const Device& p_device)
+	{
+		vk::DescriptorSetLayoutBinding l_layout_binding;
+		l_layout_binding.setDescriptorCount(1);
+		l_layout_binding.setDescriptorType(vk::DescriptorType::eUniformBuffer);
+		l_layout_binding.setStageFlags(vk::ShaderStageFlagBits::eVertex);
+		l_layout_binding.setPImmutableSamplers(nullptr);
+
+		vk::DescriptorSetLayoutCreateInfo l_descriptorset_layot_create;
+		l_descriptorset_layot_create.setBindingCount(1);
+		l_descriptorset_layot_create.setPBindings(&l_layout_binding);
+
+		this->descriptorset_layout = p_device.device.createDescriptorSetLayout(l_descriptorset_layot_create);
+	}
+
+	inline void destroy(const Device& p_device)
+	{
+		p_device.device.destroyDescriptorSetLayout(this->descriptorset_layout);
+		this->descriptorset_layout = nullptr;
+	}
+
 
 };
 
@@ -1330,18 +1368,19 @@ struct Shader
 		vk::ShaderStageFlagBits stage;
 	};
 
-	vk::DescriptorSetLayout descriptorset_layout;
 	vk::PipelineLayout pipeline_layout;
 	vk::Pipeline pipeline;
+	ShaderParameterLayout<CameraMatrices> camera_matrices_layout;
 
-	Shader() : descriptorset_layout(nullptr), pipeline_layout(nullptr), pipeline(nullptr)
+	Shader() : pipeline_layout(nullptr), pipeline(nullptr)
 	{
-		
+
 	}
 
 	Shader(const Device& p_device, const RenderPass& p_render_pass, const std::string& p_vertex_shader, const std::string& p_fragment_shader)
 	{
-		this->createDescriptorSetLayout(p_device);
+		// this->shader_parameters.create_shader_parameters(p_device);
+		this->create_descriptorset_layout(p_device);
 		this->createPipelineLayout(p_device);
 		this->createPipeline(p_device, p_render_pass, p_vertex_shader, p_fragment_shader);
 	}
@@ -1350,45 +1389,34 @@ struct Shader
 	{
 		this->destroyPipeline(p_device);
 		this->destroyPipelineLayout(p_device);
-		this->destroyDescriptorSetLayout(p_device);
+		this->destroy_descriptorset_layout(p_device);
 
-		this->descriptorset_layout = nullptr;
 		this->pipeline = nullptr;
 		this->pipeline_layout = nullptr;
 	}
 
 private:
 
-	inline void createDescriptorSetLayout(const Device& p_device)
+	inline void create_descriptorset_layout(const Device& p_device)
 	{
-		// Vertex uniform buffer
-		//TODO -> layout bindings are arrays
-		vk::DescriptorSetLayoutBinding l_layout_binding;
-		l_layout_binding.setDescriptorCount(1);
-		l_layout_binding.setStageFlags(vk::ShaderStageFlagBits::eVertex);
-
-		vk::DescriptorSetLayoutCreateInfo l_descriptorLayout_create_info;
-		l_descriptorLayout_create_info.setBindingCount(1);
-		l_descriptorLayout_create_info.setPBindings(&l_layout_binding);
-		
-		this->descriptorset_layout = p_device.device.createDescriptorSetLayout(l_descriptorLayout_create_info);
+		this->camera_matrices_layout.create(p_device);
 	}
 
-	inline void destroyDescriptorSetLayout(const Device& p_device)
+	inline void destroy_descriptorset_layout(const Device& p_device)
 	{
-		p_device.device.destroyDescriptorSetLayout(this->descriptorset_layout);
+		this->camera_matrices_layout.destroy(p_device);
 	}
 
 	inline void createPipelineLayout(const Device& p_device)
 	{
 		vk::PipelineLayoutCreateInfo l_pipelinelayout_create_info;
 		l_pipelinelayout_create_info.setSetLayoutCount(1);
-		l_pipelinelayout_create_info.setPSetLayouts(&this->descriptorset_layout);
+		l_pipelinelayout_create_info.setPSetLayouts(&this->camera_matrices_layout.descriptorset_layout);
 		this->pipeline_layout = p_device.device.createPipelineLayout(l_pipelinelayout_create_info);
 	}
 
 	inline void createPipeline(const Device& p_device, const RenderPass& p_renderPass,
-				const std::string& p_vertex_shader, const std::string& p_fragment_shader)
+		const std::string& p_vertex_shader, const std::string& p_fragment_shader)
 	{
 		vk::GraphicsPipelineCreateInfo l_pipeline_graphcis_create_info;
 		l_pipeline_graphcis_create_info.setLayout(this->pipeline_layout);
@@ -1486,7 +1514,7 @@ private:
 		l_shaderStages.Size = l_shaderStages.Capacity;
 		vk::PipelineShaderStageCreateInfo& l_vertex_stage = l_shaderStages[0];
 		l_vertex_stage = vk::PipelineShaderStageCreateInfo();
-		*(vk::StructureType*)&l_vertex_stage.sType = vk::StructureType::ePipelineShaderStageCreateInfo;
+		*(vk::StructureType*)& l_vertex_stage.sType = vk::StructureType::ePipelineShaderStageCreateInfo;
 		l_vertex_stage.setStage(vk::ShaderStageFlagBits::eVertex);
 		l_vertex_stage.setModule(vertex_shader.shader_module);
 		l_vertex_stage.setPName(vertex_shader.entry_name.c_str());
@@ -1531,7 +1559,7 @@ private:
 	{
 		size_t l_size;
 		std::string l_shader_code{};
-		
+
 
 		std::ifstream l_stream(p_file_path, std::ios::binary | std::ios::in | std::ios::ate);
 		if (l_stream.is_open())
@@ -1560,13 +1588,49 @@ private:
 	}
 };
 
+template<class ElementType>
+struct ShaderParameter
+{
+	vk::DescriptorSet descriptor_set;
+
+	ShaderParameter() : descriptor_set(nullptr) {}
+
+	ShaderParameter(const ShaderParameterLayout<ElementType>& p_shader_parameter, const Device& p_device, const vk::DescriptorPool p_descriptorpool)
+	{
+		vk::DescriptorSetAllocateInfo l_allocate_info;
+		l_allocate_info.setDescriptorPool(p_descriptorpool);
+		l_allocate_info.setDescriptorSetCount(1);
+		l_allocate_info.setPSetLayouts(&p_shader_parameter.descriptorset_layout);
+		this->descriptor_set = p_device.device.allocateDescriptorSets(l_allocate_info)[0];
+	}
+
+	void pushbuffer(const UniformMemory<ElementType>& p_buffer, const Device& p_device)
+	{
+		//TODO -> to update when buffers will be able to be offsetted
+		vk::DescriptorBufferInfo l_descriptor_buffer_info;
+		l_descriptor_buffer_info.setBuffer(p_buffer.getBuffer());
+		l_descriptor_buffer_info.setOffset(0);
+		l_descriptor_buffer_info.setRange(p_buffer.Capacity * sizeof(ElementType));
+
+		vk::WriteDescriptorSet l_write_descriptor_set;
+		l_write_descriptor_set.setDstSet(this->descriptor_set);
+		l_write_descriptor_set.setDescriptorCount(1);
+		l_write_descriptor_set.setDescriptorType(vk::DescriptorType::eUniformBuffer);
+		l_write_descriptor_set.setDstBinding(0);
+		l_write_descriptor_set.setPBufferInfo(&l_descriptor_buffer_info);
+
+		p_device.device.updateDescriptorSets(1, &l_write_descriptor_set, 0, nullptr);
+	}
+};
+
+
 struct Mesh
 {
 	VertexMemory<Vertex> vertices;
 	IndexMemory<uint32_t> indices;
 	size_t indices_length;
 
-	Mesh(){}
+	Mesh() {}
 
 	inline Mesh(const com::Vector<Vertex>& p_vertcies, const com::Vector<uint32_t>& p_indices, const RenderAPI& p_render)
 	{
@@ -1597,16 +1661,16 @@ struct Mesh
 
 struct Material
 {
-	//TODO, descriptor set
+	ShaderParameter<CameraMatrices> camera_matrices_shaderparameter;
 
-	Material(){}
+	Material() {}
 };
 
 struct RenderableObject
 {
 	com::PoolToken<Mesh> mesh;
 
-	RenderableObject(){}
+	RenderableObject() {}
 	RenderableObject(const com::PoolToken<Mesh>& p_mesh) : mesh(p_mesh) {	}
 
 	inline void dispose()
@@ -1641,11 +1705,11 @@ struct RenderHeap
 		this->shaders_to_materials.alloc_element(com::Vector<com::PoolToken<Optional<Material>>>());
 		return l_shader_handle;
 	}
-	
+
 	inline com::PoolToken<Optional<Shader>> pushShader(Shader&& p_shader)
-    {
-        return this->pushShader((Shader&)p_shader);
-    }
+	{
+		return this->pushShader((Shader&)p_shader);
+	}
 
 	inline void disposeShader(const com::PoolToken<Optional<Shader>> p_shader, const Device& p_device)
 	{
@@ -1713,7 +1777,8 @@ struct Render
 		this->window = RenderWindow(800, 600, "MyGame");
 		this->renderApi.init(window);
 		this->shader = this->heap.pushShader(Shader(this->renderApi.device, this->renderApi.swap_chain.renderpass, "E:/GameProjects/CPPTestVS/Render/shader/TriVert.spv", "E:/GameProjects/CPPTestVS/Render/shader/TriFrag.spv"));
-		
+
+		this->create_global_buffers();
 		this->createVertexBuffer();
 		this->draw();
 	};
@@ -1721,13 +1786,14 @@ struct Render
 	inline void dispose()
 	{
 		this->destroyVertexBuffer();
+		this->destroy_global_buffers();
 		this->heap.disposeShader(this->shader, this->renderApi.device);
 		this->renderApi.dispose();
 		this->window.dispose();
 	};
 
 private:
-	
+
 	inline void createVertexBuffer()
 	{
 		com::Vector<Vertex> l_vertexBuffer(3);
@@ -1744,9 +1810,13 @@ private:
 		l_indicesBuffer[0] = 0; l_indicesBuffer[1] = 1; l_indicesBuffer[2] = 2;
 
 		this->l_mesh = this->heap.meshes.alloc_element(Mesh(l_vertexBuffer, l_indicesBuffer, this->renderApi));
-        Material tmp_material = Material();
+		Material tmp_material = Material();
+		tmp_material.camera_matrices_shaderparameter = ShaderParameter<CameraMatrices>(
+			this->heap.shaders[this->shader].value.camera_matrices_layout, this->renderApi.device, this->renderApi.descriptor_pool);
+		tmp_material.camera_matrices_shaderparameter.pushbuffer(this->global_camera_matrices_buffer, this->renderApi.device);
+
 		com::PoolToken<Optional<Material>> l_material = this->heap.pushMaterial(this->shader, tmp_material);
-        RenderableObject tmp_renderableobject = RenderableObject(this->l_mesh);
+		RenderableObject tmp_renderableobject = RenderableObject(this->l_mesh);
 		this->heap.pushRendereableObject(l_material, tmp_renderableobject);
 	}
 
@@ -1767,7 +1837,7 @@ private:
 
 	inline void destroy_global_buffers()
 	{
-
+		this->global_camera_matrices_buffer.dispose(this->renderApi.device);
 	}
 
 	/*
@@ -1804,7 +1874,7 @@ private:
 		l_renderpass_begin.setPNext(nullptr);
 		l_renderpass_begin.setRenderPass(this->renderApi.swap_chain.renderpass.l_render_pass);
 		vk::Rect2D l_renderArea;
-		l_renderArea.setOffset(vk::Offset2D(0,0));
+		l_renderArea.setOffset(vk::Offset2D(0, 0));
 		l_renderArea.setExtent(this->renderApi.swap_chain.extend);
 		l_renderpass_begin.setRenderArea(l_renderArea);
 		l_renderpass_begin.setClearValueCount(2);
@@ -1818,25 +1888,27 @@ private:
 		l_viewport.setMaxDepth(1.0f);
 
 		vk::Rect2D l_windowarea;
-		l_windowarea.setOffset(vk::Offset2D(0, 0)); 
+		l_windowarea.setOffset(vk::Offset2D(0, 0));
 		l_windowarea.setExtent(vk::Extent2D(this->window.Width, this->window.Height));
 
 		CommandBuffer& l_command_buffer = this->renderApi.draw_commandbuffers[l_render_image_index];
 		l_command_buffer.begin();
 		l_command_buffer.command_buffer.beginRenderPass(l_renderpass_begin, vk::SubpassContents::eInline);
-		l_command_buffer.command_buffer.setViewport(0,1,&l_viewport);
+		l_command_buffer.command_buffer.setViewport(0, 1, &l_viewport);
 		l_command_buffer.command_buffer.setScissor(0, 1, &l_windowarea);
-		//l_command_buffer.command_buffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, this->shaderTest.pipeline_layout, 0, 1, )
 
 		for (size_t l_shader_index = 0; l_shader_index < this->heap.shaders.size(); l_shader_index++)
 		{
 			Optional<Shader>& l_shader = this->heap.shaders[l_shader_index];
 			if (l_shader.hasValue)
 			{
+				
+				// l_command_buffer.command_buffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, l_shader.value.pipeline, 0, 1, &this->global_camera_matrices_shaderparameter.descriptor_set, 0, nullptr);
+
 				l_command_buffer.command_buffer.bindPipeline(vk::PipelineBindPoint::eGraphics, l_shader.value.pipeline);
 
 				com::Vector<com::PoolToken<Optional<Material>>>& l_materials = this->heap.shaders_to_materials[l_shader_index];
-				for (size_t l_material_index = 0; l_material_index < l_materials.Size; l_material_index ++)
+				for (size_t l_material_index = 0; l_material_index < l_materials.Size; l_material_index++)
 				{
 					Optional<Material>& l_material = this->heap.materials[l_materials[l_material_index]];
 					if (l_material.hasValue)
@@ -1852,7 +1924,7 @@ private:
 						}
 					}
 				}
-				
+
 			}
 		}
 
