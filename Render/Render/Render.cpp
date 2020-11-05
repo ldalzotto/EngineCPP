@@ -3,6 +3,7 @@
 #include "Math/math.hpp"
 #include "Common/Container/pool.hpp"
 #include "Common/Container/vector.hpp"
+#include "Common/Container/array_def.hpp"
 #include <fstream>
 #include <stdlib.h>
 
@@ -685,8 +686,8 @@ struct IndexMemory : public GPUBufferMemory<ElementType, GPUWrite>
 
 };
 
-template<class ElementType>
-struct UniformMemory : public GPUBufferMemory<ElementType, GPUWrite>
+template<class ElementType, class WriteMethod>
+struct UniformMemory : public GPUBufferMemory<ElementType, WriteMethod>
 {
 	inline void allocate(size_t p_element_number, const Device& p_device)
 	{
@@ -1013,12 +1014,44 @@ private:
 };
 
 
+struct ShaderParameterLayouts
+{
+	vk::DescriptorSetLayout uniformbuffer_vertex_layout;
+
+	inline void create_layouts(const Device& p_device)
+	{
+		vk::DescriptorSetLayoutBinding l_layout_bindings[1];
+		{
+			vk::DescriptorSetLayoutBinding& l_camera_matrices_layout_binding = l_layout_bindings[0];
+			l_camera_matrices_layout_binding.setBinding(0);
+			l_camera_matrices_layout_binding.setDescriptorCount(1);
+			l_camera_matrices_layout_binding.setDescriptorType(vk::DescriptorType::eUniformBuffer);
+			l_camera_matrices_layout_binding.setStageFlags(vk::ShaderStageFlagBits::eVertex);
+			l_camera_matrices_layout_binding.setPImmutableSamplers(nullptr);
+		}
+
+		vk::DescriptorSetLayoutCreateInfo l_descriptorset_layot_create;
+		l_descriptorset_layot_create.setBindingCount(1);
+		l_descriptorset_layot_create.setPBindings(l_layout_bindings);
+
+		uniformbuffer_vertex_layout = p_device.device.createDescriptorSetLayout(l_descriptorset_layot_create);
+	}
+
+	inline void destroy_layouts(const Device& p_device)
+	{
+		p_device.device.destroyDescriptorSetLayout(uniformbuffer_vertex_layout);
+	}
+};
+
+
+
 struct RenderAPI
 {
 	vk::Instance instance;
 	VkDebugUtilsMessengerEXT debugMessenger;
 
 	Device device;
+	ShaderParameterLayouts shaderparameter_layouts;
 
 	vk::SurfaceKHR surface;
 
@@ -1055,10 +1088,12 @@ struct RenderAPI
 		this->create_draw_commandbuffers();
 		this->create_synchronization();
 		this->create_descriptor_pool();
+		this->create_global_descriptorset_layouts();
 	};
 
 	inline void dispose()
 	{
+		this->destroy_global_descriptorset_layouts();
 		this->destroy_descriptor_pool();
 		this->destroy_synchronization();
 		this->destroy_draw_commandbuffers();
@@ -1313,7 +1348,7 @@ private:
 		l_descriptor_pool_create_info.setPNext(nullptr);
 		l_descriptor_pool_create_info.setPoolSizeCount(1);
 		l_descriptor_pool_create_info.setPPoolSizes(l_types);
-		l_descriptor_pool_create_info.setMaxSets(1);
+		l_descriptor_pool_create_info.setMaxSets(100);
 
 		this->descriptor_pool = this->device.device.createDescriptorPool(l_descriptor_pool_create_info);
 	}
@@ -1323,32 +1358,46 @@ private:
 		this->device.device.destroyDescriptorPool(this->descriptor_pool);
 	}
 
-	inline void define_draw_commands()
+	inline void create_global_descriptorset_layouts()
 	{
+		this->shaderparameter_layouts.create_layouts(this->device);
+	}
 
+	inline void destroy_global_descriptorset_layouts()
+	{
+		this->shaderparameter_layouts.destroy_layouts(this->device);
 	}
 };
-
 
 template<class ElementType>
 struct GlobalUniformBuffer
 {
+	uint32_t descriptorset_index;
+	uint32_t binding_index;
+
 	vk::DescriptorSetLayout descriptorset_layout;
 	vk::PipelineLayout pipeline_layout;
 	vk::DescriptorSet descriptor_set;
-	UniformMemory<ElementType> memory;
+	UniformMemory<ElementType, HostWrite> memory;
 
-	inline void create(vk::ShaderStageFlags p_shader_stage, const Device& p_device, const vk::DescriptorPool p_descriptorpool)
+	inline void create(vk::ShaderStageFlags p_shader_stage, const uint32_t p_descriptorset_index, const uint32_t p_binding_idnex, const Device& p_device, const vk::DescriptorPool p_descriptorpool)
 	{
-		vk::DescriptorSetLayoutBinding l_layout_binding;
-		l_layout_binding.setDescriptorCount(1);
-		l_layout_binding.setDescriptorType(vk::DescriptorType::eUniformBuffer);
-		l_layout_binding.setStageFlags(vk::ShaderStageFlagBits::eVertex);
-		l_layout_binding.setPImmutableSamplers(nullptr);
+		this->descriptorset_index = p_descriptorset_index;
+		this->binding_index = p_binding_idnex;
+
+		vk::DescriptorSetLayoutBinding l_layout_bindings[1];
+		{
+			vk::DescriptorSetLayoutBinding& l_camera_matrices_layout_binding = l_layout_bindings[0];
+			l_camera_matrices_layout_binding.setBinding(0);
+			l_camera_matrices_layout_binding.setDescriptorCount(1);
+			l_camera_matrices_layout_binding.setDescriptorType(vk::DescriptorType::eUniformBuffer);
+			l_camera_matrices_layout_binding.setStageFlags(p_shader_stage);
+			l_camera_matrices_layout_binding.setPImmutableSamplers(nullptr);
+		}
 
 		vk::DescriptorSetLayoutCreateInfo l_descriptorset_layot_create;
 		l_descriptorset_layot_create.setBindingCount(1);
-		l_descriptorset_layot_create.setPBindings(&l_layout_binding);
+		l_descriptorset_layot_create.setPBindings(l_layout_bindings);
 
 		this->descriptorset_layout = p_device.device.createDescriptorSetLayout(l_descriptorset_layot_create);
 
@@ -1372,14 +1421,68 @@ struct GlobalUniformBuffer
 		this->descriptorset_layout = nullptr;
 		p_device.device.destroyPipelineLayout(this->pipeline_layout);
 		this->pipeline_layout = nullptr;
+
 		p_device.device.freeDescriptorSets(p_descriptorpool, 1, &this->descriptor_set);
 		this->descriptor_set = nullptr;
 		this->memory.dispose(p_device);
 	}
 
-	inline void pushbuffer(const ElementType* p_source, const Device& p_device, const vk::CommandPool p_command_pool)
+	inline void pushbuffer(const ElementType* p_source, const Device& p_device)
 	{
-		this->memory.push(p_source, p_device, p_command_pool);
+		this->memory.push(p_source, p_device);
+	}
+
+	inline void bind(const Device& p_device)
+	{
+		//TODO -> to update when buffers will be able to be offsetted
+		vk::DescriptorBufferInfo l_descriptor_buffer_info;
+		l_descriptor_buffer_info.setBuffer(this->memory.getBuffer());
+		l_descriptor_buffer_info.setOffset(0);
+		l_descriptor_buffer_info.setRange(this->memory.Capacity * sizeof(ElementType));
+
+		vk::WriteDescriptorSet l_write_descriptor_set;
+		l_write_descriptor_set.setDstSet(this->descriptor_set);
+		l_write_descriptor_set.setDescriptorCount(1);
+		l_write_descriptor_set.setDescriptorType(vk::DescriptorType::eUniformBuffer);
+		l_write_descriptor_set.setDstBinding(this->binding_index);
+		l_write_descriptor_set.setPBufferInfo(&l_descriptor_buffer_info);
+
+		p_device.device.updateDescriptorSets(1, &l_write_descriptor_set, 0, nullptr);
+	}
+
+	inline void bind_command(CommandBuffer& p_commandbuffer)
+	{
+		p_commandbuffer.command_buffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, this->pipeline_layout, this->descriptorset_index, 1, &this->descriptor_set, 0, nullptr);
+	}
+};
+
+template<class ElementType>
+struct ShaderParameter
+{
+	vk::DescriptorSet descriptor_set;
+	UniformMemory<ElementType, HostWrite> memory;
+
+	inline void create(const RenderAPI& p_renderapi)
+	{
+		vk::DescriptorSetAllocateInfo l_allocate_info;
+		l_allocate_info.setDescriptorPool(p_renderapi.descriptor_pool);
+		l_allocate_info.setDescriptorSetCount(1);
+		l_allocate_info.setPSetLayouts(&p_renderapi.shaderparameter_layouts.uniformbuffer_vertex_layout);
+		this->descriptor_set = p_renderapi.device.device.allocateDescriptorSets(l_allocate_info)[0];
+
+		this->memory.allocate(1, p_renderapi.device);
+	}
+
+	inline void dispose(const Device& p_device, const vk::DescriptorPool p_descriptorpool)
+	{
+		p_device.device.freeDescriptorSets(p_descriptorpool, 1, &this->descriptor_set);
+		this->descriptor_set = nullptr;
+		this->memory.dispose(p_device);
+	}
+
+	inline void pushbuffer(const ElementType* p_source, const Device& p_device)
+	{
+		this->memory.push(p_source, p_device);
 	}
 
 	inline void bind(const uint32_t p_dst_binding, const Device& p_device)
@@ -1394,10 +1497,16 @@ struct GlobalUniformBuffer
 		l_write_descriptor_set.setDstSet(this->descriptor_set);
 		l_write_descriptor_set.setDescriptorCount(1);
 		l_write_descriptor_set.setDescriptorType(vk::DescriptorType::eUniformBuffer);
-		l_write_descriptor_set.setDstBinding(0);
+		l_write_descriptor_set.setDstBinding(p_dst_binding);
 		l_write_descriptor_set.setPBufferInfo(&l_descriptor_buffer_info);
-
+		
 		p_device.device.updateDescriptorSets(1, &l_write_descriptor_set, 0, nullptr);
+	}
+
+	inline void bind_command(uint32_t p_set_index, CommandBuffer& p_commandbuffer)
+	{
+		p_commandbuffer.command_buffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, this->shaderparameter_layout->pipeline_layout,
+			p_set_index, 1, &this->descriptor_set, 0, nullptr);
 	}
 };
 
@@ -1419,10 +1528,10 @@ struct Shader
 
 	}
 
-	Shader(const Device& p_device, const RenderPass& p_render_pass, const std::string& p_vertex_shader, const std::string& p_fragment_shader, 
-		const GlobalUniformBuffer<CameraMatrices>& p_cameramatrices_globalbuffer)
+	Shader(const Device& p_device, const RenderPass& p_render_pass, const std::string& p_vertex_shader, const std::string& p_fragment_shader,
+		const Array<vk::DescriptorSetLayout>& p_parameters_layout)
 	{
-		this->createPipelineLayout(p_cameramatrices_globalbuffer, p_device);
+		this->createPipelineLayout(p_parameters_layout, p_device);
 		this->createPipeline(p_device, p_render_pass, p_vertex_shader, p_fragment_shader);
 	}
 
@@ -1437,12 +1546,17 @@ struct Shader
 
 private:
 
-	inline void createPipelineLayout(const GlobalUniformBuffer<CameraMatrices>& p_cameramatrices_globalbuffer, const Device& p_device)
+	inline void createPipelineLayout(const Array<vk::DescriptorSetLayout>& p_parameters_layout, const Device& p_device)
 	{
 		vk::PipelineLayoutCreateInfo l_pipelinelayout_create_info;
-		l_pipelinelayout_create_info.setSetLayoutCount(1);
-		l_pipelinelayout_create_info.setPSetLayouts(&p_cameramatrices_globalbuffer.descriptorset_layout);
+		l_pipelinelayout_create_info.setSetLayoutCount((uint32_t)p_parameters_layout.Capacity);
+		l_pipelinelayout_create_info.setPSetLayouts(p_parameters_layout.Memory);
 		this->pipeline_layout = p_device.device.createPipelineLayout(l_pipelinelayout_create_info);
+	}
+
+	inline void destroyPipelineLayout(const Device& p_device)
+	{
+		p_device.device.destroyPipelineLayout(this->pipeline_layout);
 	}
 
 	inline void createPipeline(const Device& p_device, const RenderPass& p_renderPass,
@@ -1580,11 +1694,6 @@ private:
 		p_device.device.destroyPipeline(this->pipeline);
 	}
 
-	inline void destroyPipelineLayout(const Device& p_device)
-	{
-		p_device.device.destroyPipelineLayout(this->pipeline_layout);
-	}
-
 	inline static vk::ShaderModule load_shadermodule(const Device& p_device, const std::string& p_file_path)
 	{
 		size_t l_size;
@@ -1661,14 +1770,31 @@ struct Material
 
 struct RenderableObject
 {
-	com::PoolToken<Mesh> mesh;
+	com::PoolToken<Mesh> mesh;	
+	ShaderParameter<mat4f> model_matrix_buffer;
 
 	RenderableObject() {}
-	RenderableObject(const com::PoolToken<Mesh>& p_mesh) : mesh(p_mesh) {	}
 
-	inline void dispose()
+	inline void setMesh(const com::PoolToken<Mesh>& p_mesh)
+	{
+		this->mesh = p_mesh;
+	}
+
+	inline void createModelMatrix(RenderAPI& p_render_api)
+	{
+		this->model_matrix_buffer.create(p_render_api);
+		this->model_matrix_buffer.bind(0, p_render_api.device);
+	}
+
+	inline void pushModelMatrix(const mat4f p_model, const Device& p_device)
+	{
+		this->model_matrix_buffer.pushbuffer(&p_model, p_device);
+	}
+
+	inline void dispose(const Device& p_device, vk::DescriptorPool p_descriptor_pool)
 	{
 		this->mesh = com::PoolToken<Mesh>();
+		this->model_matrix_buffer.dispose(p_device, p_descriptor_pool);
 	}
 
 	inline void draw(CommandBuffer& p_commandbuffer, com::Pool<Mesh>& p_mesh_heap)
@@ -1704,7 +1830,7 @@ struct RenderHeap
 		return this->pushShader((Shader&)p_shader);
 	}
 
-	inline void disposeShader(const com::PoolToken<Optional<Shader>> p_shader, const Device& p_device)
+	inline void disposeShader(const com::PoolToken<Optional<Shader>> p_shader, const Device& p_device, const vk::DescriptorPool p_descriptorpool)
 	{
 		Optional<Shader>& l_shader = this->shaders[p_shader];
 		l_shader.value.dispose(p_device);
@@ -1713,7 +1839,7 @@ struct RenderHeap
 		com::Vector<com::PoolToken<Optional<Material>>>& l_shader_to_materials = this->shaders_to_materials[p_shader.Index];
 		for (size_t i = 0; i < l_shader_to_materials.Size; i++)
 		{
-			this->disposeMaterial(l_shader_to_materials[i]);
+			this->disposeMaterial(l_shader_to_materials[i], p_device, p_descriptorpool);
 		}
 		this->shaders_to_materials.release_element(p_shader.Index);
 	}
@@ -1726,14 +1852,14 @@ struct RenderHeap
 		return l_material_handle;
 	}
 
-	inline void disposeMaterial(const com::PoolToken<Optional<Material>> p_material)
+	inline void disposeMaterial(const com::PoolToken<Optional<Material>> p_material, const Device& p_device, const vk::DescriptorPool p_descriptorpool)
 	{
 		this->materials.release_element(p_material);
 
 		com::Vector<com::PoolToken<Optional<RenderableObject>>>& l_material_to_renderableobjects = this->material_to_renderableobjects[p_material.Index];
 		for (size_t i = 0; i < l_material_to_renderableobjects.Size; i++)
 		{
-			this->disposeRenderableObject(l_material_to_renderableobjects[i]);
+			this->disposeRenderableObject(l_material_to_renderableobjects[i], p_device, p_descriptorpool);
 		}
 		this->material_to_renderableobjects.release_element(p_material.Index);
 	}
@@ -1745,10 +1871,10 @@ struct RenderHeap
 		return l_renderableobjet_handle;
 	}
 
-	inline void disposeRenderableObject(const com::PoolToken<Optional<RenderableObject>> p_renderableObject)
+	inline void disposeRenderableObject(const com::PoolToken<Optional<RenderableObject>> p_renderableObject, const Device& p_device, const vk::DescriptorPool p_descriptorpool)
 	{
 		Optional<RenderableObject>& l_renderableobject = this->renderableobjects[p_renderableObject];
-		l_renderableobject.value.dispose();
+		l_renderableobject.value.dispose(p_device, p_descriptorpool);
 		this->renderableobjects.release_element(p_renderableObject);
 	}
 };
@@ -1769,9 +1895,14 @@ struct Render
 	{
 		this->window = RenderWindow(800, 600, "MyGame");
 		this->renderApi.init(window);
-		
+
 		this->create_global_buffers();
-		Shader l_shader = Shader(this->renderApi.device, this->renderApi.swap_chain.renderpass, "E:/GameProjects/CPPTestVS/Render/shader/TriVert.spv", "E:/GameProjects/CPPTestVS/Render/shader/TriFrag.spv", this->camera_matrices_globalbuffer);
+
+		vk::DescriptorSetLayout l_layouts[2];
+		l_layouts[0] = this->renderApi.shaderparameter_layouts.uniformbuffer_vertex_layout;
+		l_layouts[1] = this->renderApi.shaderparameter_layouts.uniformbuffer_vertex_layout;
+		Shader l_shader = Shader(this->renderApi.device, this->renderApi.swap_chain.renderpass, 
+			"E:/GameProjects/CPPTestVS/Render/shader/TriVert.spv", "E:/GameProjects/CPPTestVS/Render/shader/TriFrag.spv", Array<vk::DescriptorSetLayout>(l_layouts, 2));
 		this->shader = this->heap.pushShader(l_shader);
 		this->createVertexBuffer();
 		this->draw();
@@ -1780,7 +1911,7 @@ struct Render
 	inline void dispose()
 	{
 		this->destroyVertexBuffer();
-		this->heap.disposeShader(this->shader, this->renderApi.device);
+		this->heap.disposeShader(this->shader, this->renderApi.device, this->renderApi.descriptor_pool);
 		this->destroy_global_buffers();
 		this->renderApi.dispose();
 		this->window.dispose();
@@ -1804,9 +1935,12 @@ private:
 		l_indicesBuffer[0] = 0; l_indicesBuffer[1] = 1; l_indicesBuffer[2] = 2;
 
 		this->l_mesh = this->heap.meshes.alloc_element(Mesh(l_vertexBuffer, l_indicesBuffer, this->renderApi));
-	
+
 		com::PoolToken<Optional<Material>> l_material = this->heap.pushMaterial(this->shader, Material());
-		RenderableObject tmp_renderableobject = RenderableObject(this->l_mesh);
+		RenderableObject tmp_renderableobject;
+		tmp_renderableobject.setMesh(this->l_mesh);
+		tmp_renderableobject.createModelMatrix(this->renderApi);
+		tmp_renderableobject.pushModelMatrix(translationMatrix(vec3f(8.0f, 0.0f, 0.0f)), this->renderApi.device);
 		this->heap.pushRendereableObject(l_material, tmp_renderableobject);
 	}
 
@@ -1822,9 +1956,10 @@ private:
 		CameraMatrices l_cam_mat;
 		l_cam_mat.view = view(vec3f(9.0f, 9.0f, 9.0f), vec3f(-0.572061539f, -0.587785244f, -0.572061360f), vec3f(-0.415627033f, 0.809017003f, -0.415626884f));
 		l_cam_mat.projection = perspective<float>(45.0f * DEG_TO_RAD, (float)this->renderApi.swap_chain.extend.width / (float)this->renderApi.swap_chain.extend.height, 0.1f, 50.0f);
-		this->camera_matrices_globalbuffer.create(vk::ShaderStageFlagBits::eVertex, this->renderApi.device, this->renderApi.descriptor_pool);
-		this->camera_matrices_globalbuffer.pushbuffer(&l_cam_mat, this->renderApi.device, this->renderApi.command_pool);
-		this->camera_matrices_globalbuffer.bind(0, this->renderApi.device);
+
+		this->camera_matrices_globalbuffer.create(vk::ShaderStageFlagBits::eVertex, 0, 0, this->renderApi.device, this->renderApi.descriptor_pool);
+		this->camera_matrices_globalbuffer.pushbuffer(&l_cam_mat, this->renderApi.device);
+		this->camera_matrices_globalbuffer.bind(this->renderApi.device);
 	}
 
 	inline void destroy_global_buffers()
@@ -1842,7 +1977,7 @@ private:
 		vk::ClearValue l_clear[2];
 		l_clear[0].color.setFloat32({ 0.0f, 0.0f, 0.2f, 1.0f });
 		l_clear[1].depthStencil.setDepth(1.0f);
-		l_clear[1].depthStencil.setStencil(0.0f);
+		l_clear[1].depthStencil.setStencil((uint32_t)0.0f);
 
 		vk::RenderPassBeginInfo l_renderpass_begin;
 		l_renderpass_begin.setPNext(nullptr);
@@ -1872,7 +2007,7 @@ private:
 		l_command_buffer.command_buffer.setScissor(0, 1, &l_windowarea);
 
 
-		l_command_buffer.command_buffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, this->camera_matrices_globalbuffer.pipeline_layout, 0, 1, &this->camera_matrices_globalbuffer.descriptor_set, 0, nullptr);
+		this->camera_matrices_globalbuffer.bind_command(l_command_buffer);
 
 		for (size_t l_shader_index = 0; l_shader_index < this->heap.shaders.size(); l_shader_index++)
 		{
@@ -1893,12 +2028,13 @@ private:
 							Optional<RenderableObject>& l_renderableobject = this->heap.renderableobjects[l_renderableobject_index];
 							if (l_renderableobject.hasValue)
 							{
+								l_command_buffer.command_buffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, l_shader.value.pipeline_layout,
+									1, 1, &l_renderableobject.value.model_matrix_buffer.descriptor_set, 0, nullptr);
 								this->heap.renderableobjects[l_renderableobject_index].value.draw(l_command_buffer, this->heap.meshes);
 							}
 						}
 					}
 				}
-
 			}
 		}
 
