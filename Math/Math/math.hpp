@@ -294,8 +294,8 @@ namespace Math
 
 	inline Quaternion cross(const Quaternion& p_left, const  Quaternion& p_right)
 	{
-		Vector<3, float> l_rotatedLeft = rotate(vec3f_FORWARD, p_left);
-		Vector<3, float> l_rotatedRight = rotate(vec3f_FORWARD, p_right);
+		Vector<3, float> l_rotatedLeft = rotate(VecConst<float>::FORWARD, p_left);
+		Vector<3, float> l_rotatedRight = rotate(VecConst<float>::FORWARD, p_right);
 		return rotateAround(cross(l_rotatedLeft, l_rotatedRight), 0.0f);
 	};
 
@@ -347,7 +347,7 @@ namespace Math
 	template <class TYPE>
 	inline Quaternion fromDirection(const Vector<3, TYPE>& p_vec)
 	{
-		float l_angle = angle(vec3f_FORWARD, p_vec);
+		float l_angle = angle(VecConst<TYPE>::FORWARD, p_vec);
 		return Quaternion(
 			mul(p_vec, sinf(l_angle * 0.5f)),
 			cosf(l_angle * 0.5f)
@@ -438,9 +438,9 @@ namespace Math
 	inline Quaternion fromEulerAngle(const Vector<3, TYPE>& p_eulerAngle)
 	{
 		Quaternion l_return = Quaternion(0.0f, 0.0f, 0.0f, 1.0f);
-		l_return = mul(l_return, rotateAround(vec3f_UP, p_eulerAngle.Points[1])); //yaw
-		l_return = mul(l_return, rotateAround(vec3f_RIGHT, p_eulerAngle.Points[0])); //pitch
-		l_return = mul(l_return, rotateAround(vec3f_FORWARD, p_eulerAngle.Points[2])); //roll
+		l_return = mul(l_return, rotateAround(VecConst<TYPE>::UP, p_eulerAngle.Points[1])); //yaw
+		l_return = mul(l_return, rotateAround(VecConst<TYPE>::RIGHT, p_eulerAngle.Points[0])); //pitch
+		l_return = mul(l_return, rotateAround(VecConst<TYPE>::FORWARD, p_eulerAngle.Points[2])); //roll
 		return l_return;
 	};
 
@@ -576,14 +576,53 @@ namespace Math
 		);
 	}
 
-	template <class TYPE>
-	inline Matrix<4, TYPE> rotationMatrix(const Vector<3, TYPE>& p_right, const Vector<3, TYPE>& p_up, const Vector<3, TYPE>& p_forward)
+	template <unsigned N, class TYPE>
+	struct RotationMatrixKernel
 	{
-		return Matrix<4, TYPE>(
-			Vector<4, TYPE>(p_right, 0.0f),
-			Vector<4, TYPE>(p_up, 0.0f),
-			Vector<4, TYPE>(p_forward, 0.0f),
-			Vector<4, TYPE>(0.0f, 0.0f, 0.0f, 1.0f)
+		static Matrix<N, TYPE> rotationMatrix(const Vector<3, TYPE>& p_right, const Vector<3, TYPE>& p_up, const Vector<3, TYPE>& p_forward);
+	};
+
+	template <class TYPE>
+	struct RotationMatrixKernel<4, TYPE>
+	{
+		inline static Matrix<4, TYPE> rotationMatrix(const Vector<3, TYPE>& p_right, const Vector<3, TYPE>& p_up, const Vector<3, TYPE>& p_forward)
+		{
+			return Matrix<4, TYPE>(
+				Vector<4, TYPE>(p_right, 0.0f),
+				Vector<4, TYPE>(p_up, 0.0f),
+				Vector<4, TYPE>(p_forward, 0.0f),
+				Vector<4, TYPE>(0.0f, 0.0f, 0.0f, 1.0f)
+			);
+		};
+	};
+
+	template <class TYPE>
+	struct RotationMatrixKernel<3, TYPE>
+	{
+		inline static Matrix<3, TYPE> rotationMatrix(const Vector<3, TYPE>& p_right, const Vector<3, TYPE>& p_up, const Vector<3, TYPE>& p_forward)
+		{
+			return Matrix<3, TYPE>(p_right, p_up, p_forward);
+		};
+	};
+
+	template <unsigned N, class TYPE>
+	inline Matrix<N, TYPE> rotationMatrix(const Vector<3, TYPE>& p_right, const Vector<3, TYPE>& p_up, const Vector<3, TYPE>& p_forward)
+	{
+		return RotationMatrixKernel<N, TYPE>::rotationMatrix(p_right, p_up, p_forward);
+	};
+
+
+	template <unsigned N, class TYPE>
+	inline Matrix<N, TYPE> lookAtRotation(const Vector<3, TYPE>& p_origin, const Vector<3, TYPE>& p_target, const Vector<3, TYPE>& p_up)
+	{
+		Vector<3, TYPE> l_forward = normalize(min(p_target, p_origin));
+		Vector<3, TYPE> l_right = normalize(cross(l_forward, p_up));
+		Vector<3, TYPE> l_up = normalize(cross(l_right, l_forward));
+
+		return rotationMatrix<N, TYPE>(
+			l_right,
+			l_up,
+			l_forward
 		);
 	}
 
@@ -651,19 +690,18 @@ namespace Math
 		return l_return;
 	}
 
-	
-	template <class TYPE>
-	inline Matrix<4, TYPE> lookAtRotation(const Vector<3, TYPE>& p_origin, const Vector<3, TYPE>& p_target, const Vector<3, TYPE>& p_up)
+	template<class TYPE>
+	inline Matrix<4, TYPE> view(const Vector<3, TYPE>& p_world_position, const Vector<3, TYPE>& p_forward, const Vector<3, TYPE>& p_up)
 	{
-		Vector<3, TYPE> l_forward = normalize(min(p_target, p_origin));
-		Vector<3, TYPE> l_right = normalize(cross(l_forward, p_up));
-		Vector<3, TYPE> l_up = normalize(cross(l_right, l_forward));
-		
-		return rotationMatrix(
-			l_right,
-			l_up,
-			l_forward
-		);
+		Vector<3, TYPE> l_target = p_forward;
+		l_target = add(p_world_position, l_target);
+
+		Vector<3, TYPE> l_up = mul(p_up, -1.0f);
+		Matrix<4, TYPE> l_view = TRS(p_world_position, lookAtRotation<3, TYPE>(p_world_position, l_target, l_up), VecConst<TYPE>::ONE);
+		return inv(l_view);
 	}
 	
+
+
+
 }

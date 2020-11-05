@@ -53,8 +53,8 @@ int main()
 	mat4f l_inv = inv(l_m2);
 	mat4f l_trs = TRS(vec3f(1.0f, 2.0f, 3.0f), mat3f(vec3f(4.0f, 5.0f, 6.0f), vec3f(7.0f, 8.0f, 9.0f), vec3f(10.0f, 11.0f, 12.0f)), vec3f(1.0f, 1.5f, 2.0f));
 	mat4f l_perspective = perspective<float>(0.25f, 1.96f, 0.02f, 50.0f);
-	mat4f l_lookatView = lookAtView(l_234, l_100, vec3f_UP);
-	mat4f l_lookatRot = lookAtRotation(l_234, l_100, vec3f_UP);
+	mat4f l_lookatView = lookAtView(l_234, l_100, VecConst<float>::UP);
+	mat4f l_lookatRot = lookAtRotation<4, float>(l_234, l_100, VecConst<float>::UP);
 
 	
 	com::Vector<float> l_vf(10);

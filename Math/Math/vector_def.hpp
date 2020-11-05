@@ -134,8 +134,13 @@ namespace Math
 	using vec3f = Vector<3, float>;
 	using vec4f = Vector<4, float>;
 
-	const vec3f vec3f_ZERO = { 0.0f, 0.0f, 0.0f };
-	const vec3f vec3f_RIGHT = { 1.0f, 0.0f, 0.0f };
-	const vec3f vec3f_UP = { 0.0f, 1.0f, 0.0f };
-	const vec3f vec3f_FORWARD = { 0.0f, 0.0f, 1.0f };
+	template<class TYPE>
+	struct VecConst
+	{
+		inline static const Vector<3, TYPE> ZERO = { Zero<TYPE>::zer, Zero<TYPE>::zer, Zero<TYPE>::zer };
+		inline static const Vector<3, TYPE> ONE = { One<TYPE>::one, One<TYPE>::one, One<TYPE>::one };
+		inline static const Vector<3, TYPE> RIGHT = { One<TYPE>::one, Zero<TYPE>::zer, Zero<TYPE>::zer };
+		inline static const Vector<3, TYPE> UP = { Zero<TYPE>::zer, One<TYPE>::one, Zero<TYPE>::zer };
+		inline static const Vector<3, TYPE> FORWARD = { Zero<TYPE>::zer, Zero<TYPE>::zer, One<TYPE>::one };
+	};
 }

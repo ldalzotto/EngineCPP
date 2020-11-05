@@ -1798,11 +1798,11 @@ private:
 	{
 		com::Vector<Vertex> l_vertexBuffer(3);
 		l_vertexBuffer.Size = l_vertexBuffer.Capacity;
-		l_vertexBuffer[0].position = vec3f(0.0f, -0.5f, 0.0f);
+		l_vertexBuffer[0].position = vec3f(1.0f, 0.0f, 0.0f);
 		l_vertexBuffer[0].color = vec3f(1.0f, 0.0f, 0.0f);
-		l_vertexBuffer[1].position = vec3f(0.5f, 0.5f, 0.0f);
+		l_vertexBuffer[1].position = vec3f(0.0f, 1.0f, 0.0f);
 		l_vertexBuffer[1].color = vec3f(0.0f, 1.0f, 0.0f);
-		l_vertexBuffer[2].position = vec3f(-0.5f, 0.5f, 0.0f);
+		l_vertexBuffer[2].position = vec3f(0.0f, 0.0f, 1.0f);
 		l_vertexBuffer[2].color = vec3f(0.0f, 0.0f, 1.0f);
 
 		com::Vector<uint32_t> l_indicesBuffer(3);
@@ -1829,8 +1829,8 @@ private:
 	inline void create_global_buffers()
 	{
 		CameraMatrices l_cam_mat;
-		l_cam_mat.view.Col0 = vec4f(1.0f, 2.0f, 3.0f, 4.0f);
-		l_cam_mat.projection.Col3 = vec4f(1.0f, 2.0f, 3.0f, 4.0f);
+		l_cam_mat.view = view(vec3f(9.0f, 9.0f, 9.0f), vec3f(-0.572061539f, -0.587785244f, -0.572061360f), vec3f(-0.415627033f, 0.809017003f, -0.415626884f));
+		l_cam_mat.projection = perspective<float>(45.0f * DEG_TO_RAD, (float)this->renderApi.swap_chain.extend.width / (float)this->renderApi.swap_chain.extend.height, 0.1f, 50.0f);
 		this->global_camera_matrices_buffer.allocate(1, this->renderApi.device);
 		this->global_camera_matrices_buffer.push(&l_cam_mat, this->renderApi.device, this->renderApi.command_pool);
 	}
@@ -1902,9 +1902,6 @@ private:
 			Optional<Shader>& l_shader = this->heap.shaders[l_shader_index];
 			if (l_shader.hasValue)
 			{
-				
-				// l_command_buffer.command_buffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, l_shader.value.pipeline, 0, 1, &this->global_camera_matrices_shaderparameter.descriptor_set, 0, nullptr);
-
 				l_command_buffer.command_buffer.bindPipeline(vk::PipelineBindPoint::eGraphics, l_shader.value.pipeline);
 
 				com::Vector<com::PoolToken<Optional<Material>>>& l_materials = this->heap.shaders_to_materials[l_shader_index];
@@ -1913,6 +1910,8 @@ private:
 					Optional<Material>& l_material = this->heap.materials[l_materials[l_material_index]];
 					if (l_material.hasValue)
 					{
+						l_command_buffer.command_buffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, l_shader.value.pipeline_layout, 0, 1, &l_material.value.camera_matrices_shaderparameter.descriptor_set, 0, nullptr);
+
 						com::Vector<com::PoolToken<Optional<RenderableObject>>>& l_renderableobjects = this->heap.material_to_renderableobjects[l_material_index];
 						for (size_t l_renderableobject_index = 0; l_renderableobject_index < l_renderableobjects.Size; l_renderableobject_index++)
 						{
