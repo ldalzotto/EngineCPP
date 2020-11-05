@@ -1331,11 +1331,14 @@ private:
 
 
 template<class ElementType>
-struct ShaderParameterLayout
+struct GlobalUniformBuffer
 {
 	vk::DescriptorSetLayout descriptorset_layout;
+	vk::PipelineLayout pipeline_layout;
+	vk::DescriptorSet descriptor_set;
+	UniformMemory<ElementType> memory;
 
-	inline void create(const Device& p_device)
+	inline void create(vk::ShaderStageFlags p_shader_stage, const Device& p_device, const vk::DescriptorPool p_descriptorpool)
 	{
 		vk::DescriptorSetLayoutBinding l_layout_binding;
 		l_layout_binding.setDescriptorCount(1);
@@ -1348,16 +1351,56 @@ struct ShaderParameterLayout
 		l_descriptorset_layot_create.setPBindings(&l_layout_binding);
 
 		this->descriptorset_layout = p_device.device.createDescriptorSetLayout(l_descriptorset_layot_create);
+
+		vk::PipelineLayoutCreateInfo l_pipelinelayout_create_info;
+		l_pipelinelayout_create_info.setSetLayoutCount(1);
+		l_pipelinelayout_create_info.setPSetLayouts(&this->descriptorset_layout);
+		this->pipeline_layout = p_device.device.createPipelineLayout(l_pipelinelayout_create_info);
+
+		vk::DescriptorSetAllocateInfo l_allocate_info;
+		l_allocate_info.setDescriptorPool(p_descriptorpool);
+		l_allocate_info.setDescriptorSetCount(1);
+		l_allocate_info.setPSetLayouts(&this->descriptorset_layout);
+		this->descriptor_set = p_device.device.allocateDescriptorSets(l_allocate_info)[0];
+
+		this->memory.allocate(1, p_device);
 	}
 
-	inline void destroy(const Device& p_device)
+	inline void dispose(const Device& p_device, const vk::DescriptorPool p_descriptorpool)
 	{
 		p_device.device.destroyDescriptorSetLayout(this->descriptorset_layout);
 		this->descriptorset_layout = nullptr;
+		p_device.device.destroyPipelineLayout(this->pipeline_layout);
+		this->pipeline_layout = nullptr;
+		p_device.device.freeDescriptorSets(p_descriptorpool, 1, &this->descriptor_set);
+		this->descriptor_set = nullptr;
+		this->memory.dispose(p_device);
 	}
 
+	inline void pushbuffer(const ElementType* p_source, const Device& p_device, const vk::CommandPool p_command_pool)
+	{
+		this->memory.push(p_source, p_device, p_command_pool);
+	}
 
+	inline void bind(const uint32_t p_dst_binding, const Device& p_device)
+	{
+		//TODO -> to update when buffers will be able to be offsetted
+		vk::DescriptorBufferInfo l_descriptor_buffer_info;
+		l_descriptor_buffer_info.setBuffer(this->memory.getBuffer());
+		l_descriptor_buffer_info.setOffset(0);
+		l_descriptor_buffer_info.setRange(this->memory.Capacity * sizeof(ElementType));
+
+		vk::WriteDescriptorSet l_write_descriptor_set;
+		l_write_descriptor_set.setDstSet(this->descriptor_set);
+		l_write_descriptor_set.setDescriptorCount(1);
+		l_write_descriptor_set.setDescriptorType(vk::DescriptorType::eUniformBuffer);
+		l_write_descriptor_set.setDstBinding(0);
+		l_write_descriptor_set.setPBufferInfo(&l_descriptor_buffer_info);
+
+		p_device.device.updateDescriptorSets(1, &l_write_descriptor_set, 0, nullptr);
+	}
 };
+
 
 struct Shader
 {
@@ -1370,18 +1413,16 @@ struct Shader
 
 	vk::PipelineLayout pipeline_layout;
 	vk::Pipeline pipeline;
-	ShaderParameterLayout<CameraMatrices> camera_matrices_layout;
 
 	Shader() : pipeline_layout(nullptr), pipeline(nullptr)
 	{
 
 	}
 
-	Shader(const Device& p_device, const RenderPass& p_render_pass, const std::string& p_vertex_shader, const std::string& p_fragment_shader)
+	Shader(const Device& p_device, const RenderPass& p_render_pass, const std::string& p_vertex_shader, const std::string& p_fragment_shader, 
+		const GlobalUniformBuffer<CameraMatrices>& p_cameramatrices_globalbuffer)
 	{
-		// this->shader_parameters.create_shader_parameters(p_device);
-		this->create_descriptorset_layout(p_device);
-		this->createPipelineLayout(p_device);
+		this->createPipelineLayout(p_cameramatrices_globalbuffer, p_device);
 		this->createPipeline(p_device, p_render_pass, p_vertex_shader, p_fragment_shader);
 	}
 
@@ -1389,7 +1430,6 @@ struct Shader
 	{
 		this->destroyPipeline(p_device);
 		this->destroyPipelineLayout(p_device);
-		this->destroy_descriptorset_layout(p_device);
 
 		this->pipeline = nullptr;
 		this->pipeline_layout = nullptr;
@@ -1397,21 +1437,11 @@ struct Shader
 
 private:
 
-	inline void create_descriptorset_layout(const Device& p_device)
-	{
-		this->camera_matrices_layout.create(p_device);
-	}
-
-	inline void destroy_descriptorset_layout(const Device& p_device)
-	{
-		this->camera_matrices_layout.destroy(p_device);
-	}
-
-	inline void createPipelineLayout(const Device& p_device)
+	inline void createPipelineLayout(const GlobalUniformBuffer<CameraMatrices>& p_cameramatrices_globalbuffer, const Device& p_device)
 	{
 		vk::PipelineLayoutCreateInfo l_pipelinelayout_create_info;
 		l_pipelinelayout_create_info.setSetLayoutCount(1);
-		l_pipelinelayout_create_info.setPSetLayouts(&this->camera_matrices_layout.descriptorset_layout);
+		l_pipelinelayout_create_info.setPSetLayouts(&p_cameramatrices_globalbuffer.descriptorset_layout);
 		this->pipeline_layout = p_device.device.createPipelineLayout(l_pipelinelayout_create_info);
 	}
 
@@ -1588,41 +1618,6 @@ private:
 	}
 };
 
-template<class ElementType>
-struct ShaderParameter
-{
-	vk::DescriptorSet descriptor_set;
-
-	ShaderParameter() : descriptor_set(nullptr) {}
-
-	ShaderParameter(const ShaderParameterLayout<ElementType>& p_shader_parameter, const Device& p_device, const vk::DescriptorPool p_descriptorpool)
-	{
-		vk::DescriptorSetAllocateInfo l_allocate_info;
-		l_allocate_info.setDescriptorPool(p_descriptorpool);
-		l_allocate_info.setDescriptorSetCount(1);
-		l_allocate_info.setPSetLayouts(&p_shader_parameter.descriptorset_layout);
-		this->descriptor_set = p_device.device.allocateDescriptorSets(l_allocate_info)[0];
-	}
-
-	void pushbuffer(const UniformMemory<ElementType>& p_buffer, const Device& p_device)
-	{
-		//TODO -> to update when buffers will be able to be offsetted
-		vk::DescriptorBufferInfo l_descriptor_buffer_info;
-		l_descriptor_buffer_info.setBuffer(p_buffer.getBuffer());
-		l_descriptor_buffer_info.setOffset(0);
-		l_descriptor_buffer_info.setRange(p_buffer.Capacity * sizeof(ElementType));
-
-		vk::WriteDescriptorSet l_write_descriptor_set;
-		l_write_descriptor_set.setDstSet(this->descriptor_set);
-		l_write_descriptor_set.setDescriptorCount(1);
-		l_write_descriptor_set.setDescriptorType(vk::DescriptorType::eUniformBuffer);
-		l_write_descriptor_set.setDstBinding(0);
-		l_write_descriptor_set.setPBufferInfo(&l_descriptor_buffer_info);
-
-		p_device.device.updateDescriptorSets(1, &l_write_descriptor_set, 0, nullptr);
-	}
-};
-
 
 struct Mesh
 {
@@ -1661,8 +1656,6 @@ struct Mesh
 
 struct Material
 {
-	ShaderParameter<CameraMatrices> camera_matrices_shaderparameter;
-
 	Material() {}
 };
 
@@ -1765,7 +1758,7 @@ struct Render
 	RenderWindow window;
 	RenderAPI renderApi;
 
-	UniformMemory<CameraMatrices> global_camera_matrices_buffer;
+	GlobalUniformBuffer<CameraMatrices> camera_matrices_globalbuffer;
 
 	RenderHeap heap;
 	com::PoolToken<Optional<Shader>> shader;
@@ -1776,9 +1769,10 @@ struct Render
 	{
 		this->window = RenderWindow(800, 600, "MyGame");
 		this->renderApi.init(window);
-		this->shader = this->heap.pushShader(Shader(this->renderApi.device, this->renderApi.swap_chain.renderpass, "E:/GameProjects/CPPTestVS/Render/shader/TriVert.spv", "E:/GameProjects/CPPTestVS/Render/shader/TriFrag.spv"));
-
+		
 		this->create_global_buffers();
+		Shader l_shader = Shader(this->renderApi.device, this->renderApi.swap_chain.renderpass, "E:/GameProjects/CPPTestVS/Render/shader/TriVert.spv", "E:/GameProjects/CPPTestVS/Render/shader/TriFrag.spv", this->camera_matrices_globalbuffer);
+		this->shader = this->heap.pushShader(l_shader);
 		this->createVertexBuffer();
 		this->draw();
 	};
@@ -1786,8 +1780,8 @@ struct Render
 	inline void dispose()
 	{
 		this->destroyVertexBuffer();
-		this->destroy_global_buffers();
 		this->heap.disposeShader(this->shader, this->renderApi.device);
+		this->destroy_global_buffers();
 		this->renderApi.dispose();
 		this->window.dispose();
 	};
@@ -1810,12 +1804,8 @@ private:
 		l_indicesBuffer[0] = 0; l_indicesBuffer[1] = 1; l_indicesBuffer[2] = 2;
 
 		this->l_mesh = this->heap.meshes.alloc_element(Mesh(l_vertexBuffer, l_indicesBuffer, this->renderApi));
-		Material tmp_material = Material();
-		tmp_material.camera_matrices_shaderparameter = ShaderParameter<CameraMatrices>(
-			this->heap.shaders[this->shader].value.camera_matrices_layout, this->renderApi.device, this->renderApi.descriptor_pool);
-		tmp_material.camera_matrices_shaderparameter.pushbuffer(this->global_camera_matrices_buffer, this->renderApi.device);
-
-		com::PoolToken<Optional<Material>> l_material = this->heap.pushMaterial(this->shader, tmp_material);
+	
+		com::PoolToken<Optional<Material>> l_material = this->heap.pushMaterial(this->shader, Material());
 		RenderableObject tmp_renderableobject = RenderableObject(this->l_mesh);
 		this->heap.pushRendereableObject(l_material, tmp_renderableobject);
 	}
@@ -1824,6 +1814,7 @@ private:
 	{
 		this->heap.meshes[this->l_mesh].dispose(this->renderApi.device);
 		this->heap.meshes.release_element(this->l_mesh);
+
 	}
 
 	inline void create_global_buffers()
@@ -1831,32 +1822,15 @@ private:
 		CameraMatrices l_cam_mat;
 		l_cam_mat.view = view(vec3f(9.0f, 9.0f, 9.0f), vec3f(-0.572061539f, -0.587785244f, -0.572061360f), vec3f(-0.415627033f, 0.809017003f, -0.415626884f));
 		l_cam_mat.projection = perspective<float>(45.0f * DEG_TO_RAD, (float)this->renderApi.swap_chain.extend.width / (float)this->renderApi.swap_chain.extend.height, 0.1f, 50.0f);
-		this->global_camera_matrices_buffer.allocate(1, this->renderApi.device);
-		this->global_camera_matrices_buffer.push(&l_cam_mat, this->renderApi.device, this->renderApi.command_pool);
+		this->camera_matrices_globalbuffer.create(vk::ShaderStageFlagBits::eVertex, this->renderApi.device, this->renderApi.descriptor_pool);
+		this->camera_matrices_globalbuffer.pushbuffer(&l_cam_mat, this->renderApi.device, this->renderApi.command_pool);
+		this->camera_matrices_globalbuffer.bind(0, this->renderApi.device);
 	}
 
 	inline void destroy_global_buffers()
 	{
-		this->global_camera_matrices_buffer.dispose(this->renderApi.device);
+		this->camera_matrices_globalbuffer.dispose(this->renderApi.device, this->renderApi.descriptor_pool);
 	}
-
-	/*
-	inline void createDescriptorSet()
-	{
-		vk::DescriptorSetAllocateInfo l_descriptorset_allocate;
-		l_descriptorset_allocate.setDescriptorPool(this->renderApi.descriptor_pool);
-		l_descriptorset_allocate.setDescriptorSetCount(1);
-		l_descriptorset_allocate.setPSetLayouts(&this->shaderTest.descriptorset_layout);
-		this->descriptorset = this->renderApi.device.allocateDescriptorSets(l_descriptorset_allocate)[0];
-
-		vk::WriteDescriptorSet l_swritedescriptorset;
-		l_swritedescriptorset.setDstSet(this->descriptorset);
-		l_swritedescriptorset.setDescriptorCount(1);
-		l_swritedescriptorset.setDescriptorType(vk::DescriptorType::eUniformBuffer);
-		//l_swritedescriptorset.setPBufferInfo();
-		l_swritedescriptorset.setDstBinding(0);
-	}
-	*/
 
 	inline void draw()
 	{
@@ -1897,6 +1871,9 @@ private:
 		l_command_buffer.command_buffer.setViewport(0, 1, &l_viewport);
 		l_command_buffer.command_buffer.setScissor(0, 1, &l_windowarea);
 
+
+		l_command_buffer.command_buffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, this->camera_matrices_globalbuffer.pipeline_layout, 0, 1, &this->camera_matrices_globalbuffer.descriptor_set, 0, nullptr);
+
 		for (size_t l_shader_index = 0; l_shader_index < this->heap.shaders.size(); l_shader_index++)
 		{
 			Optional<Shader>& l_shader = this->heap.shaders[l_shader_index];
@@ -1910,8 +1887,6 @@ private:
 					Optional<Material>& l_material = this->heap.materials[l_materials[l_material_index]];
 					if (l_material.hasValue)
 					{
-						l_command_buffer.command_buffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, l_shader.value.pipeline_layout, 0, 1, &l_material.value.camera_matrices_shaderparameter.descriptor_set, 0, nullptr);
-
 						com::Vector<com::PoolToken<Optional<RenderableObject>>>& l_renderableobjects = this->heap.material_to_renderableobjects[l_material_index];
 						for (size_t l_renderableobject_index = 0; l_renderableobject_index < l_renderableobjects.Size; l_renderableobject_index++)
 						{
