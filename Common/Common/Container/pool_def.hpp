@@ -20,7 +20,7 @@ namespace com
 		Vector<TYPE, Allocator> Memory;
 		Vector<size_t, HeapAllocator> FreeBlocks;
 
-		Pool();
+		Pool() = default;
 		Pool(size_t p_initialSize, const Allocator& p_allocator = Allocator());
 		size_t size();
 		TYPE& operator[](size_t i);

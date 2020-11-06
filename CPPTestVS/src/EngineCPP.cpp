@@ -12,6 +12,7 @@ using namespace Math;
 
 int main()
 {
+	/*
 	std::vector<float> zd;
 	std::allocator<float> l_del;
 	sizeof(zd);
@@ -57,7 +58,8 @@ int main()
 	mat4f l_lookatRot = lookAtRotation<4, float>(l_234, l_100, VecConst<float>::UP);
 
 	
-	com::Vector<float> l_vf(10);
+	
+	com::Vector<float> l_vf(0);
 	for (size_t i = 0; i < 100; i++)
 	{
 		l_vf.push_back(i);
@@ -72,7 +74,8 @@ int main()
 	com::Pool<float> l_pool(10);
 	com::PoolToken<float> l_zd = l_pool.alloc_element(5.0f);
 	float& l_f = l_pool.resolve(l_zd);
-	
+	*/
+
 	EngineHandle l_engine = engine_create();
 	engine_mainloop(l_engine);
 	engine_destroy(l_engine);

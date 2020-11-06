@@ -4,11 +4,6 @@
 
 namespace com
 {
-	template<class TYPE, class Allocator>
-	inline Pool<TYPE, Allocator>::Pool()
-	{
-	}
-
 	template <class TYPE, class Allocator>
 	inline Pool<TYPE, Allocator>::Pool(size_t p_initialSize, const Allocator &p_allocator)
 	{

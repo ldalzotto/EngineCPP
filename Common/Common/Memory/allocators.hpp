@@ -6,7 +6,7 @@ struct HeapAllocator
 {
 	inline void* malloc(const size_t p_allocSize)
 	{
-		return ::operator new (p_allocSize);
+		return ::malloc(p_allocSize);
 	}
 
 	inline void* realloc(void* p_initialMemory, const size_t p_allocSize)
