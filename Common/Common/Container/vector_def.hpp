@@ -15,14 +15,9 @@ namespace com
 		Allocator allocator;
 
 		Vector();
-		Vector(const Vector& p_other);
-		Vector(Vector&& p_other);
-		Vector(size_t p_initialSize, const Allocator &p_allocator = Allocator());
-		~Vector();
+		void allocate(size_t p_initialSize, const Allocator& p_allocator = Allocator());
+		void free();
 		TYPE& operator[](size_t i);
-
-		Vector& operator=(const Vector& p_other);
-		Vector& operator=(Vector&& p_other);
 		
 		size_t capacity_in_bytes();
 		char resize(const size_t p_newCapacity);

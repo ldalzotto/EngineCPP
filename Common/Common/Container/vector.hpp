@@ -40,37 +40,13 @@ namespace com
 		this->Size = 0;
 	}
 
-	// Copy constructor.
-	Vector_TemplateHeader
-		Vector_ClassName::Vector(const Vector_ClassName& p_other)
-	{
-		if (this != &p_other)
-		{
-			copy(this, p_other);
-		}
-	};
-	
-	Vector_TemplateHeader
-		Vector_ClassName::Vector(Vector_ClassName&& p_other)
-	{
-		if (this != &p_other)
-		{
-			this->Memory = p_other.Memory;
-			this->Size = p_other.Size;
-			this->Capacity = p_other.Capacity;
-			this->allocator = p_other.allocator;
-
-			p_other.Memory = nullptr;
-		}
-	};
-
 	Vector_TemplateHeader
 		inline TYPE& Vector_ClassName::operator[](size_t i)
 	{
 		return this->Memory[i];
 	};
 
-	Vector_TemplateHeader inline Vector_ClassName::Vector(size_t p_initialSize, const Allocator &p_allocator)
+	Vector_TemplateHeader inline void Vector_ClassName::allocate(size_t p_initialSize, const Allocator &p_allocator)
 	{
 		this->allocator = p_allocator;
 		this->Memory = (TYPE*)this->allocator.malloc(p_initialSize * sizeof(TYPE));
@@ -78,43 +54,13 @@ namespace com
 		this->Size = 0;
 	}
 
-	Vector_TemplateHeader
-		inline Vector_ClassName::~Vector()
+	Vector_TemplateHeader inline void Vector_ClassName::free()
 	{
 		this->allocator.free(this->Memory);
 		this->Memory = nullptr;
 		this->Capacity = 0;
 		this->Size = 0;
 	}
-
-	// Copy assignment operator.
-	Vector_TemplateHeader
-		inline Vector_ClassName& Vector_ClassName::operator=(const Vector_ClassName& p_other)
-	{
-		if (this != &p_other)
-		{
-			this->allocator.free(this->Memory);
-			copy(this, p_other);
-		}
-
-		return (*this);
-	};
-
-	// Move assignment operator.
-	Vector_TemplateHeader
-		inline Vector_ClassName& Vector_ClassName::operator=(Vector_ClassName&& p_other)
-	{
-		if (this != &p_other)
-		{
-			this->allocator.free(this->Memory);
-			this->Memory = p_other.Memory;
-			this->Capacity = p_other.Capacity;
-			this->Size = p_other.Size;
-			p_other.Memory = nullptr;
-		}
-
-		return (*this);
-	};
 
 	Vector_TemplateHeader
 		inline size_t Vector_ClassName::capacity_in_bytes()

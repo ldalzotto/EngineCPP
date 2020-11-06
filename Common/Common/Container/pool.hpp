@@ -5,10 +5,17 @@
 namespace com
 {
 	template <class TYPE, class Allocator>
-	inline Pool<TYPE, Allocator>::Pool(size_t p_initialSize, const Allocator &p_allocator)
+	inline void Pool<TYPE, Allocator>::allocate(size_t p_initialSize, const Allocator &p_allocator)
 	{
-		this->Memory = Vector<TYPE, Allocator>(p_initialSize, p_allocator);
-		this->FreeBlocks = Vector<size_t, HeapAllocator>(0, p_allocator);
+		this->Memory.allocate(p_initialSize, p_allocator);
+		this->FreeBlocks.allocate(0, p_allocator);
+	}
+
+	template <class TYPE, class Allocator>
+	inline void Pool<TYPE, Allocator>::free()
+	{
+		this->Memory.free();
+		this->FreeBlocks.free();
 	}
 
 	template<class TYPE, class Allocator>
@@ -63,11 +70,18 @@ namespace com
 	{
 	}
 
-	template<class TYPE, class Allocator>
-	inline OptionalPool<TYPE, Allocator>::OptionalPool(size_t p_initialSize, const Allocator& p_allocator)
+
+	template <class TYPE, class Allocator>
+	inline void OptionalPool<TYPE, Allocator>::allocate(size_t p_initialSize, const Allocator& p_allocator)
 	{
-		this->pool = Pool(p_initialSize, p_allocator);
-	};
+		this->pool.allocate(p_initialSize, p_allocator);
+	}
+
+	template <class TYPE, class Allocator>
+	inline void OptionalPool<TYPE, Allocator>::free()
+	{
+		this->pool.free();
+	}
 
 	template<class TYPE, class Allocator>
 	inline size_t OptionalPool<TYPE, Allocator>::size()

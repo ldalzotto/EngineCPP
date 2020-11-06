@@ -21,7 +21,8 @@ namespace com
 		Vector<size_t, HeapAllocator> FreeBlocks;
 
 		Pool() = default;
-		Pool(size_t p_initialSize, const Allocator& p_allocator = Allocator());
+		void allocate(size_t p_initialSize, const Allocator& p_allocator = Allocator());
+		void free();
 		size_t size();
 		TYPE& operator[](size_t i);
 		TYPE& operator[](const PoolToken<TYPE> i);
@@ -36,7 +37,8 @@ namespace com
 		Pool<Optional<TYPE>, Allocator> pool;
 
 		OptionalPool();
-		OptionalPool(size_t p_initialSize, const Allocator& p_allocator = Allocator());
+		void allocate(size_t p_initialSize, const Allocator& p_allocator = Allocator());
+		void free();
 		size_t size();
 		Optional<TYPE>& operator[](size_t i);
 		Optional<TYPE>& operator[](const PoolToken<Optional<TYPE>> i);

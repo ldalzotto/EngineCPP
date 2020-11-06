@@ -47,12 +47,18 @@ struct PageBuffer
 		BufferChunk l_whole_chunk;
 		l_whole_chunk.chunk_size = this->chunk_total_size;
 		l_whole_chunk.offset = 0;
+
+		this->allocated_chunks.allocate(0);
+		this->free_chunks.allocate(0);
+
 		this->free_chunks.push_back(l_whole_chunk);
 	}
 
 	inline void dispose(vk::Device p_device)
 	{
 		p_device.freeMemory(this->root_memory);
+		this->allocated_chunks.free();
+		this->free_chunks.free();
 	}
 
 	inline bool allocate_element(size_t p_size, BufferWithOffset* out_chunk)
@@ -115,14 +121,16 @@ struct PagedBuffer
 	{
 		this->memory_type = p_memory_type;
 		this->chunk_size = p_chunksize;
+		this->page_buffers.allocate(0);
 	}
 
-	inline void destroy(vk::Device p_device)
+	inline void free(vk::Device p_device)
 	{
 		for (size_t i = 0; i < this->page_buffers.Size; i++)
 		{
 			this->page_buffers[i].dispose(p_device);
 		}
+		this->page_buffers.free();
 	}
 
 	inline bool allocate_element(size_t p_size, vk::Device p_device, bool p_mapping, BufferWithOffset* out_chunk)
@@ -157,10 +165,10 @@ struct PagedBuffers
 		this->i8.allocate(16000000, 8);
 	}
 
-	inline void destroy(vk::Device p_device)
+	inline void free(vk::Device p_device)
 	{
-		this->i7.destroy(p_device);
-		this->i8.destroy(p_device);
+		this->i7.free(p_device);
+		this->i8.free(p_device);
 	}
 
 	inline bool allocate_element(size_t p_size, uint32_t p_memory_type, vk::Device p_device, BufferWithOffset* out_chunk)
