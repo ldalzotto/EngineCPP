@@ -1944,7 +1944,7 @@ struct Render
 		Shader l_shader = Shader("E:/GameProjects/CPPTestVS/Render/shader/TriVert.spv", "E:/GameProjects/CPPTestVS/Render/shader/TriFrag.spv", this->renderApi.swap_chain.renderpass, this->renderApi);
 		this->shader = this->heap.pushShader(l_shader);
 		this->createVertexBuffer();
-		this->draw();
+		// this->draw();
 	};
 
 	inline void dispose()
@@ -1956,55 +1956,6 @@ struct Render
 		this->window.dispose();
 	};
 
-private:
-
-	inline void createVertexBuffer()
-	{
-		com::Vector<Vertex> l_vertexBuffer(3);
-		l_vertexBuffer.Size = l_vertexBuffer.Capacity;
-		l_vertexBuffer[0].position = vec3f(1.0f, 0.0f, 0.0f);
-		l_vertexBuffer[0].color = vec3f(1.0f, 0.0f, 0.0f);
-		l_vertexBuffer[1].position = vec3f(0.0f, 1.0f, 0.0f);
-		l_vertexBuffer[1].color = vec3f(0.0f, 1.0f, 0.0f);
-		l_vertexBuffer[2].position = vec3f(0.0f, 0.0f, 1.0f);
-		l_vertexBuffer[2].color = vec3f(0.0f, 0.0f, 1.0f);
-
-		com::Vector<uint32_t> l_indicesBuffer(3);
-		l_indicesBuffer.Size = l_indicesBuffer.Capacity;
-		l_indicesBuffer[0] = 0; l_indicesBuffer[1] = 1; l_indicesBuffer[2] = 2;
-
-		this->l_mesh = this->heap.meshes.alloc_element(Mesh(l_vertexBuffer, l_indicesBuffer, this->renderApi));
-
-		com::PoolToken<Optional<Material>> l_material = this->heap.pushMaterial(this->shader, Material());
-		RenderableObject tmp_renderableobject;
-		tmp_renderableobject.setMesh(this->l_mesh);
-		tmp_renderableobject.createModelMatrix(this->renderApi);
-		tmp_renderableobject.pushModelMatrix(translationMatrix(vec3f(8.0f, 0.0f, 0.0f)), this->renderApi.device);
-		this->heap.pushRendereableObject(l_material, tmp_renderableobject);
-	}
-
-	inline void destroyVertexBuffer()
-	{
-		this->heap.meshes[this->l_mesh].dispose(this->renderApi.device);
-		this->heap.meshes.release_element(this->l_mesh);
-
-	}
-
-	inline void create_global_buffers()
-	{
-		CameraMatrices l_cam_mat;
-		l_cam_mat.view = view(vec3f(9.0f, 9.0f, 9.0f), vec3f(-0.572061539f, -0.587785244f, -0.572061360f), vec3f(-0.415627033f, 0.809017003f, -0.415626884f));
-		l_cam_mat.projection = perspective<float>(45.0f * DEG_TO_RAD, (float)this->renderApi.swap_chain.extend.width / (float)this->renderApi.swap_chain.extend.height, 0.1f, 50.0f);
-
-		this->camera_matrices_globalbuffer.create(vk::ShaderStageFlagBits::eVertex, 0, 0, this->renderApi.device, this->renderApi.descriptor_pool);
-		this->camera_matrices_globalbuffer.pushbuffer(&l_cam_mat, this->renderApi.device);
-		this->camera_matrices_globalbuffer.bind(this->renderApi.device);
-	}
-
-	inline void destroy_global_buffers()
-	{
-		this->camera_matrices_globalbuffer.dispose(this->renderApi.device, this->renderApi.descriptor_pool);
-	}
 
 	//TODO -> this function must be called every frame.
 	inline void draw()
@@ -2013,7 +1964,7 @@ private:
 		this->renderApi.device.device.waitForFences(1, &this->renderApi.synchronization.draw_command_fences[l_render_image_index], true, UINT64_MAX);
 		this->renderApi.device.device.resetFences(1, &this->renderApi.synchronization.draw_command_fences[l_render_image_index]);
 
-		
+
 		if (this->renderApi.staging_commands.Size > 0)
 		{
 			CommandBuffer& l_cmd = this->renderApi.staging_commandbuffer;
@@ -2030,7 +1981,7 @@ private:
 			}
 			this->renderApi.staging_commands.Size = 0;
 		}
-		
+
 
 		vk::ClearValue l_clear[2];
 		l_clear[0].color.setFloat32({ 0.0f, 0.0f, 0.2f, 1.0f });
@@ -2115,6 +2066,60 @@ private:
 		this->renderApi.device.graphics_queue.submit(1, &l_submit, this->renderApi.synchronization.draw_command_fences[l_render_image_index]);
 		this->renderApi.swap_chain.presentImage(this->renderApi.device.present_queue, l_render_image_index, this->renderApi.synchronization.render_complete_semaphore);
 	}
+
+private:
+
+	inline void createVertexBuffer()
+	{
+		com::Vector<Vertex> l_vertexBuffer(3);
+		l_vertexBuffer.Size = l_vertexBuffer.Capacity;
+		l_vertexBuffer[0].position = vec3f(1.0f, 0.0f, 0.0f);
+		l_vertexBuffer[0].color = vec3f(1.0f, 0.0f, 0.0f);
+		l_vertexBuffer[1].position = vec3f(0.0f, 1.0f, 0.0f);
+		l_vertexBuffer[1].color = vec3f(0.0f, 1.0f, 0.0f);
+		l_vertexBuffer[2].position = vec3f(0.0f, 0.0f, 1.0f);
+		l_vertexBuffer[2].color = vec3f(0.0f, 0.0f, 1.0f);
+
+		com::Vector<uint32_t> l_indicesBuffer(3);
+		l_indicesBuffer.Size = l_indicesBuffer.Capacity;
+		l_indicesBuffer[0] = 0; l_indicesBuffer[1] = 1; l_indicesBuffer[2] = 2;
+
+		com::PoolToken<Optional<Material>> l_material = this->heap.pushMaterial(this->shader, Material());
+
+		{
+			this->l_mesh = this->heap.meshes.alloc_element(Mesh(l_vertexBuffer, l_indicesBuffer, this->renderApi));
+			RenderableObject tmp_renderableobject;
+			tmp_renderableobject.setMesh(this->l_mesh);
+			tmp_renderableobject.createModelMatrix(this->renderApi);
+			tmp_renderableobject.pushModelMatrix(translationMatrix(vec3f(0.0f, 0.0f, 0.0f)), this->renderApi.device);
+			this->heap.pushRendereableObject(l_material, tmp_renderableobject);
+		}
+		
+	}
+
+	inline void destroyVertexBuffer()
+	{
+		this->heap.meshes[this->l_mesh].dispose(this->renderApi.device);
+		this->heap.meshes.release_element(this->l_mesh);
+
+	}
+
+	inline void create_global_buffers()
+	{
+		CameraMatrices l_cam_mat;
+		l_cam_mat.view = view(vec3f(9.0f, 9.0f, 9.0f), vec3f(-0.572061539f, -0.587785244f, -0.572061360f), vec3f(-0.415627033f, 0.809017003f, -0.415626884f));
+		l_cam_mat.projection = perspective<float>(45.0f * DEG_TO_RAD, (float)this->renderApi.swap_chain.extend.width / (float)this->renderApi.swap_chain.extend.height, 0.1f, 50.0f);
+
+		this->camera_matrices_globalbuffer.create(vk::ShaderStageFlagBits::eVertex, 0, 0, this->renderApi.device, this->renderApi.descriptor_pool);
+		this->camera_matrices_globalbuffer.pushbuffer(&l_cam_mat, this->renderApi.device);
+		this->camera_matrices_globalbuffer.bind(this->renderApi.device);
+	}
+
+	inline void destroy_global_buffers()
+	{
+		this->camera_matrices_globalbuffer.dispose(this->renderApi.device, this->renderApi.descriptor_pool);
+	}
+
 };
 
 RenderHandle create_render()
@@ -2140,3 +2145,8 @@ void render_window_pool_event(const RenderHandle& p_render)
 	rdwindow::window_pool_event(l_render->window.Handle);
 };
 
+void render_draw(const RenderHandle& p_render)
+{
+	Render* l_render = (Render*)p_render;
+	l_render->draw();
+};
