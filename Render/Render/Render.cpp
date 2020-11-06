@@ -1,7 +1,6 @@
 #include <interface/Render/render.hpp>
 #include <driver/Render/rdwindow.hpp>
 #include "Math/math.hpp"
-#include "paged_buffer.hpp"
 #include "Common/Container/pool.hpp"
 #include "Common/Container/vector.hpp"
 #include "Common/Container/array_def.hpp"
@@ -50,11 +49,261 @@ struct ValidationLayer
 	com::Vector<const char*> layers;
 };
 
+
+
+// What kind of memory ? Buffer or Image ? Binding methods call to vulkan will change depending of this
+enum MemoryType2
+{
+	Buffer = 0,
+	Image = 1
+};
+
+enum WriteMethod2
+{
+	// * HostWrite : Allow map
+	HostWrite = 0,
+	// * GPUWrite : Allow writing by copying from a source buffer.
+	//              Cannot be accesses from from host.
+	GPUWrite = 1
+};
+
+
+
+struct GPUMemoryChunk
+{
+	size_t chunk_size;
+	size_t offset;
+};
+
+struct GPUMemoryWithOffset
+{
+	vk::DeviceMemory original_memory;
+	char* original_mapped_memory;
+	uint32_t memory_type;
+	size_t offset;
+	com::PoolToken<GPUMemoryChunk> allocated_chunk_token;
+	size_t pagedbuffer_index;
+};
+
+template<unsigned WriteMethod>
+struct PageGPUMemoryMappingFn {};
+
+template<>
+struct PageGPUMemoryMappingFn<WriteMethod2::HostWrite>
+{
+	inline static char* map(vk::Device p_device, const vk::DeviceMemory p_memory, const size_t p_size)
+	{
+		return (char*)p_device.mapMemory(p_memory, 0, p_size);
+	}
+};
+
+template<>
+struct PageGPUMemoryMappingFn<WriteMethod2::GPUWrite>
+{
+	inline static char* map(vk::Device p_device, const vk::DeviceMemory p_memory, const size_t p_size) { return nullptr; }
+};
+
+struct PageGPUMemory
+{
+	size_t chunk_total_size;
+	size_t page_index;
+	vk::DeviceMemory root_memory;
+	char* mapped_memory;
+	com::Pool<GPUMemoryChunk> allocated_chunks;
+	com::Vector<GPUMemoryChunk> free_chunks;
+
+	template<unsigned WriteMethod>
+	inline void allocate(size_t p_page_index, size_t p_size, uint32_t p_memorytype, vk::Device p_device)
+	{
+		this->page_index = p_page_index;
+		this->chunk_total_size = p_size;
+		vk::MemoryAllocateInfo l_memoryallocate_info;
+		l_memoryallocate_info.setAllocationSize(p_size);
+		l_memoryallocate_info.setMemoryTypeIndex(p_memorytype);
+		this->root_memory = p_device.allocateMemory(l_memoryallocate_info);
+		this->mapped_memory = PageGPUMemoryMappingFn<WriteMethod>::map(p_device, this->root_memory, this->chunk_total_size);
+
+		GPUMemoryChunk l_whole_chunk;
+		l_whole_chunk.chunk_size = this->chunk_total_size;
+		l_whole_chunk.offset = 0;
+
+		this->allocated_chunks.allocate(0);
+		this->free_chunks.allocate(0);
+
+		this->free_chunks.push_back(l_whole_chunk);
+	}
+
+	inline void dispose(vk::Device p_device)
+	{
+		p_device.freeMemory(this->root_memory);
+		this->allocated_chunks.free();
+		this->free_chunks.free();
+	}
+
+	inline bool allocate_element(size_t p_size, GPUMemoryWithOffset* out_chunk)
+	{
+		for (size_t i = 0; i < this->free_chunks.Size; i++)
+		{
+			GPUMemoryChunk& l_chunk = this->free_chunks[i];
+
+			if (l_chunk.chunk_size > p_size)
+			{
+				size_t l_split_size = l_chunk.chunk_size - p_size;
+
+
+				GPUMemoryChunk l_new_allocated_chunk;
+				l_new_allocated_chunk.chunk_size = l_chunk.chunk_size - l_split_size;
+				l_new_allocated_chunk.offset = l_chunk.offset;
+
+				out_chunk->pagedbuffer_index = this->page_index;
+				out_chunk->allocated_chunk_token = this->allocated_chunks.alloc_element(l_new_allocated_chunk);
+				out_chunk->offset = l_new_allocated_chunk.offset;
+				out_chunk->original_memory = this->root_memory;
+				out_chunk->original_mapped_memory = this->mapped_memory;
+
+				this->free_chunks[i].chunk_size = l_split_size;
+				this->free_chunks[i].offset = l_new_allocated_chunk.offset + l_new_allocated_chunk.chunk_size;
+
+				return true;
+			}
+			else if (l_chunk.chunk_size == p_size)
+			{
+				out_chunk->pagedbuffer_index = this->page_index;
+				out_chunk->allocated_chunk_token = this->allocated_chunks.alloc_element(l_chunk);
+				out_chunk->offset = l_chunk.offset;
+				out_chunk->original_memory = this->root_memory;
+				out_chunk->original_mapped_memory = this->mapped_memory;
+
+				this->free_chunks.erase_at(i);
+
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	inline void release_element(const GPUMemoryWithOffset& p_buffer)
+	{
+		this->free_chunks.push_back(this->allocated_chunks[p_buffer.allocated_chunk_token]);
+		this->allocated_chunks.release_element(p_buffer.allocated_chunk_token);
+	}
+};
+
+template<unsigned WriteMethod>
+struct PagedGPUMemory
+{
+	com::Vector<PageGPUMemory> page_buffers;
+	uint32_t memory_type;
+	size_t chunk_size;
+
+	inline void allocate(size_t p_chunksize, uint32_t p_memory_type)
+	{
+		this->memory_type = p_memory_type;
+		this->chunk_size = p_chunksize;
+		this->page_buffers.allocate(0);
+	}
+
+	inline void free(vk::Device p_device)
+	{
+		for (size_t i = 0; i < this->page_buffers.Size; i++)
+		{
+			this->page_buffers[i].dispose(p_device);
+		}
+		this->page_buffers.free();
+	}
+
+	inline bool allocate_element(size_t p_size, vk::Device p_device, GPUMemoryWithOffset* out_chunk)
+	{
+		for (size_t i = 0; i < this->page_buffers.Size; i++)
+		{
+			if (this->page_buffers[i].allocate_element(p_size, out_chunk))
+			{
+				return true;
+			}
+		}
+
+		this->page_buffers.push_back(PageGPUMemory());
+		this->page_buffers[this->page_buffers.Size - 1].allocate<WriteMethod>(this->page_buffers.Size - 1, this->chunk_size, this->memory_type, p_device);
+		return this->page_buffers[this->page_buffers.Size - 1].allocate_element(p_size, out_chunk);
+	}
+
+	inline void free_element(const GPUMemoryWithOffset& p_buffer)
+	{
+		this->page_buffers[p_buffer.pagedbuffer_index].release_element(p_buffer);
+	}
+};
+
+struct PagedMemories
+{
+	PagedGPUMemory<WriteMethod2::GPUWrite> i7;
+	PagedGPUMemory<WriteMethod2::HostWrite> i8;
+
+	inline void allocate()
+	{
+		this->i7.allocate(16000000, 7);
+		this->i8.allocate(16000000, 8);
+	}
+
+	inline void free(vk::Device p_device)
+	{
+		this->i7.free(p_device);
+		this->i8.free(p_device);
+	}
+
+	inline bool allocate_element(size_t p_size, uint32_t p_memory_type, vk::Device p_device, GPUMemoryWithOffset* out_chunk)
+	{
+		switch (p_memory_type)
+		{
+		case 7:
+		{
+			bool l_success = this->i7.allocate_element(p_size, p_device, out_chunk);
+			out_chunk->memory_type = 7;
+			return l_success;
+		}
+		break;
+		case 8:
+		{
+			bool l_success = this->i8.allocate_element(p_size, p_device, out_chunk);
+			out_chunk->memory_type = 8;
+			return l_success;
+		}
+		break;
+		}
+
+		return false;
+	}
+
+	inline void free_element(GPUMemoryWithOffset p_chunk)
+	{
+		switch (p_chunk.memory_type)
+		{
+		case 7:
+		{
+			this->i7.free_element(p_chunk);
+		}
+		break;
+		case 8:
+		{
+			this->i8.free_element(p_chunk);
+		}
+		break;
+		}
+	}
+};
+
+
+
+
+
+
+
+
 struct Device
 {
 	static const uint32_t QueueFamilyDefault = -1;
 
-	PagedBuffers devicememory_allocator;
+	PagedMemories devicememory_allocator;
 
 	vk::PhysicalDevice graphics_device;
 	VkPhysicalDeviceMemoryProperties device_memory_properties;
@@ -343,24 +592,7 @@ struct CommandBuffer
 };
 
 
-//TODO -> pushing to buffers is currently pushing the entire buffre range.
-//        allowing to push only slice of src or dst buffer. Widht bound check on debug ?
 
-// What kind of memory ? Buffer or Image ? Binding methods call to vulkan will change depending of this
-enum MemoryType2
-{
-	Buffer = 0,
-	Image = 1
-};
-
-enum WriteMethod2
-{
-	// * HostWrite : Allow map
-	HostWrite = 0,
-	// * GPUWrite : Allow writing by copying from a source buffer.
-	//              Cannot be accesses from from host.
-	GPUWrite = 1
-};
 
 template<unsigned MemoryType>
 struct BufferMemoryStructure { };
@@ -401,12 +633,12 @@ struct MappedMemory<ElementType, WriteMethod2::HostWrite>
 		return this->mapped_data != nullptr;
 	}
 
-	inline void map(const Device& p_device, const BufferWithOffset& p_memory, const size_t p_size_count)
+	inline void map(const Device& p_device, const GPUMemoryWithOffset& p_memory, const size_t p_size_count)
 	{
 		this->map_internal(p_device, p_memory, p_size_count, sizeof(ElementType));
 	}
 
-	inline void map_internal(const Device& p_device, const BufferWithOffset& p_memory, const size_t p_size_count, const size_t p_element_size)
+	inline void map_internal(const Device& p_device, const GPUMemoryWithOffset& p_memory, const size_t p_size_count, const size_t p_element_size)
 	{
 		if (!this->isMapped())
 		{
@@ -415,12 +647,12 @@ struct MappedMemory<ElementType, WriteMethod2::HostWrite>
 		}
 	}
 
-	inline void copyFrom(const BufferWithOffset& p_memory, const ElementType* p_from)
+	inline void copyFrom(const GPUMemoryWithOffset& p_memory, const ElementType* p_from)
 	{
 		this->copyFrom_internal(p_memory, (const char*)p_from, sizeof(ElementType));
 	}
 
-	inline void copyFrom_internal(const BufferWithOffset& p_memory, const char* p_from, const size_t p_elementsize)
+	inline void copyFrom_internal(const GPUMemoryWithOffset& p_memory, const char* p_from, const size_t p_elementsize)
 	{
 		memcpy((void*)this->mapped_data, (const void*)p_from, (this->size_count * p_elementsize));
 	}
@@ -449,7 +681,7 @@ struct MappedMemory<ElementType, WriteMethod2::GPUWrite>
 template<class ElementType, unsigned MemoryType, unsigned WriteMethod>
 struct GPUMemory
 {
-	BufferWithOffset memory;
+	GPUMemoryWithOffset memory;
 
 	BufferMemoryStructure<MemoryType> buffer;
 	MappedMemory<ElementType, WriteMethod> mapped_memory = MappedMemory<ElementType, WriteMethod>();
@@ -1390,7 +1622,7 @@ private:
 		l_descriptor_pool_create_info.setPNext(nullptr);
 		l_descriptor_pool_create_info.setPoolSizeCount(1);
 		l_descriptor_pool_create_info.setPPoolSizes(l_types);
-		l_descriptor_pool_create_info.setMaxSets(5000); //TODO -> tune
+		l_descriptor_pool_create_info.setMaxSets(100);
 
 		this->descriptor_pool = this->device.device.createDescriptorPool(l_descriptor_pool_create_info);
 	}
