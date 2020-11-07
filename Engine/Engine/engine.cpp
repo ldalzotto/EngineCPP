@@ -2,6 +2,7 @@
 #include <Render/render.hpp>
 #include <GLFW/glfwinclude.h>
 #include <optick.h>
+#include <Scene/scene.hpp>
 #include "engine_loop.hpp"
 
 struct Engine;
@@ -28,6 +29,7 @@ struct Engine
 {
 	Clock clock;
 	EngineLoop<EngineCallbacks> loop;
+	SceneHandle scene;
 	RenderHandle render;
 	Engine();
 	void dispose();
@@ -37,12 +39,14 @@ struct Engine
 inline Engine::Engine()
 {
 	this->loop = EngineLoop<EngineCallbacks>(EngineCallbacks(this), 16000);
+	this->scene.allocate();
 	this->render = create_render();
 }
 
 inline void Engine::dispose()
 {
 	destroy_render(this->render);
+	this->scene.free();
 }
 
 inline void Engine::mainloop()

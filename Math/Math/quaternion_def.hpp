@@ -30,4 +30,9 @@ namespace Math
 	};
 
 	using quat = Quaternion;
+
+	struct QuatConst
+	{
+		inline static const Quaternion IDENTITY = { 0.0f,0.0f,0.0f,1.0f };
+	};
 }

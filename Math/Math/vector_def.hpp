@@ -1,5 +1,8 @@
 #pragma once
 
+#include "contants.hpp"
+#include "functional.hpp"
+
 namespace Math
 {
 

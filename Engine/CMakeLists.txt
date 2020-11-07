@@ -13,5 +13,6 @@ add_library(Engine ${RENDER_HEADER} ${RENDER_SOURCE})
 target_include_directories(Engine PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/interface)
 
 target_link_libraries(Engine PUBLIC GLFW)
-target_link_libraries(Engine PUBLIC Render)
 target_link_libraries(Engine PUBLIC Optick)
+target_link_libraries(Engine PUBLIC Render)
+target_link_libraries(Engine PUBLIC Scene)
