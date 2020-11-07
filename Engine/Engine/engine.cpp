@@ -1,6 +1,7 @@
 #include <interface/Engine/engine.hpp>
 #include <Render/render.hpp>
 #include <GLFW/glfwinclude.h>
+#include <optick.h>
 #include "engine_loop.hpp"
 
 struct Engine;
@@ -68,6 +69,7 @@ void engine_mainloop(const EngineHandle& p_engine)
 
 inline void EngineCallbacks::newframe_callback()
 {
+	OPTICK_FRAME("MainThread");
 	this->closure->clock.newframe();
 }
 

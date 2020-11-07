@@ -1,5 +1,6 @@
 #include <interface/Render/render.hpp>
 #include <driver/Render/rdwindow.hpp>
+#include <optick.h>
 #include "Math/math.hpp"
 #include "Common/Container/pool.hpp"
 #include "Common/Container/vector.hpp"
@@ -1415,22 +1416,24 @@ struct RenderAPI
 		this->device.getPhysicalDevice(this->instance, this->surface);
 		this->device.createPhysicalDevice(this->validation_layer);
 		this->createCommandBufferPool();
+		this->create_stagin();
+
 		this->createSwapChain(p_window);
 		this->create_draw_commandbuffers();
 		this->create_synchronization();
 		this->create_descriptor_pool();
 		this->create_global_descriptorset_layouts();
-		this->create_stagin();
 	};
 
 	inline void dispose()
 	{
-		this->destroy_stagin();
 		this->destroy_global_descriptorset_layouts();
 		this->destroy_descriptor_pool();
 		this->destroy_synchronization();
 		this->destroy_draw_commandbuffers();
 		this->destroySwapChain();
+
+		this->destroy_stagin();
 		this->destroyCommandBufferPool();
 		this->destroySurface();
 		this->device.destroy();
@@ -2283,6 +2286,8 @@ struct Render
 
 	inline void draw()
 	{
+		OPTICK_EVENT();
+
 		uint32_t l_render_image_index = this->renderApi.swap_chain.getNextImage(this->renderApi.synchronization.present_complete_semaphore);
 		this->renderApi.device.device.waitForFences(1, &this->renderApi.synchronization.draw_command_fences[l_render_image_index], true, UINT64_MAX);
 		this->renderApi.device.device.resetFences(1, &this->renderApi.synchronization.draw_command_fences[l_render_image_index]);
