@@ -2,7 +2,14 @@
 
 #include <stdlib.h>
 
-struct HeapAllocator
+struct IAllocator 
+{
+	void* malloc(const size_t p_allocSize);
+	void* realloc(void* p_initialMemory, const size_t p_allocSize);
+	void free(void* p_memory);
+};
+
+struct HeapAllocator : public IAllocator
 {
 	inline void* malloc(const size_t p_allocSize)
 	{

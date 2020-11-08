@@ -1,5 +1,6 @@
 #pragma once
 
+#include <type_traits>
 #include <Common/Memory/allocators.hpp>
 #include <Common/Memory/memory_slice.hpp>
 
@@ -8,6 +9,8 @@ namespace com
 	template<class TYPE, class Allocator = HeapAllocator>
 	struct Vector
 	{
+		static_assert(std::is_base_of<IAllocator, Allocator>::value, "Allocator must implements IAllocator.");
+
 		TYPE* Memory;
 		size_t Size;
 		size_t Capacity;

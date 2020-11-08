@@ -1,5 +1,6 @@
 #pragma once
 
+#include <type_traits>
 #include "vector_def.hpp"
 #include "Common/Functional/Optional.hpp"
 
@@ -17,6 +18,8 @@ namespace com
 	template<class TYPE, class Allocator = HeapAllocator>
 	struct Pool
 	{
+		static_assert(std::is_base_of<IAllocator, Allocator>::value, "Allocator must implements IAllocator.");
+
 		Vector<TYPE, Allocator> Memory;
 		Vector<size_t, HeapAllocator> FreeBlocks;
 
@@ -34,6 +37,8 @@ namespace com
 	template<class TYPE, class Allocator = HeapAllocator>
 	struct OptionalPool
 	{
+		static_assert(std::is_base_of<IAllocator, Allocator>::value, "Allocator must implements IAllocator.");
+
 		Pool<Optional<TYPE>, Allocator> pool;
 
 		OptionalPool();

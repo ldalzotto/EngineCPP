@@ -15,6 +15,19 @@ struct SceneHeap
 	//store components ?
 };
 
+/*
+//TODO -> Adding components to SceneNode. Components are data only objects.
+They are allocated by SceneHeap with a generic purpose allocator (generalizing the one developped in Render).
+Components are typed by a size_t readonly unique identifier.
+A component table is passed as an input of the SceneTree. The component table associate the allocation size for every id.
+
+For every SceneNode component layout chage, the "attached/detached" callbacks associated to the component type is called.
+This allow to trigger logic when a specific set of components is present, or not.
+
+Ex : when the MeshRenderer component is attached, we will call the Render middleware to queue creation of render resources.
+
+The goal here is to perform component synchronization callback synchronously. But it is up to the middleware to decide if operations are deferred.
+*/
 struct SceneNode
 {
 	NTree<SceneNode>* scenetree_ptr;

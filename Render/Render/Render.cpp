@@ -5,6 +5,7 @@
 #include "Common/Container/pool.hpp"
 #include "Common/Container/vector.hpp"
 #include "Common/Container/array_def.hpp"
+#include "Common/Memory/heap.hpp"
 #include <fstream>
 #include <stdlib.h>
 
@@ -69,20 +70,13 @@ enum WriteMethod2
 };
 
 
-
-struct GPUMemoryChunk
-{
-	size_t chunk_size;
-	size_t offset;
-};
-
 struct GPUMemoryWithOffset
 {
 	vk::DeviceMemory original_memory;
 	char* original_mapped_memory;
 	uint32_t memory_type;
 	size_t offset;
-	com::PoolToken<GPUMemoryChunk> allocated_chunk_token;
+	com::PoolToken<GeneralPurposeHeapMemoryChunk> allocated_chunk_token;
 	size_t pagedbuffer_index;
 };
 
@@ -104,99 +98,89 @@ struct PageGPUMemoryMappingFn<WriteMethod2::GPUWrite>
 	inline static char* map(vk::Device p_device, const vk::DeviceMemory p_memory, const size_t p_size) { return nullptr; }
 };
 
-struct PageGPUMemory
+template<unsigned WriteMethod>
+struct PageGPUMemory2
 {
-	size_t chunk_total_size;
-	size_t page_index;
-	vk::DeviceMemory root_memory;
-	char* mapped_memory;
-	com::Pool<GPUMemoryChunk> allocated_chunks;
-	com::Vector<GPUMemoryChunk> free_chunks;
+	struct GPUDeviceMemoryAllocator : public IAllocator
+	{
+		uint32_t memorytype;
+		vk::Device device;
+		vk::DeviceMemory root_memory;
 
-	template<unsigned WriteMethod>
+		inline GPUDeviceMemoryAllocator(){}
+
+		inline GPUDeviceMemoryAllocator(const uint32_t p_memorytype, vk::Device p_device)
+		{
+			this->memorytype = p_memorytype;
+			this->device = p_device;
+		};
+
+		inline void* malloc(const size_t p_allocSize)
+		{
+			vk::MemoryAllocateInfo l_memoryallocate_info;
+			l_memoryallocate_info.setAllocationSize(p_allocSize);
+			l_memoryallocate_info.setMemoryTypeIndex(this->memorytype);
+			this->root_memory = device.allocateMemory(l_memoryallocate_info);
+			return PageGPUMemoryMappingFn<WriteMethod>::map(this->device, this->root_memory, p_allocSize);
+		};
+
+		inline void free(void* p_memory)
+		{
+			this->device.freeMemory(this->root_memory);
+		};
+	};
+
+	GeneralPurposeHeap<GPUDeviceMemoryAllocator> heap;
+	size_t page_index;
+
 	inline void allocate(size_t p_page_index, size_t p_size, uint32_t p_memorytype, vk::Device p_device)
 	{
 		this->page_index = p_page_index;
-		this->chunk_total_size = p_size;
-		vk::MemoryAllocateInfo l_memoryallocate_info;
-		l_memoryallocate_info.setAllocationSize(p_size);
-		l_memoryallocate_info.setMemoryTypeIndex(p_memorytype);
-		this->root_memory = p_device.allocateMemory(l_memoryallocate_info);
-		this->mapped_memory = PageGPUMemoryMappingFn<WriteMethod>::map(p_device, this->root_memory, this->chunk_total_size);
-
-		GPUMemoryChunk l_whole_chunk;
-		l_whole_chunk.chunk_size = this->chunk_total_size;
-		l_whole_chunk.offset = 0;
-
-		this->allocated_chunks.allocate(0);
-		this->free_chunks.allocate(0);
-
-		this->free_chunks.push_back(l_whole_chunk);
+		this->heap.allocate(p_size, GPUDeviceMemoryAllocator(p_memorytype, p_device));
 	}
 
 	inline void dispose(vk::Device p_device)
 	{
-		p_device.freeMemory(this->root_memory);
-		this->allocated_chunks.free();
-		this->free_chunks.free();
+		this->heap.dispose();
 	}
 
-	//TODO -> having multiple free_chunks indexed by allocation size range ?
-	//        to avoid fragmentation of huge chunk for a very small size.
+	struct GPUMemoryWithOffsetMapper : public IMemoryChunkMapper<GPUMemoryWithOffset>
+	{
+		PageGPUMemory2<WriteMethod>* page_gpu_memory;
+
+		inline GPUMemoryWithOffsetMapper(PageGPUMemory2<WriteMethod>* p_pagegpumemory)
+		{
+			this->page_gpu_memory = p_pagegpumemory;
+		};
+
+		inline GPUMemoryWithOffset map(const GeneralPurposeHeapMemoryChunk& p_chunk, com::PoolToken<GeneralPurposeHeapMemoryChunk>& p_chunktoken)
+		{
+			GPUMemoryWithOffset l_gpumemory;
+			l_gpumemory.pagedbuffer_index = this->page_gpu_memory->page_index;
+			l_gpumemory.allocated_chunk_token = p_chunktoken;
+			l_gpumemory.offset = p_chunk.offset;
+			l_gpumemory.original_memory = this->page_gpu_memory->heap.allocator.root_memory;
+			l_gpumemory.original_mapped_memory = this->page_gpu_memory->heap.memory;
+			return l_gpumemory;
+		};
+	};
+
 	inline bool allocate_element(size_t p_size, GPUMemoryWithOffset* out_chunk)
 	{
-		for (size_t i = 0; i < this->free_chunks.Size; i++)
-		{
-			GPUMemoryChunk& l_chunk = this->free_chunks[i];
-
-			if (l_chunk.chunk_size > p_size)
-			{
-				size_t l_split_size = l_chunk.chunk_size - p_size;
-
-
-				GPUMemoryChunk l_new_allocated_chunk;
-				l_new_allocated_chunk.chunk_size = l_chunk.chunk_size - l_split_size;
-				l_new_allocated_chunk.offset = l_chunk.offset;
-
-				out_chunk->pagedbuffer_index = this->page_index;
-				out_chunk->allocated_chunk_token = this->allocated_chunks.alloc_element(l_new_allocated_chunk);
-				out_chunk->offset = l_new_allocated_chunk.offset;
-				out_chunk->original_memory = this->root_memory;
-				out_chunk->original_mapped_memory = this->mapped_memory;
-
-				this->free_chunks[i].chunk_size = l_split_size;
-				this->free_chunks[i].offset = l_new_allocated_chunk.offset + l_new_allocated_chunk.chunk_size;
-
-				return true;
-			}
-			else if (l_chunk.chunk_size == p_size)
-			{
-				out_chunk->pagedbuffer_index = this->page_index;
-				out_chunk->allocated_chunk_token = this->allocated_chunks.alloc_element(l_chunk);
-				out_chunk->offset = l_chunk.offset;
-				out_chunk->original_memory = this->root_memory;
-				out_chunk->original_mapped_memory = this->mapped_memory;
-
-				this->free_chunks.erase_at(i);
-
-				return true;
-			}
-		}
-
-		return false;
+		return this->heap.allocate_element<GPUMemoryWithOffset, GPUMemoryWithOffsetMapper>(p_size, out_chunk, GPUMemoryWithOffsetMapper(this));
 	}
 
 	inline void release_element(const GPUMemoryWithOffset& p_buffer)
 	{
-		this->free_chunks.push_back(this->allocated_chunks[p_buffer.allocated_chunk_token]);
-		this->allocated_chunks.release_element(p_buffer.allocated_chunk_token);
+		this->heap.release_element(p_buffer.allocated_chunk_token);
 	}
+
 };
 
 template<unsigned WriteMethod>
 struct PagedGPUMemory
 {
-	com::Vector<PageGPUMemory> page_buffers;
+	com::Vector<PageGPUMemory2<WriteMethod>> page_buffers;
 	uint32_t memory_type;
 	size_t chunk_size;
 
@@ -226,8 +210,8 @@ struct PagedGPUMemory
 			}
 		}
 
-		this->page_buffers.push_back(PageGPUMemory());
-		this->page_buffers[this->page_buffers.Size - 1].allocate<WriteMethod>(this->page_buffers.Size - 1, this->chunk_size, this->memory_type, p_device);
+		this->page_buffers.push_back(PageGPUMemory2<WriteMethod>());
+		this->page_buffers[this->page_buffers.Size - 1].allocate(this->page_buffers.Size - 1, this->chunk_size, this->memory_type, p_device);
 		return this->page_buffers[this->page_buffers.Size - 1].allocate_element(p_size, out_chunk);
 	}
 

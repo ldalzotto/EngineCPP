@@ -1,7 +1,6 @@
 #pragma once
 
 #include "vector_def.hpp"
-
 #include <stdlib.h>
 #include <string.h>
 
