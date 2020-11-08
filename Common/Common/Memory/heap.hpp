@@ -53,7 +53,7 @@ struct GeneralPurposeHeap
 	{
 		if (this->chunk_total_size < p_newsize)
 		{
-			char* l_realloced_memory = p_allocator.realloc((void*)this->memory, p_newsize);
+			char* l_realloced_memory = (char*)p_allocator.realloc((void*)this->memory, p_newsize);
 			if (l_realloced_memory)
 			{
 				this->memory = l_realloced_memory;
@@ -72,13 +72,18 @@ struct GeneralPurposeHeap
 		this->free_chunks.free();
 	}
 
+	template<class ElementType>
+	inline void* resolve(com::PoolToken<GeneralPurposeHeapMemoryChunk> p_memory)
+	{
+		return (ElementType*)(this->memory + this->allocated_chunks[p_memory].offset);
+	};
 
 	//TODO -> having multiple free_chunks indexed by allocation size range ?
 	//        to avoid fragmentation of huge chunk for a very small size.
-	template<class ReturnType = com::PoolToken<GeneralPurposeHeapMemoryChunk>, class MemoryChunkMapper = DefaultMemoryChunkMapper >
+	template<class ReturnType = com::PoolToken<GeneralPurposeHeapMemoryChunk>&, class MemoryChunkMapper = DefaultMemoryChunkMapper >
 	inline bool allocate_element(size_t p_size, ReturnType* out_chunk, MemoryChunkMapper& p_memorychunk_mapper = DefaultMemoryChunkMapper())
 	{
-		static_assert(std::is_base_of<IMemoryChunkMapper<ReturnType>, MemoryChunkMapper>::value, "MemoryChunkMapper must implements IMemoryChunkMapper.");
+		// static_assert(std::is_base_of<IMemoryChunkMapper<ReturnType>, MemoryChunkMapper>::value, "MemoryChunkMapper must implements IMemoryChunkMapper.");
 
 		for (size_t i = 0; i < this->free_chunks.Size; i++)
 		{

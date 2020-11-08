@@ -1,17 +1,44 @@
 #include "Scene/Scene.cpp"
 
+#include "Scene/component_def.hpp"
+
 using namespace Math;
+
+struct ComponentTest
+{
+	static const size_t Id;
+	static const SceneNodeComponent_TypeInfo Type;
+	int zd;
+};
+
+size_t const ComponentTest::Id = 0;
+SceneNodeComponent_TypeInfo const ComponentTest::Type = SceneNodeComponent_TypeInfo(ComponentTest::Id, sizeof(ComponentTest));
+
+/*
+struct OnComponentTestAddedFn : public IOnComponentAddedFn<ComponentTest>
+{
+	inline void execute(NTreeResolve<SceneNode>& p_node, ComponentTest* p_component)
+	{
+	};
+};
+*/
+
+void component_added_cb(void* p_clos, ComponentAddedParameter* p_par)
+{
+
+};
+
 
 void main()
 {
 	Scene l_scene = Scene();
-	l_scene.allocate();
+	l_scene.allocate(Callback<void, ComponentAddedParameter>(nullptr, component_added_cb));
 
 	com::PoolToken<SceneNode> l_root_token = l_scene.allocate_node(Math::Transform(vec3f(1.0f, 2.0f, 3.0f), quat(1.0f, 2.0f, 3.0f, 4.0f), vec3f(4.0f, 5.0f, 6.0f)));
 	com::PoolToken<SceneNode> l_child_token = l_scene.allocate_node(Math::Transform(vec3f(1.0f, 2.0f, 3.0f), quat(1.0f, 2.0f, 3.0f, 4.0f), vec3f(4.0f, 5.0f, 6.0f)));
 
-	NTreeResolve<SceneNode> l_root = l_scene.resolve(l_root_token);
-	NTreeResolve<SceneNode> l_child = l_scene.resolve(l_child_token);
+	NTreeResolve<SceneNode> l_root = l_scene.resolve_node(l_root_token);
+	NTreeResolve<SceneNode> l_child = l_scene.resolve_node(l_child_token);
 
 	l_scene.root().element->addchild(l_root_token);
 	l_root.element->addchild(l_child_token);
@@ -32,6 +59,15 @@ void main()
 	l_child_worldposition = l_child.element->get_worldposition();
 	l_child_worldrotation = l_child.element->get_worldrotation();
 	l_child_scalefactor = l_child.element->get_worldscalefactor();
+
+
+
+	SceneHandle l_scene_handle;
+	l_scene_handle.handle = &l_scene;
+
+	com::PoolToken<ComponentTest> l_comp = l_scene_handle.add_component<ComponentTest>(l_child_token);
+	ComponentTest* l_c = l_scene_handle.resolve_component(l_comp);
+	// com::PoolToken<ComponentTest> l_comp = l_scene_handle.allocate_component<ComponentTest>();
 
 
 	l_scene.free();

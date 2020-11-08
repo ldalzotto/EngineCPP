@@ -36,10 +36,15 @@ struct Engine
 	void mainloop();
 };
 
+struct SceneCallbacks
+{
+	static void on_component_added(Engine* p_engine, ComponentAddedParameter* p_parameter);
+};
+
 inline Engine::Engine()
 {
 	this->loop = EngineLoop<EngineCallbacks>(EngineCallbacks(this), 16000);
-	this->scene.allocate();
+	this->scene.allocate(*(Callback<void, ComponentAddedParameter>*)&Callback<Engine, ComponentAddedParameter>(this, SceneCallbacks::on_component_added));
 	this->render = create_render();
 }
 
@@ -95,6 +100,11 @@ inline void EngineCallbacks::endofframe_callback()
 {
 }
 
+inline void SceneCallbacks::on_component_added(Engine* p_engine, ComponentAddedParameter* p_parameter)
+{
+	//TODO
+	// if MeshRenderer, the push to render middleware
+};
 
 void engine_destroy(const EngineHandle& p_engine)
 {
