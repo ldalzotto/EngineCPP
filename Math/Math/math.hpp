@@ -149,6 +149,13 @@ namespace Math
 		return Vector<3, TYPE>(p_left.Points[0] + p_right.Points[0], p_left.Points[1] + p_right.Points[1], p_left.Points[2] + p_right.Points[2]);
 	}
 
+
+	template<class TYPE>
+	inline Vector<3, TYPE> inv(const Vector<3, TYPE>& p_vec)
+	{
+		return Vector<3, TYPE>(1.0f / p_vec.Points[0], 1.0f / p_vec.Points[1], 1.0f / p_vec.Points[2]);
+	}
+
 	template <class TYPE>
 	inline Vector<4, TYPE> mul(const Vector<4, TYPE>& p_left, const Vector<4, TYPE>& p_right)
 	{
@@ -165,6 +172,12 @@ namespace Math
 	inline Vector<4, TYPE> min(const Vector<4, TYPE>& p_left, const Vector<4, TYPE>& p_right)
 	{
 		return Vector<4, TYPE>(p_left.Points[0] - p_right.Points[0], p_left.Points[1] - p_right.Points[1], p_left.Points[2] - p_right.Points[2], p_left.Points[3] - p_right.Points[3]);
+	}
+
+	template<class TYPE>
+	inline Vector<4, TYPE> inv(const Vector<4, TYPE>& p_vec)
+	{
+		return Vector<4, TYPE>(1.0f / p_vec.Points[0], 1.0f / p_vec.Points[1], 1.0f / p_vec.Points[2], 1.0f / p_vec.Points[3]);
 	}
 
 	template <unsigned N, class TYPE>
@@ -266,7 +279,7 @@ namespace Math
 		);
 	}
 
-	inline Quaternion conjugate(const Quaternion& p_left)
+	inline Quaternion inv(const Quaternion& p_left)
 	{
 		return Quaternion(
 			mul(p_left.Vec3s.Vec, -1.0f),
@@ -289,7 +302,7 @@ namespace Math
 	{
 		Quaternion l_vectorAsQuat(p_vector, 0.0f);
 		Quaternion l_rotatedVector = mul(p_rotation, l_vectorAsQuat);
-		return normalize(mul(l_rotatedVector, conjugate(p_rotation)).Vec3s.Vec);
+		return normalize(mul(l_rotatedVector, inv(p_rotation)).Vec3s.Vec);
 	};
 
 	inline Quaternion cross(const Quaternion& p_left, const  Quaternion& p_right)
@@ -463,7 +476,19 @@ namespace Math
 			l_return += (p_left.Points2D[i].Points[p_line_index] * p_right.Points2D[p_column_index].Points[i]);
 		}
 		return l_return;
-	}
+	};
+
+	template <unsigned N, class TYPE>
+	inline TYPE mul_line_vec(const Matrix<N, TYPE>& p_left, const Vector<N, TYPE>& p_right, const short int p_line_index)
+	{
+		TYPE l_return = Zero<TYPE>::zer;
+		for (short int i = 0; i < N; i++)
+		{
+			l_return += (p_left.Points2D[i].Points[p_line_index] * p_right.Points[i]);
+		}
+		return l_return;
+	};
+
 
 	template <unsigned N, class TYPE>
 	inline Matrix<N, TYPE> mul(const Matrix<N, TYPE>& p_left, const Matrix<N, TYPE>& p_right)
@@ -475,6 +500,17 @@ namespace Math
 			{
 				l_return[p_column_index][p_line_index] = mul_line_column<N, TYPE>(p_left, p_right, p_column_index, p_line_index);
 			}
+		}
+		return l_return;
+	};
+
+	template <unsigned N, class TYPE>
+	inline Vector<N, TYPE> mul(const Matrix<N, TYPE>& p_left, const Vector<N, TYPE>& p_right)
+	{
+		Vector<N, TYPE> l_return;
+		for (short int p_line_index = 0; p_line_index < N; p_line_index++)
+		{
+			l_return[p_line_index] = mul_line_vec(p_left, p_right, p_line_index);
 		}
 		return l_return;
 	};
@@ -563,6 +599,12 @@ namespace Math
 		Matrix<4, TYPE> l_return = mat4f_IDENTITYF;
 		l_return.Col3.Vec3 = p_translation;
 		return l_return;
+	}
+
+	template<class TYPE>
+	inline Vector<3, TYPE> translationVector(const Matrix<4, TYPE>& p_trs)
+	{
+		return p_trs.Col3.Vec3;
 	}
 
 	template <class TYPE>

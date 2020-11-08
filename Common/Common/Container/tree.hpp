@@ -139,9 +139,52 @@ bool NTreeTraversalIterator<ElementType, NTreeType>::move_next()
 	size_t& l_counter = this->childscounter_stack[this->childscounter_stack.Size - 1];
 	l_counter += 1;
 
+	// Does the current node have childs ?
 	if (this->current_resolve.node->childs.Size != 0 && (l_counter <= this->current_resolve.node->childs.Size - 1))
 	{
-		this->childscounter_stack.push_back(0);
+		// We go one level deeper
+		this->childscounter_stack.push_back(-1);
+		size_t l_child_index = this->current_resolve.node->childs[l_counter];
+		this->current_node = com::PoolToken<NTreeNode>(l_child_index);
+		this->current_resolve = this->ntree->resolve(this->current_node);
+		return true;
+	}
+	else
+	{
+		if (this->childscounter_stack.Size != 0)
+		{
+			this->childscounter_stack.erase_at(this->childscounter_stack.Size - 1);
+			// If there is no more child
+			if (this->childscounter_stack.Size != 0 && this->current_resolve.node->has_parent())
+			{
+				// We move up to the parent
+				size_t l_parent_index = this->current_resolve.node->parent;
+				this->current_node = com::PoolToken<NTreeNode>(l_parent_index);
+				this->current_resolve = this->ntree->resolve(this->current_node);
+				return this->move_next();
+			}
+			// ROOT NODE INCLUDED
+			else if (this->childscounter_stack.Size == 0)
+			{
+				
+				return true;
+			}
+		}
+	}
+
+	return false;
+};
+
+/*
+template<class ElementType, class NTreeType>
+bool NTreeTraversalIterator<ElementType, NTreeType>::move_next()
+{
+	size_t& l_counter = this->childscounter_stack[this->childscounter_stack.Size - 1];
+	l_counter += 1;
+
+	if (this->current_resolve.node->childs.Size != 0 && (l_counter <= this->current_resolve.node->childs.Size - 1))
+	{
+		this->childscounter_stack.push_back(-1);
 		size_t l_child_index = this->current_resolve.node->childs[l_counter];
 		this->current_node = com::PoolToken<NTreeNode>(l_child_index);
 		this->current_resolve = this->ntree->resolve(this->current_node);
@@ -150,23 +193,16 @@ bool NTreeTraversalIterator<ElementType, NTreeType>::move_next()
 	else
 	{
 		this->childscounter_stack.erase_at(this->childscounter_stack.Size - 1);
-		if (this->childscounter_stack.Size == 1)
+		if (this->childscounter_stack.Size != 0 && this->current_resolve.node->has_parent())
 		{
 			size_t l_parent_index = this->current_resolve.node->parent;
 			this->current_node = com::PoolToken<NTreeNode>(l_parent_index);
 			this->current_resolve = this->ntree->resolve(this->current_node);
-			return true;
-		}
-		else
-		{
 			return this->move_next();
 		}
 	}
 
-	if (this->childscounter_stack.Size > 0)
-	{
-		return true;
-	}
-
 	return false;
 };
+
+*/

@@ -41,7 +41,7 @@ int main()
 
 	quat l_normalizeq = normalize(l_q);
 	quat l_mul = mul(l_q, l_q);
-	quat l_conjugate = conjugate(l_q);
+	quat l_conjugate = inv(l_q);
 	quat l_rotateAround = rotateAround(l_100, 0.25f);
 	quat l_crossq = cross(l_q, l_q2);
 	mat3f l_axis = extractAxis<float>(l_q2);

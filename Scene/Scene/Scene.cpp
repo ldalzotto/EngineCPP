@@ -18,6 +18,8 @@ struct SceneNode
 {
 	NTree<SceneNode>* scenetree_ptr;
 
+	// bool haschanged_this_frame;
+
 private:
 	//transform
 	Transform transform;
@@ -25,6 +27,7 @@ private:
 	/** This matrix will always be relative to the root Node (a Node without parent). */
 	mat4f localtoworld;
 	bool matrices_mustBe_recalculated;
+	
 
 	//Childs
 	com::PoolToken<NTreeNode> scenetree_entry;
@@ -112,10 +115,87 @@ public:
 		}
 	};
 
+	inline void set_worldposition(const vec3f& p_worldposition)
+	{
+		NTreeResolve<SceneNode> l_current = this->scenetree_ptr->resolve(this->scenetree_entry);
+		if (!l_current.node->has_parent())
+		{
+			this->set_localposition(p_worldposition);
+		}
+		else
+		{
+			this->set_localposition(mul(this->get_worldtolocal(), vec4f(p_worldposition, 1.0f)).Vec3);
+		}
+	};
+
+	inline void set_worldrotation(const quat& p_worldrotation)
+	{
+		NTreeResolve<SceneNode> l_current = this->scenetree_ptr->resolve(this->scenetree_entry);
+		if (!l_current.node->has_parent())
+		{
+			this->set_localrotation(p_worldrotation);
+		}
+		else
+		{
+			this->set_localrotation(mul(inv(this->get_worldrotation()), p_worldrotation));
+		}
+	};
+
+	inline void set_worldscale(const vec3f& p_worldscale)
+	{
+		NTreeResolve<SceneNode> l_current = this->scenetree_ptr->resolve(this->scenetree_entry);
+		if (!l_current.node->has_parent())
+		{
+			this->set_localscale(p_worldscale);
+		}
+		else
+		{
+			NTreeResolve<SceneNode> l_parent = this->scenetree_ptr->resolve(com::PoolToken<NTreeNode>(l_current.node->parent));
+			this->set_localscale(mul(p_worldscale, inv(l_parent.element->get_worldscalefactor())));
+		}
+	};
+
+	inline vec3f get_worldposition()
+	{
+		return translationVector(this->get_localtoworld());
+	};
+
+	inline quat get_worldrotation()
+	{
+		NTreeResolve<SceneNode> l_current = this->scenetree_ptr->resolve(this->scenetree_entry);
+		if (!l_current.node->has_parent())
+		{
+			return this->transform.local_rotation;
+		}
+		else
+		{
+			return mul(l_current.element->get_worldrotation(), this->transform.local_rotation);
+		}
+	};
+
+	inline vec3f get_worldscalefactor()
+	{
+		NTreeResolve<SceneNode> l_current = this->scenetree_ptr->resolve(this->scenetree_entry);
+		if (!l_current.node->has_parent())
+		{
+			return this->transform.local_scale;
+		}
+		else
+		{
+			NTreeResolve<SceneNode> l_parent = this->scenetree_ptr->resolve(com::PoolToken<NTreeNode>(l_current.node->parent));
+			return mul(l_parent.element->get_worldscalefactor(), this->transform.local_scale);
+		}
+	};
+
 	inline mat4f& get_localtoworld()
 	{
 		this->updatematrices_if_necessary();
 		return this->localtoworld;
+	};
+
+	inline mat4f get_worldtolocal()
+	{
+		return inv(this->get_localtoworld());
 	};
 
 private:
@@ -144,17 +224,7 @@ struct Scene
 		this->tree.allocate(1);
 
 		auto l_root = this->tree.push_root_value(SceneNode());
-		NTreeResolve<SceneNode> l_root_reference = this->tree.resolve(l_root);
-		*l_root_reference.element = SceneNode(Transform(), &this->tree, com::PoolToken<NTreeNode>(l_root.Index));
-
-		{
-			auto l_child = this->tree.push_value(SceneNode());
-			auto l_ref = this->tree.resolve(l_child);
-			*l_ref.element = SceneNode(Transform(), &this->tree, com::PoolToken<NTreeNode>(l_child.Index));
-			l_root_reference.element->addchild(l_child);
-		}
-
-		l_root_reference.element->set_localposition(vec3f(1.0f, 0.0f, 0.0f));
+		*(this->resolve(l_root).element) = SceneNode(Transform(), &this->tree, com::PoolToken<NTreeNode>(l_root.Index));
 	}
 
 	inline void free()
@@ -162,6 +232,28 @@ struct Scene
 		this->tree.free();
 	}
 
+	/*
+	inline void frame_start()
+	{
+		for (size_t i = 0; i < this->tree.Memory.Memory.Size; i++)
+		{
+			SceneNode& l_node = this->tree.Memory.Memory[i];
+			l_node.haschanged_this_frame = false;
+		}
+	}
+	*/
+
+	inline com::PoolToken<SceneNode> allocate_node(const Transform& p_initial_local_transform)
+	{
+		auto l_node = this->tree.push_value(SceneNode());
+		*(this->tree.resolve(l_node).element) = SceneNode(Transform(), &this->tree, com::PoolToken<NTreeNode>(l_node.Index));
+		return l_node;
+	}
+
+	inline NTreeResolve<SceneNode> resolve(const com::PoolToken<SceneNode> p_node)
+	{
+		return this->tree.resolve(p_node);
+	}
 };
 
 
