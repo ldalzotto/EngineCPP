@@ -15,3 +15,16 @@ target_include_directories(Scene PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/interface)
 target_link_libraries(Scene PUBLIC Math)
 target_link_libraries(Scene PUBLIC Common)
 target_link_libraries(Scene PUBLIC Optick)
+
+
+
+
+project(SceneTest VERSION 0.0.1)
+
+add_executable(SceneTest ${SCENE_HEADER} "./test/test.cpp")
+
+target_include_directories(SceneTest PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/interface)
+
+target_link_libraries(SceneTest PUBLIC Math)
+target_link_libraries(SceneTest PUBLIC Common)
+target_link_libraries(SceneTest PUBLIC Optick)
