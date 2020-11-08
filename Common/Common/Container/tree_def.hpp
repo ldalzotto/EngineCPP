@@ -36,6 +36,12 @@ struct NTreeResolve
 template<class ElementType, class Allocator = HeapAllocator>
 struct NTree
 {
+	template<class ElementType>
+	struct INTreeForEach
+	{
+		virtual void foreach(NTreeResolve<ElementType>& p_resolve) = 0;
+	};
+
 	com::Pool<ElementType, Allocator> Memory;
 	com::Pool<NTreeNode, Allocator> Indices;
 
@@ -49,18 +55,7 @@ struct NTree
 	com::PoolToken<ElementType> push_value(const com::PoolToken<ElementType> p_parent, const ElementType& p_value);
 	com::PoolToken<ElementType> push_value(const ElementType& p_value);
 	void remove(const com::PoolToken<ElementType> p_value);
-};
 
-template<class ElementType, class NTreeType>
-struct NTreeTraversalIterator
-{
-	NTreeType* ntree;
-
-	com::PoolToken<NTreeNode> current_node;
-	NTreeResolve<ElementType> current_resolve;
-	com::Vector<size_t> childscounter_stack;
-
-	void allocate(NTreeType* p_tree, const com::PoolToken<NTreeNode>& p_start);
-	void free();
-	bool move_next();
+	template<class NTreeForEach>
+	void traverse(com::PoolToken<NTreeNode>& p_start, NTreeForEach& p_foreach);
 };

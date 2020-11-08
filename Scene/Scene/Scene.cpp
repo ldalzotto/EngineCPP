@@ -40,7 +40,7 @@ private:
 
 	/** This matrix will always be relative to the root Node (a Node without parent). */
 	mat4f localtoworld;
-	bool matrices_mustBe_recalculated;
+	bool matrices_mustBe_recalculated = true;
 	
 
 	//Childs
@@ -62,15 +62,15 @@ public:
 
 	inline void mark_for_recalculation()
 	{
-		NTreeTraversalIterator<SceneNode, NTree<SceneNode>> l_tree_iterator;
-		l_tree_iterator.allocate(this->scenetree_ptr, this->scenetree_entry);
+		struct MarkRecalculationForeach : public NTree<SceneNode>::INTreeForEach<SceneNode>
 		{
-			while (l_tree_iterator.move_next())
+			inline void foreach(NTreeResolve<SceneNode>& p_resolve)
 			{
-				l_tree_iterator.current_resolve.element->matrices_mustBe_recalculated = true;
-			}
-		}
-		l_tree_iterator.free();
+				p_resolve.element->matrices_mustBe_recalculated = true;
+			};
+		};
+
+		this->scenetree_ptr->traverse(this->scenetree_entry, MarkRecalculationForeach());
 	}
 
 	inline void addchild(com::PoolToken<SceneNode>& p_newchild)

@@ -115,94 +115,36 @@ inline void NTree<ElementType, Allocator>::remove(const com::PoolToken<ElementTy
 {
 };
 
-
-template<class ElementType, class NTreeType>
-void NTreeTraversalIterator<ElementType, NTreeType>::allocate(NTreeType* p_tree, const com::PoolToken<NTreeNode>& p_start)
+template<class ElementType, class Allocator, class NTreeForEach>
+inline void traverse_resolved(NTree<ElementType, Allocator>* p_tree, NTreeResolve<ElementType>& p_start, NTreeForEach& p_foreach)
 {
-	this->ntree = p_tree;
-	this->current_node = p_start;
-	this->current_resolve = this->ntree->resolve(this->current_node);
-	this->childscounter_stack.allocate(1);
-	this->childscounter_stack.push_back(-1);
-};
-
-template<class ElementType, class NTreeType>
-void NTreeTraversalIterator<ElementType, NTreeType>::free()
-{
-	this->childscounter_stack.free();
-};
-
-//TODO
-template<class ElementType, class NTreeType>
-bool NTreeTraversalIterator<ElementType, NTreeType>::move_next()
-{
-	size_t& l_counter = this->childscounter_stack[this->childscounter_stack.Size - 1];
-	l_counter += 1;
-
-	// Does the current node have childs ?
-	if (this->current_resolve.node->childs.Size != 0 && (l_counter <= this->current_resolve.node->childs.Size - 1))
+	for (size_t l_child_index = 0; l_child_index < p_start.node->childs.Size; l_child_index++)
 	{
-		// We go one level deeper
-		this->childscounter_stack.push_back(-1);
-		size_t l_child_index = this->current_resolve.node->childs[l_counter];
-		this->current_node = com::PoolToken<NTreeNode>(l_child_index);
-		this->current_resolve = this->ntree->resolve(this->current_node);
-		return true;
-	}
-	else
-	{
-		if (this->childscounter_stack.Size != 0)
+		NTreeResolve<ElementType> l_child = p_tree->resolve(com::PoolToken<NTreeNode>(p_start.node->childs[l_child_index]));
+		if (l_child.node->childs.Size > 0)
 		{
-			this->childscounter_stack.erase_at(this->childscounter_stack.Size - 1);
-			// If there is no more child
-			if (this->childscounter_stack.Size != 0 && this->current_resolve.node->has_parent())
-			{
-				// We move up to the parent
-				size_t l_parent_index = this->current_resolve.node->parent;
-				this->current_node = com::PoolToken<NTreeNode>(l_parent_index);
-				this->current_resolve = this->ntree->resolve(this->current_node);
-				return this->move_next();
-			}
-			// ROOT NODE INCLUDED
-			else if (this->childscounter_stack.Size == 0)
-			{
-				
-				return true;
-			}
+			traverse_resolved(p_tree, l_child, p_foreach);
 		}
+		p_foreach.foreach(l_child);
 	}
-
-	return false;
+	p_foreach.foreach(p_start);
 };
 
-/*
-template<class ElementType, class NTreeType>
-bool NTreeTraversalIterator<ElementType, NTreeType>::move_next()
+template<class ElementType, class Allocator>
+template<class NTreeForEach>
+inline void NTree<ElementType, Allocator>::traverse(com::PoolToken<NTreeNode>& p_start, NTreeForEach& p_foreach)
 {
-	size_t& l_counter = this->childscounter_stack[this->childscounter_stack.Size - 1];
-	l_counter += 1;
+	static_assert(std::is_base_of<INTreeForEach<ElementType>, NTreeForEach>::value, "NTreeForEach must implements INTreeForEach.");
 
-	if (this->current_resolve.node->childs.Size != 0 && (l_counter <= this->current_resolve.node->childs.Size - 1))
+	NTreeResolve<ElementType> l_start = this->resolve(p_start);
+	for (size_t l_child_index = 0; l_child_index < l_start.node->childs.Size; l_child_index++)
 	{
-		this->childscounter_stack.push_back(-1);
-		size_t l_child_index = this->current_resolve.node->childs[l_counter];
-		this->current_node = com::PoolToken<NTreeNode>(l_child_index);
-		this->current_resolve = this->ntree->resolve(this->current_node);
-		return true;
-	}
-	else
-	{
-		this->childscounter_stack.erase_at(this->childscounter_stack.Size - 1);
-		if (this->childscounter_stack.Size != 0 && this->current_resolve.node->has_parent())
+		NTreeResolve<ElementType> l_child = this->resolve(com::PoolToken<NTreeNode>(l_start.node->childs[l_child_index]));
+		if (l_child.node->childs.Size > 0)
 		{
-			size_t l_parent_index = this->current_resolve.node->parent;
-			this->current_node = com::PoolToken<NTreeNode>(l_parent_index);
-			this->current_resolve = this->ntree->resolve(this->current_node);
-			return this->move_next();
+			traverse_resolved<ElementType, Allocator, NTreeForEach>(this, l_child, p_foreach);
 		}
+		p_foreach.foreach(l_child);
 	}
-
-	return false;
+	p_foreach.foreach(l_start);
 };
-
-*/
