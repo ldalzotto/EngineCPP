@@ -11,7 +11,7 @@ struct ComponentTest
 	int zd;
 };
 
-size_t const ComponentTest::Id = 0;
+size_t const ComponentTest::Id = 10;
 SceneNodeComponent_TypeInfo const ComponentTest::Type = SceneNodeComponent_TypeInfo(ComponentTest::Id, sizeof(ComponentTest));
 
 /*

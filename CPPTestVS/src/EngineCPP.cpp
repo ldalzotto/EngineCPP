@@ -7,8 +7,19 @@
 #include "Common/Container/pool.hpp"
 #include <vector>
 #include "Engine/engine.hpp"
+#include "SceneComponents/components.hpp"
 
 using namespace Math;
+
+void update(void* p_engine, float p_delta)
+{
+	EngineHandle* l_engine = (EngineHandle*)p_engine;
+	SceneHandle l_scenehandle = engine_scene(*l_engine);
+	auto l_node = l_scenehandle.add_node(l_scenehandle.root(), Math::Transform());
+	MeshRenderer l_mesh_renderer;
+	l_scenehandle.add_component<MeshRenderer>(l_node, l_mesh_renderer);
+	//l_scenehandle.
+};
 
 int main()
 {
@@ -75,8 +86,11 @@ int main()
 	com::PoolToken<float> l_zd = l_pool.alloc_element(5.0f);
 	float& l_f = l_pool.resolve(l_zd);
 	*/
-
-	EngineHandle l_engine = engine_create();
+	EngineHandle l_engine;
+	ExternalHooks l_external_hooks;
+	l_external_hooks.ext_update = update;
+	l_external_hooks.closure = &l_engine;
+	l_engine = engine_create(l_external_hooks);
 	engine_mainloop(l_engine);
 	engine_destroy(l_engine);
 	

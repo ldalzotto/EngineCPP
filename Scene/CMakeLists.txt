@@ -17,6 +17,7 @@ target_link_libraries(Scene PUBLIC Common)
 target_link_libraries(Scene PUBLIC Optick)
 
 
+add_subdirectory(components)
 
 
 project(SceneTest VERSION 0.0.1)

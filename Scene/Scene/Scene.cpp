@@ -20,15 +20,20 @@ struct SceneHeap
 	}
 
 	//store components ?
-	inline SceneNodeComponentToken allocate_component(const SceneNodeComponent_TypeInfo& p_type)
+	inline SceneNodeComponentToken allocate_component(const SceneNodeComponent_TypeInfo& p_type, void* p_initial_value)
 	{
 		// if(this->component_heap.chunk_total_size <)
+		size_t l_allocationsize = sizeof(SceneNodeComponentHeader) + p_type.size;
 		com::PoolToken<GeneralPurposeHeapMemoryChunk> l_memory_allocated;
-		if (!this->component_heap.allocate_element<>(p_type.size, &l_memory_allocated))
+		if (!this->component_heap.allocate_element<>(l_allocationsize, &l_memory_allocated))
 		{
-			this->component_heap.realloc((this->component_heap.chunk_total_size * 2) + p_type.size);
-			this->component_heap.allocate_element<>(p_type.size, &l_memory_allocated);
+			this->component_heap.realloc((this->component_heap.chunk_total_size * 2) + l_allocationsize);
+			this->component_heap.allocate_element<>(l_allocationsize, &l_memory_allocated);
 		}
+
+		SceneNodeComponentHeader* l_header = this->component_heap.resolve<SceneNodeComponentHeader>(l_memory_allocated);
+		l_header->id = p_type.id;
+		memcpy((char*)l_header + sizeof(SceneNodeComponentHeader), p_initial_value, p_type.size);
 
 		return l_memory_allocated;
 	}
@@ -96,17 +101,24 @@ struct Scene
 		return l_node;
 	};
 
-	inline SceneNodeComponentToken allocate_component(const SceneNodeComponent_TypeInfo& p_component_type_info)
+	inline com::PoolToken<SceneNode> add_node(const com::PoolToken<SceneNode>& p_parent, const Math::Transform& p_initial_local_transform)
 	{
-		return this->heap.allocate_component(p_component_type_info);
+		auto l_node = this->allocate_node(p_initial_local_transform);
+		this->tree.resolve(p_parent).element->addchild(l_node);
+		return l_node;
 	};
 
-	inline SceneNodeComponentToken add_component(const com::PoolToken<SceneNode> p_node, const SceneNodeComponent_TypeInfo& p_component_type_info)
+	inline SceneNodeComponentToken allocate_component(const SceneNodeComponent_TypeInfo& p_component_type_info, void* p_initial_value)
 	{
-		SceneNodeComponentToken l_component = this->allocate_component(p_component_type_info);
+		return this->heap.allocate_component(p_component_type_info, p_initial_value);
+	};
+
+	inline SceneNodeComponentToken add_component(const com::PoolToken<SceneNode> p_node, const SceneNodeComponent_TypeInfo& p_component_type_info, void* p_initial_value)
+	{
+		SceneNodeComponentToken l_component = this->allocate_component(p_component_type_info, p_initial_value);
 		NTreeResolve<SceneNode> l_node = this->resolve_node(p_node);
 		l_node.element->addcomponent(SceneNodeComponentHandle(l_component.Index));
-		ComponentAddedParameter l_param = ComponentAddedParameter(l_node, this->resolve_component(l_component));
+		ComponentAddedParameter l_param = ComponentAddedParameter(p_node, l_node, this->resolve_component(l_component));
 		this->component_added_callback.call(&l_param);
 		return SceneNodeComponentToken(l_component.Index);
 	};
@@ -116,9 +128,9 @@ struct Scene
 		return this->tree.resolve(p_node);
 	};
 	
-	inline void* resolve_component(const SceneNodeComponentToken p_component)
+	inline SceneNodeComponentHeader* resolve_component(const SceneNodeComponentToken p_component)
 	{
-		return this->heap.component_heap.resolve<void>(p_component);
+		return this->heap.component_heap.resolve<SceneNodeComponentHeader>(p_component);
 	};
 
 	inline NTreeResolve<SceneNode> root()
@@ -145,17 +157,27 @@ com::PoolToken<SceneNode> SceneHandle::allocate_node(const Math::Transform& p_in
 	return ((Scene*)this->handle)->allocate_node(p_initial_local_transform);
 };
 
+com::PoolToken<SceneNode> SceneHandle::add_node(const com::PoolToken<SceneNode>& p_parent, const Math::Transform& p_initial_local_transform)
+{
+	return ((Scene*)this->handle)->add_node(p_parent, p_initial_local_transform);
+};
+
 NTreeResolve<SceneNode> SceneHandle::resolve_node(const com::PoolToken<SceneNode> p_node)
 {
 	return ((Scene*)this->handle)->resolve_node(p_node);
 };
 
-SceneNodeComponentHandle SceneHandle::add_component(const com::PoolToken<SceneNode> p_node, const SceneNodeComponent_TypeInfo& p_component_type_info)
+SceneNodeComponentHandle SceneHandle::add_component(const com::PoolToken<SceneNode> p_node, const SceneNodeComponent_TypeInfo& p_component_type_info, void* p_initial_value)
 {
-	return SceneNodeComponentHandle(((Scene*)this->handle)->add_component(p_node, p_component_type_info).Index);
+	return SceneNodeComponentHandle(((Scene*)this->handle)->add_component(p_node, p_component_type_info, p_initial_value).Index);
 };
 
-void* SceneHandle::resolve_component(const SceneNodeComponentHandle& p_component)
+SceneNodeComponentHeader* SceneHandle::resolve_componentheader(const SceneNodeComponentHandle& p_component)
 {
 	return ((Scene*)this->handle)->resolve_component(SceneNodeComponentToken(p_component.Index));
+};
+
+com::PoolToken<SceneNode> SceneHandle::root()
+{
+	return com::PoolToken<SceneNode>(0);
 };

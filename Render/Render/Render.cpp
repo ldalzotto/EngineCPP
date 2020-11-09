@@ -2462,3 +2462,10 @@ void render_draw(const RenderHandle& p_render)
 	l_render->draw();
 };
 
+void render_allocate_renderableobject(const RenderHandle& p_render, const std::string& p_vertex_shader, const std::string& p_fragment_shader, const std::string& p_mesh,
+	MeshHandle& out_mesh, ShaderHandle& out_shader, MaterialHandle& out_material, RenderableObjectHandle& out_renderableobject)
+{
+	Render* l_render = (Render*)p_render;
+	//allocate mesh
+
+};

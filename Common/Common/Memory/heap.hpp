@@ -73,7 +73,7 @@ struct GeneralPurposeHeap
 	}
 
 	template<class ElementType>
-	inline void* resolve(com::PoolToken<GeneralPurposeHeapMemoryChunk> p_memory)
+	inline ElementType* resolve(com::PoolToken<GeneralPurposeHeapMemoryChunk> p_memory)
 	{
 		return (ElementType*)(this->memory + this->allocated_chunks[p_memory].offset);
 	};
