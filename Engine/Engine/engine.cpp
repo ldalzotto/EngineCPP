@@ -115,7 +115,6 @@ inline void EngineCallbacks::endofframe_callback()
 
 inline void SceneCallbacks::on_component_added(Engine* p_engine, ComponentAddedParameter* p_parameter)
 {
-	//TODO
 	// if MeshRenderer, the push to render middleware
 
 	/*
@@ -135,8 +134,7 @@ inline void SceneCallbacks::on_component_added(Engine* p_engine, ComponentAddedP
 	{
 	case MeshRenderer::Id:
 	{
-		p_engine->render_middleware.on_elligible(p_parameter->node_token, *p_parameter->component->cast<MeshRenderer>());
-		//TODO -> insert to middleware
+		p_engine->render_middleware.on_elligible(p_parameter->node_token, p_parameter->node, *p_parameter->component->cast<MeshRenderer>());
 		/*
 		struct ComponentsPresence
 		{

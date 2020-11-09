@@ -567,8 +567,6 @@ struct CommandBuffer
 		p_device.device.waitForFences(1, &l_command_buffer_end_fence, true, DEFAULT_FENCE_TIMEOUT);
 
 		p_device.device.destroyFence(l_command_buffer_end_fence);
-		p_device.device.freeCommandBuffers(*this->pool, 1, &this->command_buffer);
-
 	}
 
 	inline void dispose(const Device& p_device, vk::CommandPool& p_command_pool)
@@ -1673,7 +1671,7 @@ private:
 		l_descriptor_pool_create_info.setPNext(nullptr);
 		l_descriptor_pool_create_info.setPoolSizeCount(1);
 		l_descriptor_pool_create_info.setPPoolSizes(l_types);
-		l_descriptor_pool_create_info.setMaxSets(100);
+		l_descriptor_pool_create_info.setMaxSets(1000);
 
 		this->descriptor_pool = this->device.device.createDescriptorPool(l_descriptor_pool_create_info);
 	}
@@ -2366,21 +2364,23 @@ struct Render
 
 		for (size_t l_shader_index = 0; l_shader_index < this->heap.shaders.size(); l_shader_index++)
 		{
+			com::PoolToken<Optional<Shader>> l_shader_heap = com::PoolToken<Optional<Shader>>(l_shader_index);
 			Optional<Shader>& l_shader = this->heap.shaders[l_shader_index];
 			if (l_shader.hasValue)
 			{
 				l_command_buffer.command_buffer.bindPipeline(vk::PipelineBindPoint::eGraphics, l_shader.value.pipeline);
 
-				com::Vector<com::PoolToken<Optional<Material>>>& l_materials = this->heap.shaders_to_materials[l_shader_index];
+				com::Vector<com::PoolToken<Optional<Material>>>& l_materials = this->heap.shaders_to_materials[l_shader_heap.Index];
 				for (size_t l_material_index = 0; l_material_index < l_materials.Size; l_material_index++)
 				{
-					Optional<Material>& l_material = this->heap.materials[l_materials[l_material_index]];
+					com::PoolToken<Optional<Material>> l_material_heap_token = l_materials[l_material_index];
+					Optional<Material>& l_material = this->heap.materials[l_material_heap_token];
 					if (l_material.hasValue)
 					{
-						com::Vector<com::PoolToken<Optional<RenderableObject>>>& l_renderableobjects = this->heap.material_to_renderableobjects[l_material_index];
+						com::Vector<com::PoolToken<Optional<RenderableObject>>>& l_renderableobjects = this->heap.material_to_renderableobjects[l_material_heap_token.Index];
 						for (size_t l_renderableobject_index = 0; l_renderableobject_index < l_renderableobjects.Size; l_renderableobject_index++)
 						{
-							Optional<RenderableObject>& l_renderableobject = this->heap.renderableobjects[l_renderableobject_index];
+							Optional<RenderableObject>& l_renderableobject = this->heap.renderableobjects[l_renderableobjects[l_renderableobject_index]];
 							if (l_renderableobject.hasValue)
 							{
 								l_command_buffer.command_buffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, l_shader.value.pipeline_layout,
@@ -2462,10 +2462,45 @@ void render_draw(const RenderHandle& p_render)
 	l_render->draw();
 };
 
-void render_allocate_renderableobject(const RenderHandle& p_render, const std::string& p_vertex_shader, const std::string& p_fragment_shader, const std::string& p_mesh,
+void render_allocate_renderableobject(const RenderHandle& p_render, const std::string& p_vertex_shader, const std::string& p_fragment_shader, const std::string& p_mesh, const mat4f& p_initial_trs,
 	MeshHandle& out_mesh, ShaderHandle& out_shader, MaterialHandle& out_material, RenderableObjectHandle& out_renderableobject)
 {
 	Render* l_render = (Render*)p_render;
 	//allocate mesh
 
+	com::Vector<Vertex> l_vertexBuffer;
+	l_vertexBuffer.allocate(3);
+	l_vertexBuffer.Size = l_vertexBuffer.Capacity;
+
+	com::Vector<uint32_t> l_indicesBuffer;
+	l_indicesBuffer.allocate(3);
+	l_indicesBuffer.Size = l_indicesBuffer.Capacity;
+
+	{
+		l_vertexBuffer[0].position = vec3f(1.0f, 0.0f, 0.0f);
+		l_vertexBuffer[0].color = vec3f(1.0f, 0.0f, 0.0f);
+		l_vertexBuffer[1].position = vec3f(0.0f, 1.0f, 0.0f);
+		l_vertexBuffer[1].color = vec3f(0.0f, 1.0f, 0.0f);
+		l_vertexBuffer[2].position = vec3f(0.0f, 0.0f, 1.0f);
+		l_vertexBuffer[2].color = vec3f(0.0f, 0.0f, 1.0f);
+
+
+		l_indicesBuffer[0] = 0; l_indicesBuffer[1] = 1; l_indicesBuffer[2] = 2;
+
+		com::PoolToken<Mesh> l_mesh = l_render->heap.allocateMesh(l_vertexBuffer, l_indicesBuffer, l_render->renderApi).Index;
+		com::PoolToken<Optional<Shader>> l_shader = l_render->heap.allocateShader(p_vertex_shader, p_fragment_shader, l_render->renderApi.swap_chain.renderpass, l_render->renderApi);
+		com::PoolToken<Optional<Material>> l_material = l_render->heap.allocateMaterial(l_shader);
+		com::PoolToken<Optional<RenderableObject>> l_renderableobject = l_render->heap.allocateRendereableObject(l_material, l_mesh, l_render->renderApi);
+
+		l_render->heap.renderableobjects[l_renderableobject].value.pushModelMatrix(p_initial_trs, l_render->renderApi.device);
+
+		out_mesh.handle = l_mesh.Index;
+		out_material.handle = l_material.Index;
+		out_shader.handle = l_shader.Index;
+		out_renderableobject.handle = l_renderableobject.Index;
+	}
+
+	l_vertexBuffer.free();
+	l_indicesBuffer.free();
+	
 };

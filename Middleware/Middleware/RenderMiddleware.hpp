@@ -32,11 +32,12 @@ struct RenderMiddleware
 		this->allocated_renderableobjects.free();
 	};
 
-	inline void on_elligible(const com::PoolToken<SceneNode>& p_node, const MeshRenderer& p_mesh_renderer)
+	inline void on_elligible(const com::PoolToken<SceneNode> p_node_token, const NTreeResolve<SceneNode>& p_node, const MeshRenderer& p_mesh_renderer)
 	{
 		RenderableObjectEntry l_entry;
-		l_entry.node = p_node;
-		render_allocate_renderableobject(this->render, p_mesh_renderer.vertex_shader, p_mesh_renderer.fragment_shader, p_mesh_renderer.model, l_entry.mesh, l_entry.shader, l_entry.material, l_entry.renderableobject);
+		l_entry.node = p_node_token;
+		render_allocate_renderableobject(this->render, p_mesh_renderer.vertex_shader, p_mesh_renderer.fragment_shader, p_mesh_renderer.model, 
+			p_node.element->get_localtoworld(),l_entry.mesh, l_entry.shader, l_entry.material, l_entry.renderableobject);
 		this->allocated_renderableobjects.push_back(l_entry);
 	};
 

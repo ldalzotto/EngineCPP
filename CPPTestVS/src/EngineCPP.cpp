@@ -11,13 +11,40 @@
 
 using namespace Math;
 
+bool l_executed = false;
+
 void update(void* p_engine, float p_delta)
 {
-	EngineHandle* l_engine = (EngineHandle*)p_engine;
-	SceneHandle l_scenehandle = engine_scene(*l_engine);
-	auto l_node = l_scenehandle.add_node(l_scenehandle.root(), Math::Transform());
-	MeshRenderer l_mesh_renderer;
-	l_scenehandle.add_component<MeshRenderer>(l_node, l_mesh_renderer);
+	if (!l_executed)
+	{
+		l_executed = true;
+		EngineHandle* l_engine = (EngineHandle*)p_engine;
+		SceneHandle l_scenehandle = engine_scene(*l_engine);
+		/*
+		for (int i = 0; i < 100; i++)
+		{
+			*/
+		{
+			auto l_node = l_scenehandle.add_node(l_scenehandle.root(), Math::Transform());
+			MeshRenderer l_mesh_renderer;
+			l_mesh_renderer.vertex_shader = "E:/GameProjects/CPPTestVS/Render/shader/TriVert.spv";
+			l_mesh_renderer.fragment_shader = "E:/GameProjects/CPPTestVS/Render/shader/TriFrag.spv";
+			l_scenehandle.add_component<MeshRenderer>(l_node, l_mesh_renderer);
+		}
+		{
+			auto l_node = l_scenehandle.add_node(l_scenehandle.root(), Math::Transform(vec3f(3.0f, 3.0f, 0.0f), QuatConst::IDENTITY, VecConst<float>::ONE));
+			MeshRenderer l_mesh_renderer;
+			l_mesh_renderer.vertex_shader = "E:/GameProjects/CPPTestVS/Render/shader/TriVert.spv";
+			l_mesh_renderer.fragment_shader = "E:/GameProjects/CPPTestVS/Render/shader/TriFrag.spv";
+			l_scenehandle.add_component<MeshRenderer>(l_node, l_mesh_renderer);
+		}
+		/*
+	}
+	*/
+	}
+
+
+
 	//l_scenehandle.
 };
 
@@ -28,7 +55,7 @@ int main()
 	std::allocator<float> l_del;
 	sizeof(zd);
 	std::cout << "Hello World!\n";
-	
+
 	vec3f l_234 = vec3f(2.0f, 3.0f, 4.0f);
 	vec3f l_564 = vec3f(5.0f, 6.0f, 4.0f);
 	vec3f l_100 = vec3f(1.0f, 0.0f, 0.0f);
@@ -68,8 +95,8 @@ int main()
 	mat4f l_lookatView = lookAtView(l_234, l_100, VecConst<float>::UP);
 	mat4f l_lookatRot = lookAtRotation<4, float>(l_234, l_100, VecConst<float>::UP);
 
-	
-	
+
+
 	com::Vector<float> l_vf(0);
 	for (size_t i = 0; i < 100; i++)
 	{
@@ -77,9 +104,9 @@ int main()
 	}
 	l_vf.erase_at(0);
 	l_vf.swap(0, 1);
-	
+
 	com::Vector<float> l_vf2 = l_vf;
-	
+
 	l_vf2 = com::Vector<float>(100);
 
 	com::Pool<float> l_pool(10);
@@ -93,5 +120,5 @@ int main()
 	l_engine = engine_create(l_external_hooks);
 	engine_mainloop(l_engine);
 	engine_destroy(l_engine);
-	
+
 }
