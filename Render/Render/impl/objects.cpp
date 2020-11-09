@@ -24,7 +24,7 @@ void RenderableObjectHandle::free(const RenderHandle& p_render)
 void ShaderHandle::allocate(const RenderHandle& p_render, const std::string& p_vertex_shader, const std::string& p_fragment_shader)
 {
 	Render* l_render = (Render*)p_render;
-	this->handle = l_render->heap.allocateShader(p_vertex_shader, p_fragment_shader, l_render->renderApi.swap_chain.renderpass, l_render->renderApi).Index;
+	this->handle = l_render->heap.allocateShader(p_vertex_shader, p_fragment_shader, l_render->resource_loader, l_render->renderApi.swap_chain.renderpass, l_render->renderApi).Index;
 };
 
 void ShaderHandle::free(const RenderHandle& p_render)

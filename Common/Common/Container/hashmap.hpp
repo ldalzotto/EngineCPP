@@ -1,6 +1,7 @@
 #pragma once
 
 #include "hashmap_def.hpp"
+#include <stdlib.h>
 
 template<class Key, class Value, class HashFn, class Allocator>
 inline HashMap<Key, Value, HashFn, Allocator>::Entry::Entry(const Key& p_key, const Value& p_value)
@@ -13,16 +14,16 @@ template<class Key, class Value, class HashFn, class Allocator>
 inline void HashMap<Key, Value, HashFn, Allocator>::allocate(size_t p_initialSize, const Allocator& p_allocator)
 {
 	this->allocator = p_allocator;
-	this->Entries.Memory = this->allocator.calloc(sizeof(HashMap<Key, Value, HashFn, Allocator>::Entry) * p_initialSize);
+	this->Entries.Memory = (HashMap<Key, Value, HashFn, Allocator>::Entry*)this->allocator.calloc(sizeof(HashMap<Key, Value, HashFn, Allocator>::Entry) * p_initialSize);
 	this->Entries.Capacity = p_initialSize;
 };
 
 template<class Key, class Value, class HashFn, class Allocator>
 inline void HashMap<Key, Value, HashFn, Allocator>::free()
 {
-	this->allocator.free(this->Entries);
-	this->Entries = nullptr;
-	this->Capacity = 0;
+	this->allocator.free((void*)this->Entries.Memory);
+	this->Entries.Memory = nullptr;
+	this->Entries.Capacity = 0;
 };
 
 
@@ -73,8 +74,34 @@ inline Value& HashMap<Key, Value, HashFn, Allocator>::operator[](const Key& p_ke
 			return l_entry.value;
 		}
 	}
-	// return (Value&)(void*)0;
+
+	abort();
 }
+
+template<class Key, class Value, class HashFn, class Allocator>
+inline bool HashMap<Key, Value, HashFn, Allocator>::conains_key(const Key& p_key)
+{
+	size_t l_inputkey_hash = HashFn::hash(p_key);
+	Entry& l_target_entry = this->Entries.Memory[hashmap_calculateindex_from_hash(l_inputkey_hash, this->Entries.Capacity)];
+	return l_target_entry.isOccupied;
+};
+
+template<class Key, class Value, class HashFn, class Allocator>
+inline bool HashMap<Key, Value, HashFn, Allocator>::get(const Key& p_key, Value* out_value)
+{
+	size_t l_inputkey_hash = HashFn::hash(p_key);
+	Entry& l_entry = this->Entries.Memory[hashmap_calculateindex_from_hash(l_inputkey_hash, this->Entries.Capacity)];
+	if (l_entry.isOccupied)
+	{
+		if (HashFn::hash(l_entry.key) == l_inputkey_hash)
+		{
+			*out_value = l_entry.value;
+			return true;
+		}
+	}
+
+	return false;
+};
 
 template<class Key, class Value, class HashFn, class Allocator>
 inline void HashMap<Key, Value, HashFn, Allocator>::push_entry(const Entry& p_entry)
@@ -107,4 +134,11 @@ inline void HashMap<Key, Value, HashFn, Allocator>::push_entry(const Entry& p_en
 			l_target_entry.isOccupied = true;
 		}
 	}
+}
+
+
+template<class Key, class Value, class HashFn, class Allocator>
+inline void HashMap<Key, Value, HashFn, Allocator>::remove(const Key& p_key)
+{
+	this->Entries.Memory[hashmap_calculateindex_from_hash(HashFn::hash(p_entry.key), this->Entries.Capacity)].isOccupied = false;
 }

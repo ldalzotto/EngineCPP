@@ -1,6 +1,7 @@
 #include "Scene/Scene.cpp"
 
 #include "Scene/component_def.hpp"
+#include "Common/Container/resource_map.hpp"
 
 using namespace Math;
 
