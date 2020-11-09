@@ -18,7 +18,8 @@ layout(location = 0) out vec3 fragColor;
 
 void main()
 {
-	gl_Position =  camera.projection * (camera.view * (model.model * vec4(pos, 1.0)));
+	gl_Position = camera.projection * (camera.view * (model.model * vec4(pos, 1.0)));
+	// gl_Position.x = 1.0 - gl_Position.x;
 	fragColor = color;
 }
 

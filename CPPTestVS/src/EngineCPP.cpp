@@ -11,15 +11,20 @@
 
 using namespace Math;
 
-bool l_executed = false;
+struct TestContext
+{
+	com::PoolToken<SceneNode> moving_node;
+	bool executed = false;
+} testContext;
 
 void update(void* p_engine, float p_delta)
 {
-	if (!l_executed)
+	EngineHandle* l_engine = (EngineHandle*)p_engine;
+	SceneHandle l_scenehandle = engine_scene(*l_engine);
+
+	if (!testContext.executed)
 	{
-		l_executed = true;
-		EngineHandle* l_engine = (EngineHandle*)p_engine;
-		SceneHandle l_scenehandle = engine_scene(*l_engine);
+		testContext.executed = true;
 		/*
 		for (int i = 0; i < 100; i++)
 		{
@@ -32,20 +37,19 @@ void update(void* p_engine, float p_delta)
 			l_scenehandle.add_component<MeshRenderer>(l_node, l_mesh_renderer);
 		}
 		{
-			auto l_node = l_scenehandle.add_node(l_scenehandle.root(), Math::Transform(vec3f(3.0f, 3.0f, 0.0f), QuatConst::IDENTITY, VecConst<float>::ONE));
+			auto l_node = l_scenehandle.add_node(l_scenehandle.root(), Math::Transform(vec3f(0.0f, 0.0f, 0.0f), QuatConst::IDENTITY, VecConst<float>::ONE));
 			MeshRenderer l_mesh_renderer;
 			l_mesh_renderer.vertex_shader = "E:/GameProjects/CPPTestVS/Render/shader/TriVert.spv";
 			l_mesh_renderer.fragment_shader = "E:/GameProjects/CPPTestVS/Render/shader/TriFrag.spv";
 			l_scenehandle.add_component<MeshRenderer>(l_node, l_mesh_renderer);
+
+			testContext.moving_node = l_node;
 		}
-		/*
-	}
-	*/
 	}
 
-
-
-	//l_scenehandle.
+	SceneNode* l_node = l_scenehandle.resolve_node(testContext.moving_node).element;
+	l_node->set_localposition(l_node->get_localposition() + (vec3f(1.0f, 0.0f, 0.0f) * p_delta));
+	l_node->set_localrotation(mul(l_node->get_localrotation(), rotateAround(vec3f(0.0f, 1.0f, 0.0f), p_delta)));
 };
 
 int main()

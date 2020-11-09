@@ -91,6 +91,7 @@ inline void EngineCallbacks::newframe_callback()
 {
 	OPTICK_FRAME("MainThread");
 	this->closure->clock.newframe();
+	this->closure->scene.new_frame();
 }
 
 inline void EngineCallbacks::update_callback(float p_delta)
@@ -105,6 +106,7 @@ inline void EngineCallbacks::endupdate_callback()
 
 inline void EngineCallbacks::render_callback()
 {
+	this->closure->render_middleware.pre_render(this->closure->scene);
 	render_draw(this->closure->render);
 }
 
@@ -135,6 +137,7 @@ inline void SceneCallbacks::on_component_added(Engine* p_engine, ComponentAddedP
 	case MeshRenderer::Id:
 	{
 		p_engine->render_middleware.on_elligible(p_parameter->node_token, p_parameter->node, *p_parameter->component->cast<MeshRenderer>());
+
 		/*
 		struct ComponentsPresence
 		{

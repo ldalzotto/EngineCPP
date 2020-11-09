@@ -27,6 +27,12 @@ struct SceneNode
 	NTree<SceneNode>* scenetree_ptr;
 
 	// bool haschanged_this_frame;
+	
+	struct State
+	{
+		bool matrices_mustBe_recalculated = true;
+		bool haschanged_thisframe = false;
+	} state;
 
 private:
 	//transform
@@ -35,7 +41,8 @@ private:
 	/** This matrix will always be relative to the root Node (a Node without parent). */
 	Math::mat4f localtoworld;
 
-	bool matrices_mustBe_recalculated = true;
+
+	
 
 
 	//Childs
@@ -97,6 +104,16 @@ public:
 	inline const com::Vector<SceneNodeComponentHandle>& get_components() const
 	{
 		return this->components;
+	};
+
+	inline Math::vec3f& get_localposition()
+	{
+		return this->transform.local_position;
+	};
+
+	inline Math::quat& get_localrotation()
+	{
+		return this->transform.local_rotation;
 	};
 
 	inline void set_localposition(const Math::vec3f& p_position)
@@ -215,7 +232,7 @@ public:
 private:
 	inline void updatematrices_if_necessary()
 	{
-		if (this->matrices_mustBe_recalculated)
+		if (this->state.matrices_mustBe_recalculated)
 		{
 			this->localtoworld = Math::TRS(this->transform.local_position, Math::extractAxis<float>(this->transform.local_rotation), this->transform.local_scale);
 			NTreeResolve<SceneNode> l_current = this->scenetree_ptr->resolve(this->scenetree_entry);
@@ -224,7 +241,7 @@ private:
 				NTreeResolve<SceneNode> l_parent = this->scenetree_ptr->resolve(com::PoolToken<NTreeNode>(l_current.node->parent));
 				this->localtoworld = mul(l_parent.element->get_localtoworld(), this->localtoworld);
 			}
-			this->matrices_mustBe_recalculated = false;
+			this->state.matrices_mustBe_recalculated = false;
 		}
 	};
 
@@ -234,7 +251,8 @@ private:
 		{
 			inline void foreach(NTreeResolve<SceneNode>& p_resolve)
 			{
-				p_resolve.element->matrices_mustBe_recalculated = true;
+				p_resolve.element->state.matrices_mustBe_recalculated = true;
+				p_resolve.element->state.haschanged_thisframe = true;
 			};
 		};
 
@@ -284,6 +302,7 @@ struct SceneHandle
 	};
 
 	com::PoolToken<SceneNode> root();
+	void new_frame();
 
 private:
 	SceneNodeComponentHandle add_component(const com::PoolToken<SceneNode> p_node, const SceneNodeComponent_TypeInfo& p_component_type_info, void* p_initial_value);

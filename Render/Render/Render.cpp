@@ -349,6 +349,7 @@ struct Device
 		com::Vector<const char*> l_devices_extensions;
 		l_devices_extensions.allocate(1);
 		l_devices_extensions.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
+		//l_devices_extensions.push_back(VK_KHR_MAINTENANCE1_EXTENSION_NAME);
 		{
 			l_device_create_info.setEnabledExtensionCount((uint32_t)l_devices_extensions.Size);
 			l_device_create_info.setPpEnabledExtensionNames(l_devices_extensions.Memory);
@@ -2346,6 +2347,8 @@ struct Render
 		vk::Viewport l_viewport;
 		l_viewport.setHeight(this->window.Height);
 		l_viewport.setWidth(this->window.Width);
+		//l_viewport.setX(this->window.Width);
+		//l_viewport.setY(this->window.Height);
 		l_viewport.setMinDepth(0.0f);
 		l_viewport.setMaxDepth(1.0f);
 
@@ -2477,11 +2480,11 @@ void render_allocate_renderableobject(const RenderHandle& p_render, const std::s
 	l_indicesBuffer.Size = l_indicesBuffer.Capacity;
 
 	{
-		l_vertexBuffer[0].position = vec3f(1.0f, 0.0f, 0.0f);
+		l_vertexBuffer[0].position = vec3f(-0.5f, 0.0f, -0.5f);
 		l_vertexBuffer[0].color = vec3f(1.0f, 0.0f, 0.0f);
-		l_vertexBuffer[1].position = vec3f(0.0f, 1.0f, 0.0f);
+		l_vertexBuffer[1].position = vec3f(0.0f, 0.0f, 0.5f);
 		l_vertexBuffer[1].color = vec3f(0.0f, 1.0f, 0.0f);
-		l_vertexBuffer[2].position = vec3f(0.0f, 0.0f, 1.0f);
+		l_vertexBuffer[2].position = vec3f(0.5f, 0.0f, -0.5f);
 		l_vertexBuffer[2].color = vec3f(0.0f, 0.0f, 1.0f);
 
 

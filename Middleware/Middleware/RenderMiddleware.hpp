@@ -36,18 +36,21 @@ struct RenderMiddleware
 	{
 		RenderableObjectEntry l_entry;
 		l_entry.node = p_node_token;
-		render_allocate_renderableobject(this->render, p_mesh_renderer.vertex_shader, p_mesh_renderer.fragment_shader, p_mesh_renderer.model, 
-			p_node.element->get_localtoworld(),l_entry.mesh, l_entry.shader, l_entry.material, l_entry.renderableobject);
+		render_allocate_renderableobject(this->render, p_mesh_renderer.vertex_shader, p_mesh_renderer.fragment_shader, p_mesh_renderer.model,
+			p_node.element->get_localtoworld(), l_entry.mesh, l_entry.shader, l_entry.material, l_entry.renderableobject);
 		this->allocated_renderableobjects.push_back(l_entry);
 	};
 
 	inline void pre_render(SceneHandle p_scene)
 	{
-		/*
 		for (size_t i = 0; i < this->allocated_renderableobjects.Size; i++)
 		{
-			p_scene.resolve_node(this->allocated_renderableobjects[i].node).element.;
+			RenderableObjectEntry& l_entry = this->allocated_renderableobjects[i];
+			NTreeResolve<SceneNode> l_scenenode = p_scene.resolve_node(l_entry.node);
+			if (l_scenenode.element->state.haschanged_thisframe)
+			{
+				l_entry.renderableobject.push_trs(this->render, l_scenenode.element->get_localtoworld());
+			}
 		}
-		*/
 	};
 };

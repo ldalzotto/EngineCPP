@@ -83,16 +83,14 @@ struct Scene
 		this->tree.free();
 	}
 
-	/*
-	inline void frame_start()
+	inline void new_frame()
 	{
 		for (size_t i = 0; i < this->tree.Memory.Memory.Size; i++)
 		{
 			SceneNode& l_node = this->tree.Memory.Memory[i];
-			l_node.haschanged_this_frame = false;
+			l_node.state.haschanged_thisframe = false;
 		}
 	}
-	*/
 
 	inline com::PoolToken<SceneNode> allocate_node(const Math::Transform& p_initial_local_transform)
 	{
@@ -127,7 +125,7 @@ struct Scene
 	{
 		return this->tree.resolve(p_node);
 	};
-	
+
 	inline SceneNodeComponentHeader* resolve_component(const SceneNodeComponentToken p_component)
 	{
 		return this->heap.component_heap.resolve<SceneNodeComponentHeader>(p_component);
@@ -180,4 +178,9 @@ SceneNodeComponentHeader* SceneHandle::resolve_componentheader(const SceneNodeCo
 com::PoolToken<SceneNode> SceneHandle::root()
 {
 	return com::PoolToken<SceneNode>(0);
+};
+
+void SceneHandle::new_frame()
+{
+	return ((Scene*)this->handle)->new_frame();
 };
