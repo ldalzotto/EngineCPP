@@ -28,6 +28,18 @@ void component_added_cb(void* p_clos, ComponentAddedParameter* p_par)
 
 };
 
+/*
+#include <functional>
+
+template<>
+struct Hash<vec3f>
+{
+	inline static size_t hash(const vec3f& p_vec)
+	{
+		return std::hash<float>{}(p_vec.x) ^ (std::hash<float>{}(p_vec.y) ^ (std::hash<float>{}(p_vec.z) << 1) << 1);
+	}
+};
+*/
 
 void main()
 {

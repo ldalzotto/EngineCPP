@@ -16,6 +16,11 @@ struct HeapAllocator : public IAllocator
 		return ::malloc(p_allocSize);
 	}
 
+	inline void* calloc(const size_t p_allocationSize)
+	{
+		return ::calloc(1, p_allocationSize);
+	}
+
 	inline void* realloc(void* p_initialMemory, const size_t p_allocSize)
 	{
 		return ::realloc(p_initialMemory, p_allocSize);
