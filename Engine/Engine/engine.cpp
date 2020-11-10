@@ -3,6 +3,7 @@
 #include <GLFW/glfwinclude.h>
 #include <optick.h>
 #include <Scene/scene.hpp>
+#include <AssetServer/asset_server.hpp>
 #include "engine_loop.hpp"
 
 #include "SceneComponents/components.hpp"
@@ -34,6 +35,7 @@ struct EngineCallbacks
 struct Engine
 {
 	Clock clock;
+	AssetServerHandle asset_server;
 	EngineLoop<EngineCallbacks> loop;
 	SceneHandle scene;
 	RenderHandle render;
@@ -52,6 +54,7 @@ struct SceneCallbacks
 
 inline Engine::Engine(const ExternalHooks& p_hooks)
 {
+	this->asset_server.allocate();
 	this->loop = EngineLoop<EngineCallbacks>(EngineCallbacks(this, p_hooks), 16000);
 	this->scene.allocate(*(Callback<void, ComponentAddedParameter>*)&Callback<Engine, ComponentAddedParameter>(this, SceneCallbacks::on_component_added));
 	this->render = create_render();
@@ -63,6 +66,7 @@ inline void Engine::dispose()
 	this->render_middleware.free();
 	destroy_render(this->render);
 	this->scene.free();
+	this->asset_server.free();
 }
 
 inline void Engine::mainloop()

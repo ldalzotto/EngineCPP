@@ -5,10 +5,12 @@ enable_language(CXX)
 set(CMAKE_CXX_STANDARD 17)
 
 add_compile_definitions(USE_OPTICK=0)
+add_compile_definitions(ASSETPATH_DEV=1)
 
 add_subdirectory(ThirdParty)
 add_subdirectory(Common)
 add_subdirectory(Math)
+add_subdirectory(AssetServer)
 add_subdirectory(Render)
 add_subdirectory(Scene)
 add_subdirectory(Middleware)
