@@ -1,6 +1,7 @@
 #include <interface/Render/render.hpp>
 #include <driver/Render/rdwindow.hpp>
 #include <optick.h>
+#include <AssetServer/asset_query.hpp>
 #include "Math/math.hpp"
 #include "Common/Container/pool.hpp"
 #include "Common/Container/vector.hpp"
@@ -109,7 +110,7 @@ struct PageGPUMemory2
 		vk::Device device;
 		vk::DeviceMemory root_memory;
 
-		inline GPUDeviceMemoryAllocator(){}
+		inline GPUDeviceMemoryAllocator() {}
 
 		inline GPUDeviceMemoryAllocator(const uint32_t p_memorytype, vk::Device p_device)
 		{
@@ -765,7 +766,7 @@ public:
 	};
 
 
-	inline static void allocate(GPUMemory<char, MemoryType2::Image, WriteMethod2::GPUWrite>& p_gpumemory, const vk::ImageCreateInfo& p_imagecreateinfo, 
+	inline static void allocate(GPUMemory<char, MemoryType2::Image, WriteMethod2::GPUWrite>& p_gpumemory, const vk::ImageCreateInfo& p_imagecreateinfo,
 		StagedBufferCommands& p_staging_commands, Device& p_device)
 	{
 		p_gpumemory.setImage(p_device.device.createImage(p_imagecreateinfo));
@@ -777,7 +778,7 @@ public:
 	};
 
 	template<class ElementType>
-	inline static void allocate(GPUMemory<ElementType, MemoryType2::Buffer, WriteMethod2::GPUWrite>& p_gpumemory, size_t p_element_number, vk::BufferUsageFlags p_usageflags, 
+	inline static void allocate(GPUMemory<ElementType, MemoryType2::Buffer, WriteMethod2::GPUWrite>& p_gpumemory, size_t p_element_number, vk::BufferUsageFlags p_usageflags,
 		StagedBufferCommands& p_staging_commands, Device& p_device)
 	{
 		p_gpumemory.Capacity = p_element_number;
@@ -817,8 +818,8 @@ public:
 	inline static void push_commandbuffer(GPUMemory<ElementType, MemoryType, WriteMethod2::GPUWrite>& p_gpumemory, const ElementType* p_source,
 		StagedBufferCommands& p_staging_commands, Device& p_device)
 	{
-		StagedBufferWriteCommand l_command = 
-			p_staging_commands.allocate_stagedbufferwritecommand<ElementType>(p_gpumemory.getBuffer(), p_gpumemory.Capacity, (const char*)p_source, 
+		StagedBufferWriteCommand l_command =
+			p_staging_commands.allocate_stagedbufferwritecommand<ElementType>(p_gpumemory.getBuffer(), p_gpumemory.Capacity, (const char*)p_source,
 				p_gpumemory.mapped_memory.staging_completion_token, p_device);
 		p_staging_commands.commands.push_back(l_command);
 		p_gpumemory.mapped_memory.StaginIndexQueue = p_staging_commands.commands.Size - 1;
@@ -900,7 +901,7 @@ private:
 
 
 template<class ElementType>
-inline StagedBufferWriteCommand StagedBufferCommands::allocate_stagedbufferwritecommand(vk::Buffer p_buffer, size_t p_buffer_element_count, const char* p_source, 
+inline StagedBufferWriteCommand StagedBufferCommands::allocate_stagedbufferwritecommand(vk::Buffer p_buffer, size_t p_buffer_element_count, const char* p_source,
 	com::PoolToken<bool>& p_completion_token, Device& p_device)
 {
 	StagedBufferWriteCommand l_command;
@@ -1377,7 +1378,7 @@ struct RenderAPI
 
 	CommandBuffer staging_commandbuffer;
 	StagedBufferCommands stagedbuffer_commands;
-	
+
 	struct Sync
 	{
 		vk::Semaphore present_complete_semaphore;
@@ -1389,7 +1390,7 @@ struct RenderAPI
 
 	ValidationLayer validation_layer;
 
-	
+
 
 	RenderAPI() = default;
 
@@ -1846,77 +1847,79 @@ struct ShaderParameter
 
 struct ShaderModuleResource
 {
+	inline static const std::string ResourceName = "shader";
+
 	vk::ShaderModule shader_module;
 
-	inline static vk::ShaderModule load_shadermodule(const Device& p_device, const std::string& p_file_path)
-	{
-		size_t l_size;
-		std::string l_shader_code{};
+};
 
-
-		std::ifstream l_stream(p_file_path, std::ios::binary | std::ios::in | std::ios::ate);
-		if (l_stream.is_open())
-		{
-			l_size = l_stream.tellg();
-			l_stream.seekg(0, std::ios::beg);
-			l_shader_code.resize(l_size);
-			l_stream.read((char*)l_shader_code.c_str(), l_size);
-			l_stream.close();
-		}
-
-		if (l_shader_code.size() > 0)
-		{
-			vk::ShaderModuleCreateInfo l_shader_module_create_info;
-			l_shader_module_create_info.setCodeSize(l_size);
-			l_shader_module_create_info.setPCode((uint32_t*)l_shader_code.c_str());
-			return p_device.device.createShaderModule(l_shader_module_create_info);
-		}
-
-		return nullptr;
-	}
-
-	inline static void dispose_shaderModule(const Device& p_device, const vk::ShaderModule& p_shader_module)
-	{
-		p_device.device.destroyShaderModule(p_shader_module);
-	}
-
+struct RenderResourceLoader
+{
 	struct ResourceAllocator
 	{
 		const Device* device = nullptr;
+		GenericAssetQuery* asset_query = nullptr;
 
 		ResourceAllocator() {};
 
-		inline ResourceAllocator(const Device& p_device)
+		inline ResourceAllocator(GenericAssetQuery& p_asset_query, const Device& p_device)
 		{
+			this->asset_query = &p_asset_query;
 			this->device = &p_device;
 		};
 
 		inline ShaderModuleResource allocate(const std::string& p_shadermodule_path)
 		{
 			ShaderModuleResource l_resource;
-			l_resource.shader_module = ShaderModuleResource::load_shadermodule(*this->device, p_shadermodule_path);
+			l_resource.shader_module = load_shadermodule(*this->asset_query, *this->device, p_shadermodule_path);
 			return l_resource;
 		};
 
 		inline void free(ShaderModuleResource& p_module)
 		{
-			ShaderModuleResource::dispose_shaderModule(*this->device, p_module.shader_module);
+			dispose_shaderModule(*this->device, p_module.shader_module);
 		};
+
+	private:
+		inline static vk::ShaderModule load_shadermodule(GenericAssetQuery& p_asset_query, const Device& p_device, const std::string& p_file_path)
+		{
+			com::Vector<char> l_shader_code;
+			p_asset_query.request(p_file_path, l_shader_code);
+			{
+				if (l_shader_code.Size > 0)
+				{
+					vk::ShaderModuleCreateInfo l_shader_module_create_info;
+					l_shader_module_create_info.setCodeSize(l_shader_code.Size);
+					l_shader_module_create_info.setPCode((uint32_t*)l_shader_code.Memory);
+
+					vk::ShaderModule l_module = p_device.device.createShaderModule(l_shader_module_create_info);
+					l_shader_code.free();
+					return l_module;
+				}
+			}
+			l_shader_code.free();
+			return nullptr;
+		}
+
+		inline static void dispose_shaderModule(const Device& p_device, const vk::ShaderModule& p_shader_module)
+		{
+			p_device.device.destroyShaderModule(p_shader_module);
+		}
 	};
-};
 
-struct RenderResourceLoader
-{
-	ResourceMap<std::string, ShaderModuleResource, ShaderModuleResource::ResourceAllocator> shader_modules;
+	GenericAssetQuery asset_query;
+	ResourceMap<std::string, ShaderModuleResource, ResourceAllocator> shader_modules;
 
-	inline void allocate(const Device& p_device)
+	inline void allocate(const AssetServerHandle p_assetserver, const Device& p_device)
 	{
-		this->shader_modules.allocate(10, ShaderModuleResource::ResourceAllocator(p_device));
+		this->asset_query.allocate<ShaderModuleResource>(p_assetserver.get_assetpath(), p_assetserver.get_connection());
+		this->shader_modules.allocate(10, ResourceAllocator(this->asset_query, p_device));
 	};
 
 	inline void free()
 	{
 		this->shader_modules.free();
+		this->asset_query.free();
 	};
 };
 
@@ -2165,7 +2168,7 @@ struct Mesh
 
 	inline Mesh(const com::Vector<Vertex>& p_vertcies, const com::Vector<uint32_t>& p_indices, RenderAPI& p_render)
 	{
-		this->vertices.allocate(p_vertcies.Size, p_render.stagedbuffer_commands,  p_render.device);
+		this->vertices.allocate(p_vertcies.Size, p_render.stagedbuffer_commands, p_render.device);
 		this->vertices.push_commandbuffer(p_vertcies.Memory, p_render.stagedbuffer_commands, p_render.device);
 		this->vertices.dispose(p_render.stagedbuffer_commands, p_render.device);
 		this->vertices.allocate(p_vertcies.Size, p_render.stagedbuffer_commands, p_render.device);
@@ -2249,11 +2252,11 @@ struct RenderHeap
 	}
 
 	inline com::PoolToken<Optional<Shader>> allocateShader(const std::string& p_vertex_shader, const std::string& p_fragment_shader,
-		 RenderResourceLoader& p_resource_loader, const RenderPass& p_render_pass, const RenderAPI& p_render_api)
+		RenderResourceLoader& p_resource_loader, const RenderPass& p_render_pass, const RenderAPI& p_render_api)
 	{
 		Shader l_shader = Shader(
-				p_resource_loader.shader_modules.allocate_resource(p_vertex_shader), 
-				p_resource_loader.shader_modules.allocate_resource(p_fragment_shader), p_render_pass, p_render_api);
+			p_resource_loader.shader_modules.allocate_resource(p_vertex_shader),
+			p_resource_loader.shader_modules.allocate_resource(p_fragment_shader), p_render_pass, p_render_api);
 
 		this->shaders_to_materials.alloc_element(com::Vector<com::PoolToken<Optional<Material>>>());
 		return this->shaders.alloc_element(l_shader);
@@ -2334,12 +2337,12 @@ struct Render
 	RenderHeap heap;
 	RenderResourceLoader resource_loader;
 
-	inline Render()
+	inline Render(const AssetServerHandle p_asset_server)
 	{
 		this->window = RenderWindow(800, 600, "MyGame");
 		this->renderApi.init(window);
 		this->create_global_buffers();
-		this->resource_loader.allocate(this->renderApi.device);
+		this->resource_loader.allocate(p_asset_server, this->renderApi.device);
 	};
 
 	inline void dispose()
@@ -2486,9 +2489,9 @@ private:
 
 };
 
-RenderHandle create_render()
+RenderHandle create_render(const AssetServerHandle p_assetserver_handle)
 {
-	return new Render();
+	return new Render(p_assetserver_handle);
 };
 
 void destroy_render(const RenderHandle& p_render)
@@ -2555,5 +2558,5 @@ void render_allocate_renderableobject(const RenderHandle& p_render, const std::s
 
 	l_vertexBuffer.free();
 	l_indicesBuffer.free();
-	
+
 };

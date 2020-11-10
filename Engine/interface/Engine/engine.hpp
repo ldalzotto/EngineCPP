@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Scene/scene.hpp"
+#include <string>
 
 typedef void* EngineHandle;
 
@@ -11,7 +12,7 @@ struct ExternalHooks
 	ExternalHooks() {};
 };
 
-EngineHandle engine_create(const ExternalHooks& p_hooks);
+EngineHandle engine_create(const std::string& p_executeable_path, const ExternalHooks& p_hooks);
 void engine_mainloop(const EngineHandle& p_engine);
 void engine_destroy(const EngineHandle& p_engine);
 SceneHandle engine_scene(const EngineHandle& p_engine);

@@ -7,4 +7,4 @@ create table if not exists shader(
 );
 
 insert into shader (id, path, data) values (1, 'effa', 'efafeafa');
-select shader.data from shader where shader.id = 0;
+select * from shader;

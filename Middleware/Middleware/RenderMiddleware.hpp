@@ -4,6 +4,7 @@
 #include "SceneComponents/components.hpp"
 #include "Scene/scene.hpp"
 #include "Render/render.hpp"
+#include <optick.h>
 
 struct RenderableObjectEntry
 {
@@ -43,6 +44,8 @@ struct RenderMiddleware
 
 	inline void pre_render(SceneHandle p_scene)
 	{
+		OPTICK_EVENT();
+
 		for (size_t i = 0; i < this->allocated_renderableobjects.Size; i++)
 		{
 			RenderableObjectEntry& l_entry = this->allocated_renderableobjects[i];

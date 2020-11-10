@@ -2,6 +2,7 @@
 
 #include <stdint.h>
 #include <string>
+#include <AssetServer/asset_server.hpp>
 #include "Common/Memory/handle.hpp"
 #include "Common/Container/vector_def.hpp"
 #include "Math/matrix_def.hpp"
@@ -42,7 +43,7 @@ struct RenderableObjectHandle : public Handle
 
 
 
-RenderHandle create_render();
+RenderHandle create_render(const AssetServerHandle p_assetserver_handle);
 void destroy_render(const RenderHandle& p_render);
 bool render_window_should_close(const RenderHandle& p_render);
 void render_window_pool_event(const RenderHandle& p_render);

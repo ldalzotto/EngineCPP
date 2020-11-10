@@ -32,15 +32,15 @@ void update(void* p_engine, float p_delta)
 		{
 			auto l_node = l_scenehandle.add_node(l_scenehandle.root(), Math::Transform());
 			MeshRenderer l_mesh_renderer;
-			l_mesh_renderer.vertex_shader = "E:/GameProjects/CPPTestVS/Render/shader/TriVert.spv";
-			l_mesh_renderer.fragment_shader = "E:/GameProjects/CPPTestVS/Render/shader/TriFrag.spv";
+			l_mesh_renderer.vertex_shader = "shader/TriVert.spv";
+			l_mesh_renderer.fragment_shader = "shader/TriFrag.spv";
 			l_scenehandle.add_component<MeshRenderer>(l_node, l_mesh_renderer);
 		}
 		{
 			auto l_node = l_scenehandle.add_node(l_scenehandle.root(), Math::Transform(vec3f(0.0f, 0.0f, 0.0f), QuatConst::IDENTITY, VecConst<float>::ONE));
 			MeshRenderer l_mesh_renderer;
-			l_mesh_renderer.vertex_shader = "E:/GameProjects/CPPTestVS/Render/shader/TriVert.spv";
-			l_mesh_renderer.fragment_shader = "E:/GameProjects/CPPTestVS/Render/shader/TriFrag.spv";
+			l_mesh_renderer.vertex_shader = "shader/TriVert.spv";
+			l_mesh_renderer.fragment_shader = "shader/TriFrag.spv";
 			l_scenehandle.add_component<MeshRenderer>(l_node, l_mesh_renderer);
 
 			testContext.moving_node = l_node;
@@ -52,7 +52,7 @@ void update(void* p_engine, float p_delta)
 	l_node->set_localrotation(mul(l_node->get_localrotation(), rotateAround(vec3f(0.0f, 1.0f, 0.0f), p_delta)));
 };
 
-int main()
+int main(int argc, char** argv)
 {
 	/*
 	std::vector<float> zd;
@@ -121,7 +121,7 @@ int main()
 	ExternalHooks l_external_hooks;
 	l_external_hooks.ext_update = update;
 	l_external_hooks.closure = &l_engine;
-	l_engine = engine_create(l_external_hooks);
+	l_engine = engine_create(argv[0], l_external_hooks);
 	engine_mainloop(l_engine);
 	engine_destroy(l_engine);
 

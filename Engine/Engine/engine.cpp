@@ -42,7 +42,7 @@ struct Engine
 
 	RenderMiddleware render_middleware;
 
-	Engine(const ExternalHooks& p_hooks);
+	Engine(const std::string& p_executeable_path, const ExternalHooks& p_hooks);
 	void dispose();
 	void mainloop();
 };
@@ -52,12 +52,12 @@ struct SceneCallbacks
 	static void on_component_added(Engine* p_engine, ComponentAddedParameter* p_parameter);
 };
 
-inline Engine::Engine(const ExternalHooks& p_hooks)
+inline Engine::Engine(const std::string& p_executeable_path, const ExternalHooks& p_hooks)
 {
-	this->asset_server.allocate();
+	this->asset_server.allocate(p_executeable_path);
 	this->loop = EngineLoop<EngineCallbacks>(EngineCallbacks(this, p_hooks), 16000);
 	this->scene.allocate(*(Callback<void, ComponentAddedParameter>*)&Callback<Engine, ComponentAddedParameter>(this, SceneCallbacks::on_component_added));
-	this->render = create_render();
+	this->render = create_render(this->asset_server);
 	this->render_middleware.allocate(this->render);
 }
 
@@ -78,11 +78,11 @@ inline void Engine::mainloop()
 	}
 }
 
-EngineHandle engine_create(const ExternalHooks& p_hooks)
+EngineHandle engine_create(const std::string& p_executeable_path, const ExternalHooks& p_hooks)
 {
 	glfwInit();
 	glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-	return new Engine(p_hooks);
+	return new Engine(p_executeable_path, p_hooks);
 };
 
 void engine_mainloop(const EngineHandle& p_engine)
