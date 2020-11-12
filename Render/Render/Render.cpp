@@ -1865,10 +1865,10 @@ struct RenderResourceLoader
 			this->device = &p_device;
 		};
 
-		inline ShaderModuleResource allocate(const std::string& p_shadermodule_path)
+		inline ShaderModuleResource allocate(const size_t p_shadermodule_id)
 		{
 			ShaderModuleResource l_resource;
-			l_resource.shader_module = load_shadermodule(this->asset_server, *this->device, p_shadermodule_path);
+			l_resource.shader_module = load_shadermodule(this->asset_server, *this->device, p_shadermodule_id);
 			return l_resource;
 		};
 
@@ -1878,9 +1878,9 @@ struct RenderResourceLoader
 		};
 
 	private:
-		inline static vk::ShaderModule load_shadermodule(const AssetServerHandle& p_asset_server_handle, const Device& p_device, const std::string& p_file_path)
+		inline static vk::ShaderModule load_shadermodule(const AssetServerHandle& p_asset_server_handle, const Device& p_device, const size_t p_shadermodule_id)
 		{
-			com::Vector<char> l_shader_code = p_asset_server_handle.get_resource(p_file_path);
+			com::Vector<char> l_shader_code = p_asset_server_handle.get_resource(p_shadermodule_id);
 			{
 				if (l_shader_code.Size > 0)
 				{
@@ -1903,7 +1903,7 @@ struct RenderResourceLoader
 		}
 	};
 
-	ResourceMap<std::string, ShaderModuleResource, ResourceAllocator> shader_modules;
+	ResourceMap<size_t, ShaderModuleResource, ResourceAllocator> shader_modules;
 
 	inline void allocate(const AssetServerHandle& p_assetserver, const Device& p_device)
 	{
@@ -2248,8 +2248,8 @@ struct RenderHeap
 		RenderResourceLoader& p_resource_loader, const RenderPass& p_render_pass, const RenderAPI& p_render_api)
 	{
 		Shader l_shader = Shader(
-			p_resource_loader.shader_modules.allocate_resource(p_vertex_shader),
-			p_resource_loader.shader_modules.allocate_resource(p_fragment_shader), p_render_pass, p_render_api);
+			p_resource_loader.shader_modules.allocate_resource(Hash<std::string>::hash(p_vertex_shader)),
+			p_resource_loader.shader_modules.allocate_resource(Hash<std::string>::hash(p_fragment_shader)), p_render_pass, p_render_api);
 
 		this->shaders_to_materials.alloc_element(com::Vector<com::PoolToken<Optional<Material>>>());
 		return this->shaders.alloc_element(l_shader);

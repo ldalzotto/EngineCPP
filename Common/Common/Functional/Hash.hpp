@@ -32,8 +32,17 @@ struct Hash
 template<>
 struct Hash<std::string>
 {
-	static size_t hash(const std::string& p_key)
+	inline static size_t hash(const std::string& p_key)
 	{
 		return HashFunctionRaw(p_key.c_str(), p_key.length());
+	};
+};
+
+template<>
+struct Hash<size_t>
+{
+	inline static size_t hash(const size_t p_key)
+	{
+		return p_key;
 	};
 };

@@ -244,12 +244,11 @@ struct GenericAssetQuery
 		}
 	};
 
-	inline void request(const std::string& p_path, com::Vector<char>& out_bytes)
+	inline void request(const size_t p_id, com::Vector<char>& out_bytes)
 	{
 		OPTICK_EVENT();
 
-		size_t l_id = Hash<std::string>::hash(p_path);
-		connection->handleSQLiteError(sqlite3_bind_int64(this->request_query.statement, 1, l_id));
+		connection->handleSQLiteError(sqlite3_bind_int64(this->request_query.statement, 1, p_id));
 
 		struct ShaderRowFn
 		{
@@ -272,5 +271,11 @@ struct GenericAssetQuery
 		ShaderRowFn l_rowfn = ShaderRowFn(out_bytes);
 		this->request_query.execute_sync_single(*connection, l_rowfn);
 		this->request_query.clear(*connection);
+	}
+
+	inline void request(const std::string& p_path, com::Vector<char>& out_bytes)
+	{
+		size_t l_id = Hash<std::string>::hash(p_path);
+		this->request(l_id, out_bytes);
 	};
 };

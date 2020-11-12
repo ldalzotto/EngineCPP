@@ -15,12 +15,6 @@
 #include <QtWidgets/qlistwidget.h>
 #include <QtCore/qtimer.h>
 
-#include <windows.h>
-#include <tchar.h> 
-#include <stdio.h>
-#include <strsafe.h>
-#pragma comment(lib, "User32.lib")
-
 const std::string PROJECT_PATH = "E:/GameProjects/CPPTestVS/";
 
 template<class Callbacks>
@@ -57,13 +51,11 @@ struct MainWindow
 struct File
 {
 	template<class FindFileFilterFn>
-	inline static void find_file(const std::string& p_path, std::vector<std::string>& out_paths_buffer, bool p_recursive)
+	inline static void find_file(const std::string& p_path, com::Vector<std::string>& out_paths_buffer, bool p_recursive)
 	{
 		std::string l_current_file = p_path;
 		WIN32_FIND_DATA l_find_data;
 		HANDLE l_find = INVALID_HANDLE_VALUE;
-
-		std::string l_found_file;
 
 		l_find = FindFirstFile((l_current_file + "*").c_str(), &l_find_data);
 		while (l_find != INVALID_HANDLE_VALUE)
@@ -83,8 +75,7 @@ struct File
 			{
 				if (FindFileFilterFn::filter(l_current_file + l_find_data.cFileName))
 				{
-					l_found_file = l_current_file + l_find_data.cFileName;
-					out_paths_buffer.push_back(l_found_file);
+					out_paths_buffer.push_back(l_current_file + l_find_data.cFileName);
 				}
 			}
 
@@ -101,11 +92,13 @@ struct File
 
 struct GetAssetsPath : public WorkerThread::Task
 {
-	std::vector<std::string> found_paths;
+	com::Vector<std::string> found_paths;
 
-	inline GetAssetsPath()
+
+	inline void free()
 	{
-	}
+		this->found_paths.free();
+	};
 
 	inline void tick_internal() override
 	{
@@ -126,20 +119,22 @@ struct GetAssetsPath : public WorkerThread::Task
 		};
 
 		// this->editor->window.set_statusbarmessage("Finding root...");
-		std::vector < std::string > l_asset_root;
+		com::Vector < std::string > l_asset_root;
 		File::find_file<AssetRootFilter>(PROJECT_PATH, l_asset_root, true);
-		if (l_asset_root.size() > 0)
+		if (l_asset_root.Size > 0)
 		{
 			// this->editor->window.set_statusbarmessage("...root found !");
 
-			std::vector < std::string > l_asset_paths;
+			com::Vector < std::string > l_asset_paths;
 			File::find_file<AssetFilter>(l_asset_root[0].substr(0, l_asset_root[0].find(".assetroot")), l_asset_paths, true);
 
-			for (size_t i = 0; i < l_asset_paths.size(); i++)
+			for (size_t i = 0; i < l_asset_paths.Size; i++)
 			{
 				this->found_paths.push_back(l_asset_paths[i]);
 			}
+			l_asset_paths.free();
 		}
+		l_asset_root.free();
 
 		this->state = State::ENDED;
 	};
@@ -197,11 +192,12 @@ struct AssetDatabaseRefreshEditor
 						this->asset_path_task_timer = nullptr;
 
 
-						for (size_t i = 0; i < this->asset_path_task->found_paths.size(); i++)
+						for (size_t i = 0; i < this->asset_path_task->found_paths.Size; i++)
 						{
 							this->editor->window.list.addItem(QString(this->asset_path_task->found_paths[i].c_str()));
 						}
 
+						this->asset_path_task->free();
 						delete this->asset_path_task;
 						this->asset_path_task = nullptr;
 					}

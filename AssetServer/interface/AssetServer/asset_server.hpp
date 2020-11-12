@@ -10,5 +10,6 @@ struct AssetServerHandle
 	void free();
 
 	com::Vector<char> get_resource(const std::string& p_id) const;
+	com::Vector<char> get_resource(const size_t p_id) const;
 	void insert_or_update_resource(const std::string& p_id);
 };
