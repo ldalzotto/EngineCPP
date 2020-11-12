@@ -13,6 +13,67 @@ namespace Math
 	};
 
 	template <class TYPE>
+	struct alignas(sizeof(TYPE)) Vector<2, TYPE>
+	{
+		union
+		{
+			TYPE Points[2];
+			struct { TYPE x, y; };
+		};
+
+		Vector() = default;
+
+		inline Vector(TYPE p_x, TYPE p_y) : x{ p_x }, y{ p_y }
+		{
+		}
+
+		inline Vector<2, TYPE> operator*(const Vector<2, TYPE>& p_other)
+		{
+			return Vector<2, TYPE>(this->Points[0] * p_other.Points[0], this->Points[1] * p_other.Points[1]);
+		}
+
+		inline Vector<2, TYPE> operator*(const TYPE& p_other)
+		{
+			return Vector<2, TYPE>(this->Points[0] * p_other, this->Points[1] * p_other);
+		}
+
+		inline Vector<2, TYPE> operator/(const Vector<2, TYPE>& p_other)
+		{
+			return Vector<2, TYPE>(this->Points[0] / p_other.Points[0], this->Points[1] / p_other.Points[1]);
+		}
+
+		inline Vector<2, TYPE> operator/(const TYPE& p_other)
+		{
+			return Vector<2, TYPE>(this->Points[0] / p_other, this->Points[1] / p_other);
+		}
+
+		inline Vector<2, TYPE> operator+(const Vector<2, TYPE>& p_other)
+		{
+			return Vector<2, TYPE>(this->Points[0] + p_other.Points[0], this->Points[1] + p_other.Points[1]);
+		}
+
+		inline Vector<2, TYPE> operator+(const TYPE& p_other)
+		{
+			return Vector<2, TYPE>(this->Points[0] + p_other, this->Points[1] + p_other);
+		}
+
+		inline Vector<2, TYPE> operator-(const Vector<2, TYPE>& p_other)
+		{
+			return Vector<2, TYPE>(this->Points[0] - p_other.Points[0], this->Points[1] - p_other.Points[1]);
+		}
+
+		inline Vector<2, TYPE> operator-(const TYPE& p_other)
+		{
+			return Vector<2, TYPE>(this->Points[0] - p_other, this->Points[1] - p_other);
+		}
+
+		inline TYPE& operator[](int p_index)
+		{
+			return this->Points[p_index];
+		}
+	};
+
+	template <class TYPE>
 	struct alignas(sizeof(TYPE)) Vector<3, TYPE>
 	{
 		union
@@ -134,6 +195,7 @@ namespace Math
 		}
 	};
 
+	using vec2f = Vector<2, float>;
 	using vec3f = Vector<3, float>;
 	using vec4f = Vector<4, float>;
 

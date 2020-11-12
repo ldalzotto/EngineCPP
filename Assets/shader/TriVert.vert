@@ -1,7 +1,7 @@
 #version 450
 
 layout(location = 0) in vec3 pos;
-layout(location = 1) in vec3 color;
+layout(location = 1) in vec2 uv;
 
 layout(set = 0, binding = 0) uniform Camera
 {
@@ -20,6 +20,6 @@ void main()
 {
 	gl_Position = camera.projection * (camera.view * (model.model * vec4(pos, 1.0)));
 	// gl_Position.x = 1.0 - gl_Position.x;
-	fragColor = color;
+	fragColor = vec3(uv, 0.0);
 }
 
