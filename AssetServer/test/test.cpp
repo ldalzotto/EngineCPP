@@ -1,7 +1,6 @@
 
 #include  "AssetServer/asset_server.cpp"
 
-
 void main(int argc, char** argv)
 {
 	AssetServer l_server;

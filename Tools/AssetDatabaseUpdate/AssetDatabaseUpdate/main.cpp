@@ -2,6 +2,7 @@
 #include <string>
 #include <Common/Thread/thread.hpp>
 #include <Common/Container/vector.hpp>
+#include <Common/File/file.hpp>
 
 #include <QtWidgets/qapplication.h>
 #include <QtWidgets/qpushbutton.h>
@@ -15,7 +16,7 @@
 #include <QtWidgets/qlistwidget.h>
 #include <QtCore/qtimer.h>
 
-const std::string PROJECT_PATH = "E:/GameProjects/CPPTestVS/";
+const char* PROJECT_PATH = "E:/GameProjects/CPPTestVS/";
 
 template<class Callbacks>
 struct MainWindow
@@ -48,55 +49,17 @@ struct MainWindow
 
 };
 
-struct File
-{
-	template<class FindFileFilterFn>
-	inline static void find_file(const std::string& p_path, com::Vector<std::string>& out_paths_buffer, bool p_recursive)
-	{
-		std::string l_current_file = p_path;
-		WIN32_FIND_DATA l_find_data;
-		HANDLE l_find = INVALID_HANDLE_VALUE;
-
-		l_find = FindFirstFile((l_current_file + "*").c_str(), &l_find_data);
-		while (l_find != INVALID_HANDLE_VALUE)
-		{
-			if (p_recursive && (l_find_data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY))
-			{
-				if (p_recursive)
-				{
-					if (std::string(".").compare(l_find_data.cFileName) != 0 && std::string("..").compare(l_find_data.cFileName) != 0)
-					{
-						find_file<FindFileFilterFn>(l_current_file + l_find_data.cFileName + "/", out_paths_buffer, p_recursive);
-					}
-				}
-
-			}
-			else
-			{
-				if (FindFileFilterFn::filter(l_current_file + l_find_data.cFileName))
-				{
-					out_paths_buffer.push_back(l_current_file + l_find_data.cFileName);
-				}
-			}
-
-			if (!FindNextFile(l_find, &l_find_data))
-			{
-				goto end;
-			};
-		}
-
-	end:
-		FindClose(l_find);
-	};
-};
 
 struct GetAssetsPath : public WorkerThread::Task
 {
-	com::Vector<std::string> found_paths;
-
+	com::Vector<String<>> found_paths;
 
 	inline void free()
 	{
+		for (size_t i = 0; i < this->found_paths.Size; i++)
+		{
+			this->found_paths[i].free();
+		}
 		this->found_paths.free();
 	};
 
@@ -104,35 +67,48 @@ struct GetAssetsPath : public WorkerThread::Task
 	{
 		struct AssetRootFilter
 		{
-			inline static bool filter(const std::string& p_file)
+			inline static bool filter(const String<>& p_file)
 			{
-				return p_file.find(".assetroot", 0) != std::string::npos;
+				size_t l_index;
+				return p_file.find(StringSlice(".assetroot"), 0, &l_index);
 			}
 		};
 
 		struct AssetFilter
 		{
-			inline static bool filter(const std::string& p_file)
+			inline static bool filter(const String<>& p_file)
 			{
-				return p_file.find(".spv", 0) != std::string::npos;
+				size_t l_index;
+				return p_file.find(".spv", 0, &l_index);
 			}
 		};
 
-		// this->editor->window.set_statusbarmessage("Finding root...");
-		com::Vector < std::string > l_asset_root;
-		File::find_file<AssetRootFilter>(PROJECT_PATH, l_asset_root, true);
+		com::Vector<String<>> l_asset_root;
+		File::find_file<AssetRootFilter>(StringSlice(PROJECT_PATH), l_asset_root, true);
 		if (l_asset_root.Size > 0)
 		{
-			// this->editor->window.set_statusbarmessage("...root found !");
-
-			com::Vector < std::string > l_asset_paths;
-			File::find_file<AssetFilter>(l_asset_root[0].substr(0, l_asset_root[0].find(".assetroot")), l_asset_paths, true);
-
-			for (size_t i = 0; i < l_asset_paths.Size; i++)
+			com::Vector<String<>> l_asset_paths;
+			l_asset_paths.allocate(0);
 			{
-				this->found_paths.push_back(l_asset_paths[i]);
+				StringSlice l_asset_folder = l_asset_root[0].toSlice();
+				size_t l_index;
+				if (l_asset_folder.find(".assetroot", &l_index))
+				{
+					l_asset_folder.End = l_index;
+					File::find_file<AssetFilter>(l_asset_folder, l_asset_paths, true);
+
+					for (size_t i = 0; i < l_asset_paths.Size; i++)
+					{
+						this->found_paths.push_back(l_asset_paths[i]);
+					}
+				}
 			}
 			l_asset_paths.free();
+		}
+
+		for (size_t i = 0; i < l_asset_root.Size; i++)
+		{
+			l_asset_root[i].free();
 		}
 		l_asset_root.free();
 
@@ -194,7 +170,7 @@ struct AssetDatabaseRefreshEditor
 
 						for (size_t i = 0; i < this->asset_path_task->found_paths.Size; i++)
 						{
-							this->editor->window.list.addItem(QString(this->asset_path_task->found_paths[i].c_str()));
+							this->editor->window.list.addItem(QString(this->asset_path_task->found_paths[i].Memory.Memory));
 						}
 
 						this->asset_path_task->free();

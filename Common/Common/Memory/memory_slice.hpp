@@ -5,9 +5,11 @@ namespace com
 	template <class TYPE>
 	struct MemorySlice
 	{
-		const TYPE* Memory;
-		size_t Begin;
-		size_t End;
+		const TYPE* Memory = nullptr;
+		size_t Begin = 0;
+		size_t End = 0;
+
+		inline MemorySlice() {};
 
 		inline MemorySlice(const TYPE& p_element)
 		{
