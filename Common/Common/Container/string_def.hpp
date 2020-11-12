@@ -2,6 +2,7 @@
 
 #include "vector_def.hpp"
 
+#include <string.h>
 
 struct StringSlice
 {
@@ -23,6 +24,7 @@ struct StringSlice
 	};
 
 	bool find(const StringSlice& p_other, size_t* p_outfoundIndex);
+
 	bool equals(const StringSlice& p_other);
 };
 
@@ -51,5 +53,7 @@ struct String
 
 	bool equals(const char* p_str);
 	bool equals(const StringSlice& p_str);
+
+	static char String_CompareRaw(char* p_left, char* p_right, size_t p_size);
 };
 

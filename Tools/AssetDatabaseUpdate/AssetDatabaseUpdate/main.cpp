@@ -3,6 +3,7 @@
 #include <Common/Thread/thread.hpp>
 #include <Common/Container/vector.hpp>
 #include <Common/File/file.hpp>
+#include <AssetServer/asset_server.hpp>
 
 #include <QtWidgets/qapplication.h>
 #include <QtWidgets/qpushbutton.h>
@@ -49,31 +50,40 @@ struct MainWindow
 
 };
 
-
-struct GetAssetsPath : public WorkerThread::Task
+struct PushAssetsToDb : WorkerThread::Task
 {
-	com::Vector<String<>> found_paths;
+	struct In
+	{
+		AssetServerHandle asset_server;
+	} in;
+
+	struct Out
+	{
+		com::Vector<String<>> updated_files;
+
+		inline void free()
+		{
+			for (size_t i = 0; i < this->updated_files.Size; i++)
+			{
+				this->updated_files[i].free();
+			}
+			this->updated_files.free();
+		}
+
+	} out;
 
 	inline void free()
 	{
-		for (size_t i = 0; i < this->found_paths.Size; i++)
-		{
-			this->found_paths[i].free();
-		}
-		this->found_paths.free();
+		this->out.free();
+	};
+
+	PushAssetsToDb(AssetServerHandle p_asset_server_handle)
+	{
+		this->in.asset_server = p_asset_server_handle;
 	};
 
 	inline void tick_internal() override
 	{
-		struct AssetRootFilter
-		{
-			inline static bool filter(const String<>& p_file)
-			{
-				size_t l_index;
-				return p_file.find(StringSlice(".assetroot"), 0, &l_index);
-			}
-		};
-
 		struct AssetFilter
 		{
 			inline static bool filter(const String<>& p_file)
@@ -83,34 +93,16 @@ struct GetAssetsPath : public WorkerThread::Task
 			}
 		};
 
-		com::Vector<String<>> l_asset_root;
-		File::find_file<AssetRootFilter>(StringSlice(PROJECT_PATH), l_asset_root, true);
-		if (l_asset_root.Size > 0)
-		{
-			com::Vector<String<>> l_asset_paths;
-			l_asset_paths.allocate(0);
-			{
-				StringSlice l_asset_folder = l_asset_root[0].toSlice();
-				size_t l_index;
-				if (l_asset_folder.find(".assetroot", &l_index))
-				{
-					l_asset_folder.End = l_index;
-					File::find_file<AssetFilter>(l_asset_folder, l_asset_paths, true);
+		std::string l_folder_path = this->in.asset_server.get_asset_basepath();
+		StringSlice l_asset_folder_absolute = StringSlice(l_folder_path.c_str());
 
-					for (size_t i = 0; i < l_asset_paths.Size; i++)
-					{
-						this->found_paths.push_back(l_asset_paths[i]);
-					}
-				}
-			}
-			l_asset_paths.free();
-		}
+		File::find_file<AssetFilter>(l_asset_folder_absolute, this->out.updated_files, true);
 
-		for (size_t i = 0; i < l_asset_root.Size; i++)
+		for (size_t i = 0; i < this->out.updated_files.Size; i++)
 		{
-			l_asset_root[i].free();
+			std::string l_relative_assetpath = std::string(this->out.updated_files[0].Memory.Memory).substr(l_asset_folder_absolute.End, this->out.updated_files[0].Memory.Size - 1);
+			this->in.asset_server.insert_or_update_resource(l_relative_assetpath);
 		}
-		l_asset_root.free();
 
 		this->state = State::ENDED;
 	};
@@ -121,16 +113,16 @@ struct GetAssetsPath : public WorkerThread::Task
 	};
 };
 
-
 struct AssetDatabaseRefreshEditor
 {
 	QApplication* app;
+	AssetServerHandle asset_server;
 	WorkerThread worker_thread;
 
 	struct MainWindowCallbacks
 	{
 		QTimer* asset_path_task_timer = nullptr;
-		GetAssetsPath* asset_path_task = nullptr;
+		PushAssetsToDb* asset_path_task = nullptr;
 		AssetDatabaseRefreshEditor* editor = nullptr;
 
 		MainWindowCallbacks()
@@ -149,7 +141,7 @@ struct AssetDatabaseRefreshEditor
 		{
 			if (this->asset_path_task == nullptr)
 			{
-				this->asset_path_task = new GetAssetsPath();
+				this->asset_path_task = new PushAssetsToDb(this->editor->asset_server);
 				this->editor->worker_thread.push_task(this->asset_path_task);
 
 
@@ -160,7 +152,7 @@ struct AssetDatabaseRefreshEditor
 
 
 				this->editor->window.window.connect(this->asset_path_task_timer, &QTimer::timeout, [=]() {
-					if (this->asset_path_task->state == GetAssetsPath::State::ENDED)
+					if (this->asset_path_task->state == PushAssetsToDb::State::ENDED)
 					{
 						this->asset_path_task_timer->stop();
 						this->editor->window.window.disconnect(this->asset_path_task_timer);
@@ -168,9 +160,9 @@ struct AssetDatabaseRefreshEditor
 						this->asset_path_task_timer = nullptr;
 
 
-						for (size_t i = 0; i < this->asset_path_task->found_paths.Size; i++)
+						for (size_t i = 0; i < this->asset_path_task->out.updated_files.Size; i++)
 						{
-							this->editor->window.list.addItem(QString(this->asset_path_task->found_paths[i].Memory.Memory));
+							this->editor->window.list.addItem(QString(this->asset_path_task->out.updated_files[i].Memory.Memory));
 						}
 
 						this->asset_path_task->free();
@@ -185,9 +177,10 @@ struct AssetDatabaseRefreshEditor
 
 	MainWindow<MainWindowCallbacks> window;
 
-	inline void allocate(QApplication& p_app)
+	inline void allocate(QApplication& p_app, const std::string& p_executable_path)
 	{
 		this->app = &p_app;
+		this->asset_server.allocate(p_executable_path);
 		this->worker_thread.allocate();
 		this->window.allocate(MainWindowCallbacks(*this));
 
@@ -202,5 +195,5 @@ int main(int argc, char** argv)
 	QApplication l_app(argc, argv);
 	AssetDatabaseRefreshEditor l_editor;
 
-	l_editor.allocate(l_app);
+	l_editor.allocate(l_app, std::string(argv[0]));
 }

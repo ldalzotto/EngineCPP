@@ -36,6 +36,11 @@ void AssetServerHandle::free()
 	((AssetServer*)this->handle)->free();
 }
 
+std::string AssetServerHandle::get_asset_basepath() const
+{
+	return ((AssetServer*)this->handle)->asset_path.asset_folder_path;
+};
+
 com::Vector<char> AssetServerHandle::get_resource(const std::string& p_id) const
 {
 	com::Vector<char> l_resource;

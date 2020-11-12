@@ -1,6 +1,5 @@
 #pragma once
 
-#include <string.h>
 #include "string_def.hpp"
 
 template<class Allocator>
@@ -81,7 +80,9 @@ inline void String<Allocator>::clear()
 	this->Memory.push_back((char)NULL);
 }
 
-char String_CompareRaw(char* p_left, char* p_right, size_t p_size)
+
+template<class Allocator>
+inline static char String<Allocator>::String_CompareRaw(char* p_left, char* p_right, size_t p_size)
 {
 	for (size_t i = 0; i < p_size; i++)
 	{
@@ -126,7 +127,21 @@ inline bool String<Allocator>::find(const StringSlice& p_compared_str, const siz
 	return l_slice.find(p_compared_str, p_outfoundIndex);
 }
 
-bool StringSlice::find(const StringSlice& p_other, size_t* p_outfoundIndex)
+template<class Allocator>
+inline bool String<Allocator>::equals(const char* p_str)
+{
+	return StringSlice(p_str).equals(this->toSlice());
+};
+
+template<class Allocator>
+inline bool String<Allocator>::equals(const StringSlice& p_str)
+{
+	return p_str.equals(this->toSlice());
+};
+
+
+
+inline bool StringSlice::find(const StringSlice& p_other, size_t* p_outfoundIndex)
 {
 	size_t l_stringSlice_size = this->End - this->Begin;
 	if (l_stringSlice_size > 0)
@@ -154,20 +169,9 @@ bool StringSlice::find(const StringSlice& p_other, size_t* p_outfoundIndex)
 	return false;
 };
 
-template<class Allocator>
-inline bool String<Allocator>::equals(const char* p_str)
-{
-	return StringSlice(p_str).equals(this->toSlice());
-};
-
-template<class Allocator>
-inline bool String<Allocator>::equals(const StringSlice& p_str)
-{
-	return p_str.equals(this->toSlice());
-};
-
 inline bool StringSlice::equals(const StringSlice& p_other)
 {
+
 	size_t l_sourceSlice_size = (this->End - this->Begin);
 	size_t l_comparedSlice_size = (p_other.End - p_other.Begin);
 
