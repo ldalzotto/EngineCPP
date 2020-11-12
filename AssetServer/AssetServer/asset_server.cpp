@@ -1,4 +1,5 @@
 #include "AssetServer\asset_server.hpp"
+#include "asset_query.cpp"
 
 struct AssetServer
 {
@@ -7,14 +8,18 @@ struct AssetServer
 	AssetDatabaseConnection connection;
 	AssetPath asset_path;
 
+	GenericAssetQuery resource_query;
+
 	inline void allocate(const std::string& p_executable_path)
 	{
 		this->asset_path.initialize(p_executable_path);
 		this->connection.allocate((this->asset_path.asset_folder_path + AssetServer::DatabasePath).c_str());
+		this->resource_query.allocate(this->asset_path, this->connection);
 	}
 
 	inline void free()
 	{
+		this->resource_query.free();
 		this->connection.free();
 	}
 };
@@ -31,12 +36,14 @@ void AssetServerHandle::free()
 	((AssetServer*)this->handle)->free();
 }
 
-const AssetDatabaseConnection& AssetServerHandle::get_connection()  const
+com::Vector<char> AssetServerHandle::get_resource(const std::string& p_id) const
 {
-	return 	((AssetServer*)this->handle)->connection;
+	com::Vector<char> l_resource;
+	((AssetServer*)this->handle)->resource_query.request(p_id, l_resource);
+	return l_resource;
 };
 
-const AssetPath& AssetServerHandle::get_assetpath() const
+void AssetServerHandle::insert_or_update_resource(const std::string& p_id)
 {
-	return 	((AssetServer*)this->handle)->asset_path;
+	((AssetServer*)this->handle)->resource_query.insert_or_update(p_id);
 };

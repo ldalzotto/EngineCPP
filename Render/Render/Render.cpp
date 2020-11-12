@@ -1,7 +1,7 @@
 #include <interface/Render/render.hpp>
 #include <driver/Render/rdwindow.hpp>
 #include <optick.h>
-#include <AssetServer/asset_query.hpp>
+#include <AssetServer/asset_server.hpp>
 #include "Math/math.hpp"
 #include "Common/Container/pool.hpp"
 #include "Common/Container/vector.hpp"
@@ -1847,10 +1847,7 @@ struct ShaderParameter
 
 struct ShaderModuleResource
 {
-	inline static const std::string ResourceName = "shader";
-
 	vk::ShaderModule shader_module;
-
 };
 
 struct RenderResourceLoader
@@ -1858,20 +1855,20 @@ struct RenderResourceLoader
 	struct ResourceAllocator
 	{
 		const Device* device = nullptr;
-		GenericAssetQuery* asset_query = nullptr;
+		AssetServerHandle asset_server;
 
 		ResourceAllocator() {};
 
-		inline ResourceAllocator(GenericAssetQuery& p_asset_query, const Device& p_device)
+		inline ResourceAllocator(const AssetServerHandle& p_asset_server, const Device& p_device)
 		{
-			this->asset_query = &p_asset_query;
+			this->asset_server = p_asset_server;
 			this->device = &p_device;
 		};
 
 		inline ShaderModuleResource allocate(const std::string& p_shadermodule_path)
 		{
 			ShaderModuleResource l_resource;
-			l_resource.shader_module = load_shadermodule(*this->asset_query, *this->device, p_shadermodule_path);
+			l_resource.shader_module = load_shadermodule(this->asset_server, *this->device, p_shadermodule_path);
 			return l_resource;
 		};
 
@@ -1881,10 +1878,9 @@ struct RenderResourceLoader
 		};
 
 	private:
-		inline static vk::ShaderModule load_shadermodule(GenericAssetQuery& p_asset_query, const Device& p_device, const std::string& p_file_path)
+		inline static vk::ShaderModule load_shadermodule(const AssetServerHandle& p_asset_server_handle, const Device& p_device, const std::string& p_file_path)
 		{
-			com::Vector<char> l_shader_code;
-			p_asset_query.request(p_file_path, l_shader_code);
+			com::Vector<char> l_shader_code = p_asset_server_handle.get_resource(p_file_path);
 			{
 				if (l_shader_code.Size > 0)
 				{
@@ -1907,19 +1903,16 @@ struct RenderResourceLoader
 		}
 	};
 
-	GenericAssetQuery asset_query;
 	ResourceMap<std::string, ShaderModuleResource, ResourceAllocator> shader_modules;
 
-	inline void allocate(const AssetServerHandle p_assetserver, const Device& p_device)
+	inline void allocate(const AssetServerHandle& p_assetserver, const Device& p_device)
 	{
-		this->asset_query.allocate<ShaderModuleResource>(p_assetserver.get_assetpath(), p_assetserver.get_connection());
-		this->shader_modules.allocate(10, ResourceAllocator(this->asset_query, p_device));
+		this->shader_modules.allocate(10, ResourceAllocator(p_assetserver, p_device));
 	};
 
 	inline void free()
 	{
 		this->shader_modules.free();
-		this->asset_query.free();
 	};
 };
 

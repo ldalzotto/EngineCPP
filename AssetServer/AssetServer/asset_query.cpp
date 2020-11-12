@@ -1,4 +1,3 @@
-#pragma once
 
 #include <sqlite3.h>
 #include <string>
@@ -157,16 +156,15 @@ struct GenericAssetQuery
 	const AssetPath* asset_path;
 	const AssetDatabaseConnection* connection;
 
-	template<class ResourceNameProvider>
 	inline void allocate(const AssetPath& p_assetpath, const AssetDatabaseConnection& p_connection)
 	{
 		this->asset_path = &p_assetpath;
 		this->connection = &p_connection;
 
-		this->exists_query.allocate(p_connection, "select count(*) from " + ResourceNameProvider::ResourceName + " where " + ResourceNameProvider::ResourceName + ".id = ?");
-		this->request_query.allocate(p_connection, "select " + ResourceNameProvider::ResourceName + ".data from " + ResourceNameProvider::ResourceName + " where " + ResourceNameProvider::ResourceName + ".id = ?");
-		this->insert_query.allocate(p_connection, "insert into " + ResourceNameProvider::ResourceName + " (id, path, data) values (?, ?, ?)");
-		this->update_query.allocate(p_connection, "update " + ResourceNameProvider::ResourceName + " set data = ? where id = ?");
+		this->exists_query.allocate(p_connection, "select count(*) from resource where resource.id = ?");
+		this->request_query.allocate(p_connection, "select resource.data from resource where resource.id = ?");
+		this->insert_query.allocate(p_connection, "insert into resource (id, path, data) values (?, ?, ?)");
+		this->update_query.allocate(p_connection, "update resource set data = ? where id = ?");
 	};
 
 	inline void free()

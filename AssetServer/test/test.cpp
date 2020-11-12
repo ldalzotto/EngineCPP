@@ -1,10 +1,6 @@
 
 #include  "AssetServer/asset_server.cpp"
 
-struct RProv
-{
-	inline static std::string ResourceName = "shader";
-};
 
 void main(int argc, char** argv)
 {
@@ -12,7 +8,7 @@ void main(int argc, char** argv)
 	l_server.allocate(std::string(argv[0]));
 
 	GenericAssetQuery l_shaderasset_query;
-	l_shaderasset_query.allocate<RProv>(l_server.asset_path, l_server.connection);
+	l_shaderasset_query.allocate(l_server.asset_path, l_server.connection);
 
 	com::Vector<char> l_source;
 	File::read_bytes(l_server.asset_path.asset_folder_path + "shader/TriFrag.spv", l_source);

@@ -1,12 +1,14 @@
 #pragma once
 
-#include "asset_query.hpp"
+#include <string>
+#include "Common/Container/vector_def.hpp"
 
 struct AssetServerHandle
 {
-	void* handle;
+	void* handle = nullptr;
 	void allocate(const std::string& p_executable_path);
 	void free();
-	const AssetDatabaseConnection& get_connection() const;
-	const AssetPath& get_assetpath()  const;
+
+	com::Vector<char> get_resource(const std::string& p_id) const;
+	void insert_or_update_resource(const std::string& p_id);
 };
