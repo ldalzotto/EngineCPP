@@ -13,6 +13,7 @@ enable_language(CXX)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 add_executable(AssetDatabaseUpdate ${ASSET_DB_UPDATE_HEADER} ${ASSET_DB_UPDATE_SOURCE})
 
+target_link_libraries(AssetDatabaseUpdate Common)
 target_link_libraries(AssetDatabaseUpdate Qt)
 
 

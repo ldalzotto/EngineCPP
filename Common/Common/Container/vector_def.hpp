@@ -3,6 +3,7 @@
 #include <type_traits>
 #include <Common/Memory/allocators.hpp>
 #include <Common/Memory/memory_slice.hpp>
+#include <Common/Thread/mutex.hpp>
 
 namespace com
 {
@@ -29,7 +30,31 @@ namespace com
 		char insert_at(const TYPE& p_element, const size_t p_index);
 		char erase_at(const size_t p_index);
 		char swap(const size_t p_left, const size_t p_right);
+	};
 
+	template<class TYPE, class Allocator = HeapAllocator>
+	struct ConcurrentVector
+	{
+		Mutex<Vector<TYPE, Allocator>> mutex;
+
+		inline void allocate(size_t p_initialSize, const Allocator& p_allocator = Allocator())
+		{
+			this->items.allocate(p_initialSize, p_allocator);
+			this->mutex = Mutex<Vector<TYPE, Allocator>>(this->items);
+		};
+
+		inline void free()
+		{
+			this->items.free();
+		};
+
+		inline Vector<TYPE, Allocator>& get_unsafe()
+		{
+			return this->items;
+		};
+
+	private:
+		Vector<TYPE, Allocator> items;
 	};
 
 }
