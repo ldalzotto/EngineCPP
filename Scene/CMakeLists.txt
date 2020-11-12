@@ -19,7 +19,6 @@ target_link_libraries(Scene PUBLIC Optick)
 
 add_subdirectory(components)
 
-
 project(SceneTest VERSION 0.0.1)
 
 add_executable(SceneTest ${SCENE_HEADER} "./test/test.cpp")
