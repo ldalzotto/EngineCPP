@@ -140,5 +140,5 @@ inline void HashMap<Key, Value, HashFn, Allocator>::push_entry(const Entry& p_en
 template<class Key, class Value, class HashFn, class Allocator>
 inline void HashMap<Key, Value, HashFn, Allocator>::remove(const Key& p_key)
 {
-	this->Entries.Memory[hashmap_calculateindex_from_hash(HashFn::hash(p_entry.key), this->Entries.Capacity)].isOccupied = false;
+	this->Entries.Memory[hashmap_calculateindex_from_hash(HashFn::hash(p_key), this->Entries.Capacity)].isOccupied = false;
 }

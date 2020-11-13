@@ -37,6 +37,8 @@ struct String
 	void from_raw(char* p_str);
 	void free();
 
+	inline const char* c_str() { return this->Memory.Memory; }
+
 	String<Allocator>& append(const char* p_str);
 	template<class ParameterAllocator>
 	String<Allocator>& append(const String<ParameterAllocator>& p_str);

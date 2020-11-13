@@ -5,7 +5,7 @@
 void RenderableObjectHandle::allocate(const RenderHandle& p_render, const MaterialHandle p_material, const MeshHandle p_meshhandle)
 {
 	Render* l_render = (Render*)p_render;
-	this->handle = l_render->heap.allocateRendereableObject(com::PoolToken<Optional<Material>>(p_material.handle), com::PoolToken<Mesh>(p_meshhandle.handle), l_render->renderApi).Index;
+	this->handle = l_render->heap.allocate_rendereableObject(com::PoolToken<Optional<Material>>(p_material.handle), com::PoolToken<Mesh>(p_meshhandle.handle)).Index;
 };
 
 void RenderableObjectHandle::push_trs(const RenderHandle& p_render, const Math::mat4f& p_trs)
@@ -17,50 +17,46 @@ void RenderableObjectHandle::push_trs(const RenderHandle& p_render, const Math::
 void RenderableObjectHandle::free(const RenderHandle& p_render)
 {
 	Render* l_render = (Render*)p_render;
-	l_render->heap.freeRenderableObject(com::PoolToken<Optional<RenderableObject>>(this->handle), l_render->renderApi.device, l_render->renderApi.descriptor_pool);
+	l_render->heap.free_renderableObject(com::PoolToken<Optional<RenderableObject>>(this->handle));
 	this->reset();
 };
 
 void ShaderHandle::allocate(const RenderHandle& p_render, const std::string& p_vertex_shader, const std::string& p_fragment_shader)
 {
 	Render* l_render = (Render*)p_render;
-	ShaderResourceKey l_key;
-	l_key.fragment_module = Hash<std::string>::hash(p_vertex_shader);
-	l_key.fragment_module = Hash<std::string>::hash(p_fragment_shader);
-	this->handle = l_render->resource_loader.shaders.allocate_resource(l_key).Index;
-		//->heap.allocateShader(p_vertex_shader, p_fragment_shader, l_render->resource_loader, l_render->renderApi.swap_chain.renderpass, l_render->renderApi).Index;
+	this->handle = l_render->heap.allocate_shader(p_vertex_shader, p_fragment_shader).Index;
 };
 
 void ShaderHandle::free(const RenderHandle& p_render)
 {
 	Render* l_render = (Render*)p_render;
-	l_render->heap.freeShader(com::PoolToken<Optional<Shader>>(this->handle), l_render->renderApi.device, l_render->renderApi.descriptor_pool);
+	l_render->heap.free_shader(com::PoolToken<Optional<Shader>>(this->handle));
 	this->reset();
 };
 
 void MaterialHandle::allocate(const RenderHandle& p_render, const ShaderHandle& p_shader)
 {
 	Render* l_render = (Render*)p_render;
-	this->handle = l_render->heap.allocateMaterial(com::PoolToken<Optional<Shader>>(p_shader.handle)).Index;
+	this->handle = l_render->heap.allocate_material(com::PoolToken<Optional<Shader>>(p_shader.handle)).Index;
 };
 
 void MaterialHandle::free(const RenderHandle& p_render)
 {
 	Render* l_render = (Render*)p_render;
-	l_render->heap.freeMaterial(com::PoolToken<Optional<Material>>(this->handle), l_render->renderApi.device, l_render->renderApi.descriptor_pool);
+	l_render->heap.free_material(com::PoolToken<Optional<Material>>(this->handle));
 	this->reset();
 };
 
-void MeshHandle::allocate(const RenderHandle& p_render, const com::Vector<VertexResource>& p_vertices, const com::Vector<uint32_t>& p_indices)
+void MeshHandle::allocate(const RenderHandle& p_render, const std::string& p_mesh)
 {
 	Render* l_render = (Render*)p_render;
-	this->handle = l_render->heap.allocateMesh(*(const com::Vector<Vertex>*) & p_vertices, p_indices, l_render->renderApi).Index;
+	this->handle = l_render->heap.allocate_mesh(p_mesh).Index;
 };
 
 void MeshHandle::free(const RenderHandle& p_render)
 {
 	Render* l_render = (Render*)p_render;
-	l_render->heap.disposeMesh(com::PoolToken<Mesh>(this->handle), l_render->renderApi);
+	l_render->heap.free_mesh(com::PoolToken<Mesh>(this->handle));
 	this->reset();
 }
 

@@ -14,10 +14,13 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 add_executable(AssetDatabaseUpdate ${ASSET_DB_UPDATE_HEADER} ${ASSET_DB_UPDATE_SOURCE})
 
 target_link_libraries(AssetDatabaseUpdate Common)
+target_link_libraries(AssetDatabaseUpdate Math)
+target_link_libraries(AssetDatabaseUpdate Render)
 target_link_libraries(AssetDatabaseUpdate AssetServer)
+target_link_libraries(AssetDatabaseUpdate Assimp)
 target_link_libraries(AssetDatabaseUpdate Qt)
 
-
+copy_assimp_dll(${PROJECT_BINARY_DIR}/${BUILD_TYPE}${CMAKE_CONFIGURATION_TYPES})
 copy_qt_dll(${PROJECT_BINARY_DIR}/${BUILD_TYPE}${CMAKE_CONFIGURATION_TYPES})
 
 endif()

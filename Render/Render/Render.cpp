@@ -1,7 +1,9 @@
-#include <interface/Render/render.hpp>
-#include <driver/Render/rdwindow.hpp>
+#include <Render/render.hpp>
+#include <Render/rdwindow.hpp>
 #include <optick.h>
-// #include <assimp/BaseImporter.h>
+#include <assimp/Importer.hpp>
+#include <assimp/scene.h>
+#include <assimp/postprocess.h>
 #include <AssetServer/asset_server.hpp>
 #include "Math/math.hpp"
 #include "Common/Container/pool.hpp"
@@ -1846,55 +1848,11 @@ struct ShaderParameter
 	}
 };
 
-struct ShaderModuleResource
+struct ShaderModule
 {
+	size_t key;
 	vk::ShaderModule shader_module;
 };
-
-struct MeshResource
-{
-
-};
-
-/*
-struct MeshLoader
-{
-	inline static void LoadMesh(const std::string& p_filepath, com::Vector<Vertex>& out_vertices, com::Vector<uint32_t>& out_indices)
-	{
-		Assimp::Importer l_importer;
-		const aiScene* l_scene = l_importer.ReadFile(p_filepath, aiProcess_Triangulate | aiProcess_FlipUVs);
-
-	}
-
-private:
-	inline static void ProcessNode(aiNode* p_node, aiScene* p_scene,  com::Vector<Vertex>& out_vertices, com::Vector<uint32_t>& out_indices)
-	{
-
-	}
-
-	inline static void ProcessMesh(aiMesh* p_mesh, const aiScene* p_scene, com::Vector<Vertex>& out_vertices, com::Vector<uint32_t>& out_indices)
-	{
-		out_indices.resize(p_mesh->mNumFaces * 3);
-		for (size_t i = 0; i < p_mesh->mNumFaces; i++)
-		{
-			aiFace& l_face = p_mesh->mFaces[i];
-			for (size_t j = 0; j < l_face.mNumIndices; j++)
-			{
-				out_indices.push_back(l_face.mIndices[j]);
-			}
-		}
-
-		out_vertices.resize(p_mesh->mNumVertices);
-		for (size_t i = 0; i < p_mesh->mNumVertices; i++)
-		{
-			Vertex l_vertex;
-			l_vertex.position = *(vec3f*)&p_mesh->mVertices[i];
-			out_vertices.push_back(l_vertex);
-		}
-	}
-};
-*/
-
 
 struct ShaderResourceKey
 {
@@ -1911,6 +1869,8 @@ size_t Hash<ShaderResourceKey>::hash(const ShaderResourceKey& p_key)
 struct Shader
 {
 
+	ShaderResourceKey key;
+
 	struct Step
 	{
 		vk::ShaderModule shader_module;
@@ -1926,8 +1886,9 @@ struct Shader
 
 	}
 
-	Shader(const ShaderModuleResource& p_vertex_shader, const ShaderModuleResource& p_fragment_shader, const RenderPass& p_render_pass, const RenderAPI& p_render_api)
+	Shader(const ShaderResourceKey& p_key, const ShaderModule& p_vertex_shader, const ShaderModule& p_fragment_shader, const RenderPass& p_render_pass, const RenderAPI& p_render_api)
 	{
+		this->key = p_key;
 		this->createPipelineLayout(p_render_api);
 		this->createPipeline(p_render_api.device, p_render_pass, p_vertex_shader, p_fragment_shader);
 	}
@@ -1961,7 +1922,7 @@ private:
 	}
 
 	inline void createPipeline(const Device& p_device, const RenderPass& p_renderPass,
-		const ShaderModuleResource& p_vertex_shader, const ShaderModuleResource& p_fragment_shader)
+		const ShaderModule& p_vertex_shader, const ShaderModule& p_fragment_shader)
 	{
 		com::Vector<vk::DynamicState> l_dynamicstates_enabled;
 		l_dynamicstates_enabled.allocate(2);
@@ -2108,14 +2069,16 @@ private:
 
 struct Mesh
 {
+	size_t key;
 	VertexMemory<Vertex> vertices;
 	IndexMemory<uint32_t> indices;
 	size_t indices_length;
 
 	Mesh() {}
 
-	inline Mesh(const com::Vector<Vertex>& p_vertcies, const com::Vector<uint32_t>& p_indices, RenderAPI& p_render)
+	inline Mesh(const size_t p_key, const com::Vector<Vertex>& p_vertcies, const com::Vector<uint32_t>& p_indices, RenderAPI& p_render)
 	{
+		this->key = p_key;
 		this->vertices.allocate(p_vertcies.Size, p_render.stagedbuffer_commands, p_render.device);
 		this->vertices.push_commandbuffer(p_vertcies.Memory, p_render.stagedbuffer_commands, p_render.device);
 		this->vertices.dispose(p_render.stagedbuffer_commands, p_render.device);
@@ -2181,8 +2144,12 @@ struct RenderableObject
 	}
 };
 
-struct RenderHeap
+struct RenderHeap2
 {
+	RenderAPI* render_api;
+
+	com::Pool<ShaderModule> shadermodules;
+
 	com::OptionalPool<Shader> shaders;
 	com::Pool<com::Vector<com::PoolToken<Optional<Material>>>> shaders_to_materials;
 
@@ -2193,186 +2160,316 @@ struct RenderHeap
 
 	com::Pool<Mesh> meshes;
 
+	struct Resource
+	{
+		struct ShaderModuleResourceAllocator
+		{
+			RenderHeap2* render_heap;
+			AssetServerHandle asset_server;
+
+			inline ShaderModuleResourceAllocator() {};
+
+			inline ShaderModuleResourceAllocator(const AssetServerHandle& p_asset_server, RenderHeap2& p_render_heap)
+			{
+				this->asset_server = p_asset_server;
+				this->render_heap = &p_render_heap;
+			};
+
+			inline com::PoolToken<ShaderModule> allocate(size_t p_key)
+			{
+				ShaderModule l_shader_module;
+				l_shader_module.key = p_key;
+				l_shader_module.shader_module = load_shadermodule(this->asset_server, this->render_heap->render_api->device, p_key);
+				return this->render_heap->shadermodules.alloc_element(l_shader_module);
+			};
+
+			inline void free(com::PoolToken<ShaderModule>& p_shader_module)
+			{
+				dispose_shaderModule(this->render_heap->render_api->device, this->render_heap->shadermodules[p_shader_module].shader_module);
+				this->render_heap->shadermodules.release_element(p_shader_module);
+			};
+
+		private:
+			inline static vk::ShaderModule load_shadermodule(const AssetServerHandle& p_asset_server_handle, const Device& p_device, const size_t p_shadermodule_id)
+			{
+				com::Vector<char> l_shader_code = p_asset_server_handle.get_resource(p_shadermodule_id);
+				{
+					if (l_shader_code.Size > 0)
+					{
+						vk::ShaderModuleCreateInfo l_shader_module_create_info;
+						l_shader_module_create_info.setCodeSize(l_shader_code.Size);
+						l_shader_module_create_info.setPCode((uint32_t*)l_shader_code.Memory);
+
+						vk::ShaderModule l_module = p_device.device.createShaderModule(l_shader_module_create_info);
+						l_shader_code.free();
+						return l_module;
+					}
+				}
+				l_shader_code.free();
+				return nullptr;
+			}
+
+			inline static void dispose_shaderModule(const Device& p_device, const vk::ShaderModule& p_shader_module)
+			{
+				p_device.device.destroyShaderModule(p_shader_module);
+			}
+
+		};
+
+		struct ShaderResourceAllocator
+		{
+			RenderHeap2* render_heap;
+			AssetServerHandle asset_server;
+
+			inline ShaderResourceAllocator() {};
+
+			inline ShaderResourceAllocator(const AssetServerHandle& p_asset_server, RenderHeap2& p_render_heap)
+			{
+				this->asset_server = p_asset_server;
+				this->render_heap = &p_render_heap;
+			};
+
+			inline com::PoolToken<Optional<Shader>> allocate(const ShaderResourceKey& p_key)
+			{
+				auto l_vertex_module = this->render_heap->allocate_shadermodule_internal(p_key.vertex_module);
+				auto l_fragment_module = this->render_heap->allocate_shadermodule_internal(p_key.fragment_module);
+				Shader l_shader = Shader(p_key,
+					this->render_heap->shadermodules[l_vertex_module],
+					this->render_heap->shadermodules[l_fragment_module],
+					this->render_heap->render_api->swap_chain.renderpass,
+					*(this->render_heap->render_api)
+				);
+
+				this->render_heap->shaders_to_materials.alloc_element(com::Vector<com::PoolToken<Optional<Material>>>());
+				return this->render_heap->shaders.alloc_element(l_shader);
+			};
+
+			inline void free(const com::PoolToken<Optional<Shader>>& p_shader)
+			{
+				Optional<Shader>& l_shader = this->render_heap->shaders[p_shader];
+				l_shader.value.dispose(this->render_heap->render_api->device);
+				com::Vector<com::PoolToken<Optional<Material>>>& l_shader_to_materials = this->render_heap->shaders_to_materials[p_shader.Index];
+				for (size_t i = 0; i < l_shader_to_materials.Size; i++)
+				{
+					this->render_heap->free_material(l_shader_to_materials[i]);
+				}
+				this->render_heap->shaders_to_materials.release_element(p_shader.Index);
+			};
+		};
+
+		struct MeshResourceAllocator
+		{
+			RenderHeap2* render_heap;
+			AssetServerHandle asset_server;
+
+			inline MeshResourceAllocator() {};
+
+			inline MeshResourceAllocator(const AssetServerHandle& p_asset_server, RenderHeap2& p_render_heap)
+			{
+				this->asset_server = p_asset_server;
+				this->render_heap = &p_render_heap;
+			};
+
+			struct MeshAsset
+			{
+				struct MeshAssetIndex
+				{
+					size_t vertices_offset;
+					size_t vertices_count;
+					size_t indices_offset;
+					size_t indices_count;
+					size_t end;
+				} index;
+
+				com::Vector<Vertex> vertices;
+				com::Vector<uint32_t> indices;
+
+				inline void free()
+				{
+					this->vertices.free();
+					this->indices.free();
+				}
+
+				inline void clear()
+				{
+					this->vertices.clear();
+					this->indices.clear();
+				}
+
+				inline static MeshAsset cast_from(const char* p_data)
+				{
+					const MeshAssetIndex* p_index = (const MeshAssetIndex*)p_data;
+
+					MeshAsset l_resource;
+
+					l_resource.index = *p_index;
+
+					l_resource.vertices.Memory = (Vertex*)(p_data + p_index->vertices_offset);
+					l_resource.vertices.Size = p_index->vertices_count;
+					l_resource.vertices.Capacity = p_index->vertices_count;
+
+					l_resource.indices.Memory = (uint32_t*)(p_data + p_index->indices_offset);
+					l_resource.indices.Size = p_index->indices_count;
+					l_resource.indices.Capacity = p_index->indices_count;
+
+					return l_resource;
+				};
+
+				inline void sertialize_to(com::Vector<char>& out_target)
+				{
+					size_t l_current_pointer = 0;
+					out_target.insert_at(com::MemorySlice<char>(*(char*)&this->index, sizeof(MeshAssetIndex)), l_current_pointer);
+					l_current_pointer += sizeof(MeshAssetIndex);
+					out_target.insert_at(com::MemorySlice<char>(*(char*)this->vertices.Memory, this->vertices.size_in_bytes()), l_current_pointer);
+					l_current_pointer += this->vertices.size_in_bytes();
+					out_target.insert_at(com::MemorySlice<char>(*(char*)this->indices.Memory, this->indices.size_in_bytes()), l_current_pointer);
+
+
+					MeshAssetIndex* l_index = (MeshAssetIndex*)out_target.Memory;
+					l_index->vertices_offset = sizeof(MeshAssetIndex);
+					l_index->vertices_count = this->vertices.Size;
+					l_index->indices_offset = l_index->vertices_offset + this->vertices.size_in_bytes();
+					l_index->indices_count = this->indices.Size;
+					l_index->end = l_index->indices_offset + this->indices.size_in_bytes();
+				};
+
+
+			};
+
+			inline com::PoolToken<Mesh> allocate(const size_t& p_key)
+			{
+				com::PoolToken<Mesh> l_mesh;
+				com::Vector<char> l_mesh_asset_binary = this->asset_server.get_resource(p_key);
+				{
+					MeshAsset l_mesh_asset = MeshAsset::cast_from(l_mesh_asset_binary.Memory);
+					l_mesh = this->render_heap->meshes.alloc_element(Mesh(p_key, l_mesh_asset.vertices, l_mesh_asset.indices, *this->render_heap->render_api));
+				}
+				l_mesh_asset_binary.free();
+				return l_mesh;
+			};
+
+			inline void free(const com::PoolToken<Mesh>& p_mesh)
+			{
+				this->render_heap->meshes[p_mesh].dispose(this->render_heap->render_api->stagedbuffer_commands, this->render_heap->render_api->device);
+				this->render_heap->meshes.release_element(p_mesh);
+			};
+		};
+
+		ResourceMap<size_t, com::PoolToken<ShaderModule>, ShaderModuleResourceAllocator> shader_module_resources;
+		ResourceMap<ShaderResourceKey, com::PoolToken<Optional<Shader>>, ShaderResourceAllocator> shader_resources;
+		ResourceMap<size_t, com::PoolToken<Mesh>, MeshResourceAllocator> mesh_resources;
+
+		inline void allocate(RenderHeap2& p_render_heap, AssetServerHandle p_asset_server)
+		{
+			this->shader_module_resources.allocate(1, ShaderModuleResourceAllocator(p_asset_server, p_render_heap));
+			this->shader_resources.allocate(1, ShaderResourceAllocator(p_asset_server, p_render_heap));
+			this->mesh_resources.allocate(1, MeshResourceAllocator(p_asset_server, p_render_heap));
+		};
+
+		inline void free()
+		{
+			this->shader_module_resources.free();
+			this->shader_resources.free();
+			this->mesh_resources.free();
+		};
+
+	} resource;
+
+public:
+
+	inline void allocate(AssetServerHandle p_asset_server, RenderAPI& p_render_api)
+	{
+		this->render_api = &p_render_api;
+		this->resource.allocate(*this, p_asset_server);
+	};
+
 	inline void free()
 	{
-		//TODO
-	}
+		this->resource.free();
+	};
 
-	inline com::PoolToken<Optional<Shader>> allocateShader(const ShaderModuleResource& p_vertex_shader, const ShaderModuleResource& p_fragment_shader,
-		const RenderPass& p_render_pass, const RenderAPI& p_render_api)
+	inline com::PoolToken<ShaderModule> allocate_shadermodule(const std::string& p_path)
 	{
-		Shader l_shader = Shader(p_vertex_shader, p_fragment_shader, p_render_pass, p_render_api);
-		this->shaders_to_materials.alloc_element(com::Vector<com::PoolToken<Optional<Material>>>());
-		return this->shaders.alloc_element(l_shader);
-	}
+		return this->allocate_shadermodule_internal(Hash<std::string>::hash(p_path));
+	};
 
-	inline void freeShader(const com::PoolToken<Optional<Shader>> p_shader, Device& p_device, const vk::DescriptorPool p_descriptorpool)
+	inline void free_shadermodule(const com::PoolToken<ShaderModule>& p_shader_module)
 	{
-		Optional<Shader>& l_shader = this->shaders[p_shader];
-		l_shader.value.dispose(p_device);
-		this->shaders.release_element(p_shader);
+		this->resource.shader_module_resources.free_resource(this->shadermodules[p_shader_module].key);
+	};
 
-		com::Vector<com::PoolToken<Optional<Material>>>& l_shader_to_materials = this->shaders_to_materials[p_shader.Index];
-		for (size_t i = 0; i < l_shader_to_materials.Size; i++)
-		{
-			this->freeMaterial(l_shader_to_materials[i], p_device, p_descriptorpool);
-		}
-		this->shaders_to_materials.release_element(p_shader.Index);
-	}
+	inline com::PoolToken<Optional<Shader>> allocate_shader(const std::string& p_vertex, const std::string& p_fragment)
+	{
+		ShaderResourceKey l_key;
+		l_key.vertex_module = Hash<std::string>::hash(p_vertex); 
+		l_key.fragment_module = Hash<std::string>::hash(p_fragment);
+		return this->allocate_shader_internal(l_key);
+	};
 
-	inline com::PoolToken<Optional<Material>> allocateMaterial(const com::PoolToken<Optional<Shader>> p_shaderhandle)
+	inline void free_shader(const com::PoolToken<Optional<Shader>>& p_shader)
+	{
+		this->resource.shader_resources.free_resource(this->shaders[p_shader].value.key);
+	};
+
+	inline com::PoolToken<Optional<Material>> allocate_material(const com::PoolToken<Optional<Shader>>& p_shader)
 	{
 		Material l_material = Material();
 		com::PoolToken<Optional<Material>> l_material_handle = this->materials.alloc_element(l_material);
 		this->material_to_renderableobjects.alloc_element(com::Vector<com::PoolToken<Optional<RenderableObject>>>());
-		this->shaders_to_materials[p_shaderhandle.Index].push_back(l_material_handle);
+		this->shaders_to_materials[p_shader.Index].push_back(l_material_handle);
 		return l_material_handle;
-	}
+	};
 
-	inline void freeMaterial(const com::PoolToken<Optional<Material>> p_material, Device& p_device, const vk::DescriptorPool p_descriptorpool)
+	inline void free_material(const com::PoolToken<Optional<Material>>& p_material)
 	{
 		this->materials.release_element(p_material);
 
 		com::Vector<com::PoolToken<Optional<RenderableObject>>>& l_material_to_renderableobjects = this->material_to_renderableobjects[p_material.Index];
 		for (size_t i = 0; i < l_material_to_renderableobjects.Size; i++)
 		{
-			this->freeRenderableObject(l_material_to_renderableobjects[i], p_device, p_descriptorpool);
+			this->free_renderableObject(l_material_to_renderableobjects[i]);
 		}
 		this->material_to_renderableobjects.release_element(p_material.Index);
-	}
+	};
 
-	inline com::PoolToken<Optional<RenderableObject>> allocateRendereableObject(const com::PoolToken<Optional<Material>> p_materialhandle, const com::PoolToken<Mesh>& p_mesh, RenderAPI& p_render_api)
+	inline com::PoolToken<Mesh> allocate_mesh(const std::string& p_path)
+	{
+		return this->resource.mesh_resources.allocate_resource(Hash<std::string>::hash(p_path));
+	};
+
+	inline void free_mesh(const com::PoolToken<Mesh>& p_mesh)
+	{
+		this->resource.mesh_resources.free_resource(this->meshes[p_mesh].key);
+	};
+
+	inline com::PoolToken<Optional<RenderableObject>> allocate_rendereableObject(const com::PoolToken<Optional<Material>>& p_material, const com::PoolToken<Mesh>& p_mesh)
 	{
 		RenderableObject l_renderable_object;
-		l_renderable_object.allocate(p_mesh, p_render_api);
+		l_renderable_object.allocate(p_mesh, *this->render_api);
 		com::PoolToken<Optional<RenderableObject>> l_renderableobjet_handle = this->renderableobjects.alloc_element(l_renderable_object);
-		this->material_to_renderableobjects[p_materialhandle.Index].push_back(l_renderableobjet_handle);
+		this->material_to_renderableobjects[p_material.Index].push_back(l_renderableobjet_handle);
 		return l_renderableobjet_handle;
-	}
+	};
 
-	inline void freeRenderableObject(const com::PoolToken<Optional<RenderableObject>> p_renderableObject, Device& p_device, const vk::DescriptorPool p_descriptorpool)
+	inline void free_renderableObject(const com::PoolToken<Optional<RenderableObject>>& p_renderableObject)
 	{
 		Optional<RenderableObject>& l_renderableobject = this->renderableobjects[p_renderableObject];
-		l_renderableobject.value.dispose(p_device, p_descriptorpool);
+		l_renderableobject.value.dispose(this->render_api->device, this->render_api->descriptor_pool);
 		this->renderableobjects.release_element(p_renderableObject);
-	}
-
-	inline com::PoolToken<Mesh> allocateMesh(const com::Vector<Vertex>& p_vertcies, const com::Vector<uint32_t>& p_indices, RenderAPI& p_render)
-	{
-		Mesh l_mesh = Mesh(p_vertcies, p_indices, p_render);
-		return this->meshes.alloc_element(l_mesh);
-	}
-
-	inline void disposeMesh(const com::PoolToken<Mesh>& p_mesh, RenderAPI& p_renderapi)
-	{
-		Mesh& l_mesh = this->meshes.resolve(p_mesh);
-		l_mesh.dispose(p_renderapi.stagedbuffer_commands, p_renderapi.device);
-		this->meshes.release_element(p_mesh);
-	}
-};
-
-
-struct RenderResourceLoader
-{
-	struct ShaderModuleResourceAllocator
-	{
-		const Device* device = nullptr;
-		AssetServerHandle asset_server;
-
-		ShaderModuleResourceAllocator() {};
-
-		inline ShaderModuleResourceAllocator(const AssetServerHandle& p_asset_server, const Device& p_device)
-		{
-			this->asset_server = p_asset_server;
-			this->device = &p_device;
-		};
-
-		inline ShaderModuleResource allocate(const size_t p_shadermodule_id)
-		{
-			ShaderModuleResource l_resource;
-			l_resource.shader_module = load_shadermodule(this->asset_server, *this->device, p_shadermodule_id);
-			return l_resource;
-		};
-
-		inline void free(ShaderModuleResource& p_module)
-		{
-			dispose_shaderModule(*this->device, p_module.shader_module);
-		};
-
-	private:
-		inline static vk::ShaderModule load_shadermodule(const AssetServerHandle& p_asset_server_handle, const Device& p_device, const size_t p_shadermodule_id)
-		{
-			com::Vector<char> l_shader_code = p_asset_server_handle.get_resource(p_shadermodule_id);
-			{
-				if (l_shader_code.Size > 0)
-				{
-					vk::ShaderModuleCreateInfo l_shader_module_create_info;
-					l_shader_module_create_info.setCodeSize(l_shader_code.Size);
-					l_shader_module_create_info.setPCode((uint32_t*)l_shader_code.Memory);
-
-					vk::ShaderModule l_module = p_device.device.createShaderModule(l_shader_module_create_info);
-					l_shader_code.free();
-					return l_module;
-				}
-			}
-			l_shader_code.free();
-			return nullptr;
-		}
-
-		inline static void dispose_shaderModule(const Device& p_device, const vk::ShaderModule& p_shader_module)
-		{
-			p_device.device.destroyShaderModule(p_shader_module);
-		}
 	};
 
-	struct ShaderResourceAllocator
+private:
+
+	inline com::PoolToken<ShaderModule> allocate_shadermodule_internal(size_t p_key)
 	{
-		RenderResourceLoader* resource_loader;
-		RenderHeap* render_heap;
-		RenderAPI* render_api;
-
-		ShaderResourceAllocator() {};
-		
-		inline ShaderResourceAllocator(RenderResourceLoader* p_resource_loader, RenderHeap& p_render_heap, RenderAPI& p_render_api)
-		{
-			this->resource_loader = p_resource_loader;
-			this->render_heap = &p_render_heap;
-			this->render_api = &p_render_api;
-		};
-
-		inline com::PoolToken<Optional<Shader>> allocate(const ShaderResourceKey& p_key)
-		{
-			return
-				this->render_heap->allocateShader(
-					resource_loader->shader_modules.allocate_resource(p_key.vertex_module),
-					resource_loader->shader_modules.allocate_resource(p_key.fragment_module),
-					this->render_api->swap_chain.renderpass,
-					*(this->render_api)
-				);
-		};
-
-		inline void free(com::PoolToken<Optional<Shader>>& p_shader)
-		{
-			this->render_heap->freeShader(p_shader, this->render_api->device, this->render_api->descriptor_pool);
-		};
+		return this->resource.shader_module_resources.allocate_resource(p_key);
 	};
 
-	ResourceMap<size_t, ShaderModuleResource, ShaderModuleResourceAllocator> shader_modules;
-	ResourceMap<ShaderResourceKey, com::PoolToken<Optional<Shader>>, ShaderResourceAllocator> shaders;
-
-	inline void allocate(const AssetServerHandle& p_assetserver, RenderHeap& p_render_heap, RenderAPI& p_render_api)
+	inline com::PoolToken<Optional<Shader>> allocate_shader_internal(const ShaderResourceKey& p_key)
 	{
-		this->shader_modules.allocate(10, ShaderModuleResourceAllocator(p_assetserver, p_render_api.device));
-		this->shaders.allocate(1, ShaderResourceAllocator(this, p_render_heap, p_render_api));
-	};
-
-	inline void free()
-	{
-		this->shader_modules.free();
-		this->shaders.free();
+		return this->resource.shader_resources.allocate_resource(p_key);
 	};
 };
-
 
 struct Render
 {
@@ -2381,20 +2478,21 @@ struct Render
 
 	GlobalUniformBuffer<CameraMatrices> camera_matrices_globalbuffer;
 
-	RenderHeap heap;
-	RenderResourceLoader resource_loader;
+	RenderHeap2 heap;
 
 	inline Render(const AssetServerHandle p_asset_server)
 	{
 		this->window = RenderWindow(800, 600, "MyGame");
 		this->renderApi.init(window);
 		this->create_global_buffers();
-		this->resource_loader.allocate(p_asset_server, this->heap, this->renderApi);
+		this->heap.allocate(p_asset_server, this->renderApi);
+		// this->resource_loader.allocate(p_asset_server, this->heap, this->renderApi);
 	};
 
 	inline void dispose()
 	{
-		this->resource_loader.free();
+		this->heap.free();
+		// this->resource_loader.free();
 		this->destroy_global_buffers();
 		this->renderApi.dispose();
 		this->window.dispose();
@@ -2590,13 +2688,10 @@ void render_allocate_renderableobject(const RenderHandle& p_render, const std::s
 
 		l_indicesBuffer[0] = 0; l_indicesBuffer[1] = 1; l_indicesBuffer[2] = 2;
 
-		com::PoolToken<Mesh> l_mesh = l_render->heap.allocateMesh(l_vertexBuffer, l_indicesBuffer, l_render->renderApi).Index;
-		ShaderResourceKey l_shaderresource_key;
-		l_shaderresource_key.vertex_module = Hash<std::string>::hash(p_vertex_shader);
-		l_shaderresource_key.fragment_module = Hash<std::string>::hash(p_fragment_shader);
-		com::PoolToken<Optional<Shader>> l_shader = l_render->resource_loader.shaders.allocate_resource(l_shaderresource_key);
-		com::PoolToken<Optional<Material>> l_material = l_render->heap.allocateMaterial(l_shader);
-		com::PoolToken<Optional<RenderableObject>> l_renderableobject = l_render->heap.allocateRendereableObject(l_material, l_mesh, l_render->renderApi);
+		com::PoolToken<Mesh> l_mesh = l_render->heap.allocate_mesh(p_mesh);
+		com::PoolToken<Optional<Shader>> l_shader = l_render->heap.allocate_shader(p_vertex_shader, p_fragment_shader);
+		com::PoolToken<Optional<Material>> l_material = l_render->heap.allocate_material(l_shader);
+		com::PoolToken<Optional<RenderableObject>> l_renderableobject = l_render->heap.allocate_rendereableObject(l_material, l_mesh);
 
 		l_render->heap.renderableobjects[l_renderableobject].value.pushModelMatrix(p_initial_trs, l_render->renderApi.device);
 

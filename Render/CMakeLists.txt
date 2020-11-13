@@ -10,7 +10,7 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 
 add_library(Render ${RENDER_HEADER} ${RENDER_SOURCE})
 
-target_include_directories(Render PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/interface)
+target_include_directories(Render PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/interface ${CMAKE_CURRENT_SOURCE_DIR}/driver)
 
 target_link_libraries(Render PUBLIC GLFW)
 target_link_libraries(Render PUBLIC Vulkan)

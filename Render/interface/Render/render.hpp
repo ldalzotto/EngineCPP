@@ -18,7 +18,7 @@ struct VertexResource
 
 struct MeshHandle : public Handle
 {
-	void allocate(const RenderHandle& p_render, const com::Vector<VertexResource>& p_vertices, const com::Vector<uint32_t>& p_indices);
+	void allocate(const RenderHandle& p_render, const std::string& p_mesh);
 	void free(const RenderHandle& p_render);
 };
 

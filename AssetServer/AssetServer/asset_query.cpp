@@ -146,6 +146,7 @@ struct AssetQuery
 	};
 };
 
+//TODO -> generalize the "from file" feature for insert/update queries to avoid dusplication
 struct GenericAssetQuery
 {
 	AssetQuery exists_query;
@@ -175,46 +176,64 @@ struct GenericAssetQuery
 		this->update_query.free(*connection);
 	};
 
-	inline void insert(const std::string& p_path)
+	inline void insert_fromfile(const std::string& p_path)
+	{
+		OPTICK_EVENT();
+
+		com::Vector<char> l_file;
+		File::read_bytes(asset_path->asset_folder_path + p_path, l_file);
+		{
+			this->insert(p_path, l_file);
+		}
+		l_file.free();
+	};
+
+	inline void insert(const std::string& p_path, const com::Vector<char>& p_data)
 	{
 		OPTICK_EVENT();
 
 		size_t l_id = Hash<std::string>::hash(p_path);
 		this->connection->handleSQLiteError(sqlite3_bind_int64(this->insert_query.statement, 1, l_id));
 
-		com::Vector<char> l_file;
-		File::read_bytes(asset_path->asset_folder_path + p_path, l_file);
 		{
 			sqlite3_bind_int64(this->insert_query.statement, 1, l_id);
 			sqlite3_bind_text(this->insert_query.statement, 2, p_path.c_str(), (int)p_path.length(), nullptr);
-			sqlite3_bind_blob(this->insert_query.statement, 3, l_file.Memory, (int)l_file.Size, nullptr);
+			sqlite3_bind_blob(this->insert_query.statement, 3, p_data.Memory, (int)p_data.Size, nullptr);
 
 			this->insert_query.insert(*connection);
 		}
-		l_file.free();
 
 		this->insert_query.clear(*connection);
 	};
 
-	inline void update(const std::string& p_path)
+	inline void update_fromfile(const std::string& p_path)
+	{
+		OPTICK_EVENT();
+
+		com::Vector<char> l_file;
+		File::read_bytes(asset_path->asset_folder_path + p_path, l_file);
+		{
+			this->update(p_path, l_file);
+		}
+		l_file.free();
+	};
+
+	inline void update(const std::string& p_path, const com::Vector<char>& p_data)
 	{
 		OPTICK_EVENT();
 
 		size_t l_id = Hash<std::string>::hash(p_path);
 		this->connection->handleSQLiteError(sqlite3_bind_int64(this->update_query.statement, 2, l_id));
 
-		com::Vector<char> l_file;
-		File::read_bytes(asset_path->asset_folder_path + p_path, l_file);
 		{
-			connection->handleSQLiteError(sqlite3_bind_blob(this->update_query.statement, 1, l_file.Memory, (int)l_file.Size, nullptr));
+			connection->handleSQLiteError(sqlite3_bind_blob(this->update_query.statement, 1, p_data.Memory, (int)p_data.Size, nullptr));
 			this->update_query.insert(*connection);
 		}
-		l_file.free();
 
 		this->update_query.clear(*connection);
 	};
 
-	inline void insert_or_update(const std::string& p_path)
+	inline void insert_or_update_fromfile(const std::string& p_path)
 	{
 		size_t l_id = Hash<std::string>::hash(p_path);
 
@@ -236,13 +255,43 @@ struct GenericAssetQuery
 
 		if (l_count.count == 0)
 		{
-			this->insert(p_path);
+			this->insert_fromfile(p_path);
 		}
 		else
 		{
-			this->update(p_path);
+			this->update_fromfile(p_path);
 		}
 	};
+
+	inline void insert_or_update(const std::string& p_path, const com::Vector<char>& p_data)
+	{
+		size_t l_id = Hash<std::string>::hash(p_path);
+
+		struct CountRowFn
+		{
+			size_t count = 0;
+
+			inline void execute(sqlite3_stmt* p_statement)
+			{
+				this->count = sqlite3_column_int64(p_statement, 0);
+			};
+		};
+
+		connection->handleSQLiteError(sqlite3_bind_int64(this->exists_query.statement, 1, l_id));
+
+		CountRowFn l_count;
+		this->exists_query.execute_sync_single(*connection, l_count);
+		this->exists_query.clear(*connection);
+
+		if (l_count.count == 0)
+		{
+			this->insert(p_path, p_data);
+		}
+		else
+		{
+			this->update(p_path, p_data);
+		}
+	}
 
 	inline void request(const size_t p_id, com::Vector<char>& out_bytes)
 	{

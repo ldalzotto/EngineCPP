@@ -61,6 +61,17 @@ namespace com
 		this->Size = 0;
 	}
 
+	Vector_TemplateHeader inline void Vector_ClassName::clear()
+	{
+		this->Size = 0;
+	}
+
+	Vector_TemplateHeader
+		inline size_t Vector_ClassName::size_in_bytes()
+	{
+		return this->Size * sizeof(TYPE);
+	};
+
 	Vector_TemplateHeader
 		inline size_t Vector_ClassName::capacity_in_bytes()
 	{

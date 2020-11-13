@@ -64,7 +64,6 @@ struct ResourceMap
 				this->resource_allocation.free(this->map[p_key].value);
 				this->map.remove(p_key);
 			}
-			return l_existing_resourece.value;
 		}
 	};
 };
