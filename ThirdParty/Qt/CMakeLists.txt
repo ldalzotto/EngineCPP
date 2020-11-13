@@ -13,8 +13,6 @@ function(copy_qt_dll target)
 	file(GLOB Qt_DLL "$ENV{QT_SDK}/bin/*.dll" "$ENV{QT_SDK}/plugins/platforms")
 	message(STATUS "Copying QT dll to ${target}")
 	file(COPY ${Qt_DLL} DESTINATION ${target})
-
-	# file(COPY ${CMAKE_SOURCE_DIR}/ThirdParty/Assimp/dll/assimp-vc142-mt.dll DESTINATION ${target})
 endfunction()
 
 endif()

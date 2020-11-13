@@ -1,6 +1,5 @@
 add_subdirectory(Vulkan)
 add_subdirectory(GLFW)
 add_subdirectory(Optick)
-add_subdirectory(Assimp)
 add_subdirectory(SQLite)
 add_subdirectory(Qt)

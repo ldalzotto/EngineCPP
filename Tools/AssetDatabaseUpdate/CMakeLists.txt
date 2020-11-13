@@ -17,10 +17,8 @@ target_link_libraries(AssetDatabaseUpdate Common)
 target_link_libraries(AssetDatabaseUpdate Math)
 target_link_libraries(AssetDatabaseUpdate Render)
 target_link_libraries(AssetDatabaseUpdate AssetServer)
-target_link_libraries(AssetDatabaseUpdate Assimp)
 target_link_libraries(AssetDatabaseUpdate Qt)
 
-copy_assimp_dll(${PROJECT_BINARY_DIR}/${BUILD_TYPE}${CMAKE_CONFIGURATION_TYPES})
 copy_qt_dll(${PROJECT_BINARY_DIR}/${BUILD_TYPE}${CMAKE_CONFIGURATION_TYPES})
 
 endif()

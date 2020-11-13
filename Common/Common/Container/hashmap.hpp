@@ -81,9 +81,13 @@ inline Value& HashMap<Key, Value, HashFn, Allocator>::operator[](const Key& p_ke
 template<class Key, class Value, class HashFn, class Allocator>
 inline bool HashMap<Key, Value, HashFn, Allocator>::conains_key(const Key& p_key)
 {
-	size_t l_inputkey_hash = HashFn::hash(p_key);
-	Entry& l_target_entry = this->Entries.Memory[hashmap_calculateindex_from_hash(l_inputkey_hash, this->Entries.Capacity)];
-	return l_target_entry.isOccupied;
+	if (this->Entries.Capacity > 0)
+	{
+		size_t l_inputkey_hash = HashFn::hash(p_key);
+		Entry& l_target_entry = this->Entries.Memory[hashmap_calculateindex_from_hash(l_inputkey_hash, this->Entries.Capacity)];
+		return l_target_entry.isOccupied && (l_inputkey_hash == HashFn::hash(l_target_entry.key));
+	}
+	return false;
 };
 
 template<class Key, class Value, class HashFn, class Allocator>

@@ -13,7 +13,8 @@
       "variables": [
         {
           "name": "USE_TOOL",
-          "value": "0"
+          "value": "0",
+          "type": "STRING"
         }
       ]
     },
@@ -30,7 +31,8 @@
       "variables": [
         {
           "name": "USE_TOOL",
-          "value": "1"
+          "value": "1",
+          "type": "STRING"
         }
       ]
     },
@@ -47,7 +49,8 @@
       "variables": [
         {
           "name": "USE_TOOL",
-          "value": "0"
+          "value": "0",
+          "type": "STRING"
         }
       ]
     },
@@ -64,7 +67,26 @@
       "variables": [
         {
           "name": "USE_TOOL",
-          "value": "0"
+          "value": "0",
+          "type": "STRING"
+        }
+      ]
+    },
+    {
+      "name": "x64-Release-Tools",
+      "generator": "Visual Studio 16 2019 Win64",
+      "configurationType": "Release",
+      "buildRoot": "${projectDir}\\out\\build\\${name}",
+      "installRoot": "${projectDir}\\out\\install\\${name}",
+      "cmakeCommandArgs": "",
+      "buildCommandArgs": "",
+      "ctestCommandArgs": "",
+      "inheritEnvironments": [ "msvc_x64_x64" ],
+      "variables": [
+        {
+          "name": "USE_TOOL",
+          "value": "1",
+          "type": "STRING"
         }
       ]
     }

@@ -120,9 +120,7 @@ struct PushAssetsToDb : WorkerThread::Task
 };
 
 #include "../Render/Render/Render.cpp"
-
-#include <assimp/Importer.hpp>
-#include <assimp/scene.h>
+#include "obj_reader.hpp"
 
 
 
@@ -165,58 +163,42 @@ struct CompileAssets : WorkerThread::Task
 			inline static bool filter(const String<>& p_file)
 			{
 				size_t l_index;
-				return p_file.find(".obj", 0, &l_index);
+				return p_file.find(".spv", 0, &l_index) || p_file.find(".obj", 0, &l_index);
 			}
 		};
 
 		std::string l_folder_path = this->in.asset_server.get_asset_basepath();
 		StringSlice l_asset_folder_absolute = StringSlice(l_folder_path.c_str());
 
+	
+
 		File::find_file<AssetFilter>(l_asset_folder_absolute, this->out.updated_files, true);
 		for (size_t i = 0; i < this->out.updated_files.Size; i++)
 		{
-			Assimp::Importer l_importer;
-			const aiScene* l_scene = l_importer.ReadFile(this->out.updated_files[i].c_str(), 0);
+			// Assimp::Importer l_importer;
+			// const aiScene* l_scene = l_importer.ReadFile(this->out.updated_files[i].c_str(), aiProcess_JoinIdenticalVertices);
 			// const aiScene* l_scene = l_importer.ReadFileFromMemory(p_mesh_byes.Memory, p_mesh_byes.capacity_in_bytes(), 0);
 
-			MeshResource l_mesh_resource;
-			com::Vector<char> l_mesh_resource_bytes;
-			if (l_scene->mNumMeshes > 0)
+			std::string l_relative_assetpath = std::string(this->out.updated_files[i].Memory.Memory).substr(l_asset_folder_absolute.End, this->out.updated_files[0].Memory.Size - 1);
+			size_t tmp;
+			if (this->out.updated_files[i].find(".obj", 0, &tmp))
 			{
-				
+				RenderHeap2::Resource::MeshResourceAllocator::MeshAsset l_mesh_resource;
+				com::Vector<char> l_mesh_resource_bytes;
 
-				aiMesh* l_mesh = l_scene->mMeshes[0];
-				l_mesh_resource.indices.resize(l_mesh->mNumFaces * 3);
-				for (size_t i = 0; i < l_mesh->mNumFaces; i++)
-				{
-					aiFace& l_face = l_mesh->mFaces[i];
-					for (size_t j = 0; j < l_face.mNumIndices; j++)
-					{
-						l_mesh_resource.indices.push_back(l_face.mIndices[j]);
-					}
-				}
-
-				l_mesh_resource.vertices.resize(l_mesh->mNumVertices);
-				for (size_t i = 0; i < l_mesh->mNumVertices; i++)
-				{
-					Vertex l_vertex;
-					l_vertex.position = *(vec3f*)&l_mesh->mVertices[i];
-					l_mesh_resource.vertices.push_back(l_vertex);
-				}
+				ObjReader::ReadObj(std::string(this->out.updated_files[i].c_str()), l_mesh_resource.vertices, l_mesh_resource.indices);
 
 				l_mesh_resource.sertialize_to(l_mesh_resource_bytes);
-				std::string l_relative_assetpath = std::string(this->out.updated_files[0].Memory.Memory).substr(l_asset_folder_absolute.End, this->out.updated_files[0].Memory.Size - 1);
+
 				this->in.asset_server.insert_or_update_resource(l_relative_assetpath, l_mesh_resource_bytes);
 
-				l_mesh_resource.clear();
-				l_mesh_resource_bytes.clear();
+				l_mesh_resource.free();
+				l_mesh_resource_bytes.free();
 			}
-
-			l_mesh_resource.free();
-			l_mesh_resource_bytes.free();
-
-			
-			// MeshResource::build(this->out.updated_files.Memory->c_str());
+			else if (this->out.updated_files[i].find(".spv", 0, &tmp))
+			{
+				this->in.asset_server.insert_or_update_resource_fromfile(l_relative_assetpath);
+			}
 		}
 
 		this->state = State::ENDED;

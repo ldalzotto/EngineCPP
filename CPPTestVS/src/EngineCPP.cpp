@@ -42,7 +42,7 @@ void update(void* p_engine, float p_delta)
 			MeshRenderer l_mesh_renderer;
 			l_mesh_renderer.vertex_shader = "shader/TriVert.spv";
 			l_mesh_renderer.fragment_shader = "shader/TriFrag.spv";
-			l_mesh_renderer.model = "models/16.09.obj";
+			l_mesh_renderer.model = "models/cube.obj";
 			l_scenehandle.add_component<MeshRenderer>(l_node, l_mesh_renderer);
 
 			testContext.moving_node = l_node;

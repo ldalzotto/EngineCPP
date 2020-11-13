@@ -1,9 +1,8 @@
+#pragma once
+
 #include <Render/render.hpp>
 #include <Render/rdwindow.hpp>
 #include <optick.h>
-#include <assimp/Importer.hpp>
-#include <assimp/scene.h>
-#include <assimp/postprocess.h>
 #include <AssetServer/asset_server.hpp>
 #include "Math/math.hpp"
 #include "Common/Container/pool.hpp"
@@ -2586,7 +2585,7 @@ struct Render
 							{
 								l_command_buffer.command_buffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, l_shader.value.pipeline_layout,
 									1, 1, &l_renderableobject.value.model_matrix_buffer.descriptor_set, 0, nullptr);
-								this->heap.renderableobjects[l_renderableobject_index].value.draw(l_command_buffer, this->heap.meshes);
+								l_renderableobject.value.draw(l_command_buffer, this->heap.meshes);
 							}
 						}
 					}
