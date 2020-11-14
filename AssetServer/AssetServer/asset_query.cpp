@@ -181,7 +181,7 @@ struct GenericAssetQuery
 		OPTICK_EVENT();
 
 		com::Vector<char> l_file;
-		File::read_bytes(asset_path->asset_folder_path + p_path, l_file);
+		FileAlgorithm::read_bytes(asset_path->asset_folder_path + p_path, l_file);
 		{
 			this->insert(p_path, l_file);
 		}
@@ -211,7 +211,7 @@ struct GenericAssetQuery
 		OPTICK_EVENT();
 
 		com::Vector<char> l_file;
-		File::read_bytes(asset_path->asset_folder_path + p_path, l_file);
+		FileAlgorithm::read_bytes(asset_path->asset_folder_path + p_path, l_file);
 		{
 			this->update(p_path, l_file);
 		}

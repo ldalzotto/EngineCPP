@@ -22,6 +22,14 @@ inline void String<Allocator>::free()
 };
 
 template<class Allocator>
+inline String<Allocator> String<Allocator>::clone() const
+{
+	String<Allocator> l_clone;
+	l_clone.Memory = this->Memory.clone();
+	return l_clone;
+};
+
+template<class Allocator>
 inline String<Allocator>& String<Allocator>::append(const char* p_str)
 {
 	com::MemorySlice<char> l_str = com::MemorySlice<char>(*p_str, strlen(p_str));
@@ -40,7 +48,7 @@ template<class Allocator>
 template<class ParameterAllocator>
 inline String<Allocator>& String<Allocator>::append(const String<ParameterAllocator>& p_str)
 {
-	com::MemorySlice<char> l_str = com::MemorySlice<char>(*p_str, p_str.Memory.Size - 1);
+	com::MemorySlice<char> l_str = com::MemorySlice<char>(*p_str.c_str(), p_str.Memory.Size - 1);
 	if (this->Memory.Size >= 2)
 	{
 		this->Memory.insert_at(l_str, this->Memory.Size - 1);

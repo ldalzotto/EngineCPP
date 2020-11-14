@@ -18,6 +18,7 @@ target_link_libraries(AssetDatabaseUpdate Math)
 target_link_libraries(AssetDatabaseUpdate Render)
 target_link_libraries(AssetDatabaseUpdate AssetServer)
 target_link_libraries(AssetDatabaseUpdate Qt)
+target_link_libraries(AssetDatabaseUpdate Vulkan)
 
 copy_qt_dll(${PROJECT_BINARY_DIR}/${BUILD_TYPE}${CMAKE_CONFIGURATION_TYPES})
 

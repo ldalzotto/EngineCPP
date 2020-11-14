@@ -32,6 +32,8 @@ namespace com
 		char insert_at(const TYPE& p_element, const size_t p_index);
 		char erase_at(const size_t p_index);
 		char swap(const size_t p_left, const size_t p_right);
+
+		Vector<TYPE, Allocator> clone() const;
 	};
 
 	template<class TYPE, class Allocator = HeapAllocator>

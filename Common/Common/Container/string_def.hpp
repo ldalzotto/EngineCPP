@@ -10,6 +10,13 @@ struct StringSlice
 	size_t Begin;
 	size_t End;
 
+	inline StringSlice()
+	{
+		this->Memory = nullptr;
+		this->Begin = 0;
+		this->End = 0;
+	};
+
 	inline StringSlice(const char* p_memory, size_t p_begin, size_t p_end) {
 		this->Memory = p_memory;
 		this->Begin = p_begin;
@@ -36,8 +43,9 @@ struct String
 	void allocate(size_t p_initialSize, const Allocator& p_allocator = Allocator());
 	void from_raw(char* p_str);
 	void free();
+	String<Allocator> clone() const;
 
-	inline const char* c_str() { return this->Memory.Memory; }
+	inline const char* c_str() const { return this->Memory.Memory; }
 
 	String<Allocator>& append(const char* p_str);
 	template<class ParameterAllocator>

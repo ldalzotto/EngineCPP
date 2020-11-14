@@ -40,7 +40,7 @@ struct ObjReader
 			com::Vector<vec2f> uvs;
 			positions.allocate(0);
 			uvs.allocate(0);
-
+			
 			std::string l_line;
 			while (std::getline(l_file_stream, l_line))
 			{

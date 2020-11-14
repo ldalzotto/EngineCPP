@@ -187,5 +187,11 @@ namespace com
 		return 0;
 	};
 
-
+	Vector_TemplateHeader
+		inline Vector<TYPE, Allocator> Vector_ClassName::clone() const
+	{
+		Vector<TYPE, Allocator> l_copy;
+		copy(&l_copy, *this);
+		return l_copy;
+	};
 }
