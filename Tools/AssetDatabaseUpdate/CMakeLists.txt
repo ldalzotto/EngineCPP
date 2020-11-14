@@ -13,11 +13,20 @@ enable_language(CXX)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 add_executable(AssetDatabaseUpdate ${ASSET_DB_UPDATE_HEADER} ${ASSET_DB_UPDATE_SOURCE})
 
+
+
+if(CMAKE_VERSION VERSION_LESS "3.7.0")
+    set(CMAKE_INCLUDE_CURRENT_DIR ON)
+endif()
+
+set(CMAKE_PREFIX_PATH "$ENV{QT_SDK}/lib/cmake")
+find_package(Qt5 REQUIRED COMPONENTS Widgets Core Gui)
+
 target_link_libraries(AssetDatabaseUpdate Common)
 target_link_libraries(AssetDatabaseUpdate Math)
 target_link_libraries(AssetDatabaseUpdate Render)
 target_link_libraries(AssetDatabaseUpdate AssetServer)
-target_link_libraries(AssetDatabaseUpdate Qt)
+target_link_libraries(AssetDatabaseUpdate Qt5::Widgets Qt5::Core Qt5::Gui)
 target_link_libraries(AssetDatabaseUpdate Vulkan)
 
 copy_qt_dll(${PROJECT_BINARY_DIR}/${BUILD_TYPE}${CMAKE_CONFIGURATION_TYPES})

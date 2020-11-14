@@ -21,6 +21,10 @@ namespace com
 		Vector();
 		void allocate(size_t p_initialSize, const Allocator& p_allocator = Allocator());
 		void free();
+
+		Vector<TYPE, Allocator> clone() const;
+		Vector<TYPE, Allocator> move();
+
 		void clear();
 		TYPE& operator[](size_t i);
 		
@@ -33,7 +37,7 @@ namespace com
 		char erase_at(const size_t p_index);
 		char swap(const size_t p_left, const size_t p_right);
 
-		Vector<TYPE, Allocator> clone() const;
+		
 	};
 
 	template<class TYPE, class Allocator = HeapAllocator>

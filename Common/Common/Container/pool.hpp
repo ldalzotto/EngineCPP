@@ -18,6 +18,29 @@ namespace com
 		this->FreeBlocks.free();
 	}
 
+	template <class TYPE, class Allocator>
+	inline Pool<TYPE, Allocator> Pool<TYPE, Allocator>::clone()
+	{
+		Pool<TYPE, Allocator> l_target;
+		l_target.FreeBlocks = this->FreeBlocks.clone();
+		l_target.Memory = this->Memory.clone();
+		return l_target;
+	};
+	template <class TYPE, class Allocator>
+	inline Pool<TYPE, Allocator> Pool<TYPE, Allocator>::move()
+	{
+		Pool<TYPE, Allocator> l_target;
+		l_target.FreeBlocks = this->FreeBlocks.move();
+		l_target.Memory = this->Memory.move();
+		return l_target;
+	};
+
+	template <class TYPE, class Allocator>
+	inline Vector<size_t, HeapAllocator> Pool<TYPE, Allocator>::clone_freeblocks()
+	{
+		return this->FreeBlocks.clone();
+	};
+
 	template<class TYPE, class Allocator>
 	inline size_t Pool<TYPE, Allocator>::size()
 	{

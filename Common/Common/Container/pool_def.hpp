@@ -26,6 +26,9 @@ namespace com
 		Pool() = default;
 		void allocate(size_t p_initialSize, const Allocator& p_allocator = Allocator());
 		void free();
+		Pool<TYPE, Allocator> clone();
+		Pool<TYPE, Allocator> move();
+		Vector<size_t, HeapAllocator> clone_freeblocks();
 		size_t size();
 		TYPE& operator[](size_t i);
 		TYPE& operator[](const PoolToken<TYPE> i);

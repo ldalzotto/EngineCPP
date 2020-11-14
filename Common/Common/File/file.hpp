@@ -4,6 +4,7 @@
 #include <iostream>
 #include <fstream>
 #include "Common/Include/platform_include.hpp"
+#include "Common/Container/tree.hpp"
 #include "Common/Container/vector.hpp"
 #include "Common/Container/string.hpp"
 
@@ -37,12 +38,36 @@ struct FilePath<FilePathMemoryLayout::STRING>
 		this->path.free();
 	};
 
-	inline StringSlice calculate_extension()
+	inline FilePath<FilePathMemoryLayout::STRING> clone()
+	{
+		FilePath<FilePathMemoryLayout::STRING> l_target;
+		l_target.path = this->path.clone();
+		return l_target;
+	};
+
+	inline StringSlice get_extension()
 	{
 		size_t l_index = 0;
 		size_t l_dot_index;
 		while (this->path.find(".", l_index, &l_dot_index)) {
 			l_index = l_dot_index + 1;
+		};
+		return StringSlice(this->path.c_str(), l_index, this->path.Memory.Size);
+	};
+
+	inline StringSlice get_filename()
+	{
+		size_t l_index = 0;
+		size_t l_dot_index;
+		while (this->path.find("/", l_index, &l_dot_index)) {
+			if (l_dot_index != this->path.Memory.Size - 2)
+			{
+				l_index = l_dot_index + 1;
+			}
+			else
+			{
+				break;
+			}
 		};
 		return StringSlice(this->path.c_str(), l_index, this->path.Memory.Size);
 	};
@@ -63,7 +88,7 @@ struct FilePath<FilePathMemoryLayout::SLICE>
 
 	inline void free() { };
 
-	inline StringSlice calculate_extension()
+	inline StringSlice get_extension()
 	{
 		StringSlice l_slice = this->path;
 		size_t l_index;
@@ -95,7 +120,7 @@ struct File
 	{
 		this->path = p_path;
 		this->type = p_type;
-		this->extension = this->path.calculate_extension();
+		this->extension = this->path.get_extension();
 	};
 
 	inline void free()
@@ -103,13 +128,22 @@ struct File
 		this->path.free();
 	};
 
+	inline File<FilePathMemoryLayoutType> clone()
+	{
+		File<FilePathMemoryLayoutType> l_target;
+		l_target.path = this->path.clone();
+		l_target.type = this->type;
+		l_target.extension = this->path.get_extension();
+		return l_target;
+	};
+
 	struct ForEachFileDefault
 	{
-		inline void foreach(const File<FilePathMemoryLayout::STRING>& p_file) {};
+		inline void foreach(const File<FilePathMemoryLayout::STRING>& p_file, size_t p_depth) {};
 	};
 
 	template<class ForEachFile = ForEachFileDefault>
-	inline void walk(bool p_recursive, ForEachFile& p_foreach_file = ForEachFileDefault())
+	inline void walk(bool p_recursive, ForEachFile& p_foreach_file = ForEachFileDefault(), size_t p_depth = 1)
 	{
 		WIN32_FIND_DATA l_find_data;
 		HANDLE l_find = INVALID_HANDLE_VALUE;
@@ -140,8 +174,8 @@ struct File
 						File<FilePathMemoryLayout::STRING> l_new_file;
 						l_new_file.allocate(FileType::FOLDER, l_new_path);
 						{
-							p_foreach_file.foreach(l_new_file);
-							l_new_file.walk<ForEachFile>(p_recursive, p_foreach_file);
+							p_foreach_file.foreach(l_new_file, p_depth);
+							l_new_file.walk<ForEachFile>(p_recursive, p_foreach_file, p_depth + 1);
 						}
 						l_new_file.free();
 					}
@@ -158,7 +192,7 @@ struct File
 				File<FilePathMemoryLayout::STRING> l_new_file;
 				l_new_file.allocate(FileType::CONTENT, l_file_path);
 				{
-					p_foreach_file.foreach(l_new_file);
+					p_foreach_file.foreach(l_new_file, p_depth);
 				}
 				l_new_file.free();
 			}
@@ -207,6 +241,100 @@ struct File
 
 
 	};
+};
+
+struct FileTree : public NTree<File<FilePathMemoryLayout::STRING>>
+{
+	inline void allocate(const File<>& p_root_file)
+	{
+		FilePath<FilePathMemoryLayout::STRING> l_root_path;
+		l_root_path.allocate(0);
+		l_root_path.path.append(p_root_file.path.path);
+		File<FilePathMemoryLayout::STRING> l_root;
+		l_root.allocate(FileType::FOLDER, l_root_path);
+		this->push_root_value(l_root);
+
+
+		com::PoolToken<NTreeNode> l_root_token;
+		//this->resolve(com::PoolToken<NTreeNode>(0)).node.
+
+		struct FileForeach
+		{
+			FileTree* tree;
+			com::Vector<com::PoolToken<NTreeNode>> node_levels;
+			com::PoolToken<NTreeNode> last_pushed_token;
+			FileForeach() {};
+
+			inline void allocate(FileTree& p_tree)
+			{
+				this->tree = &p_tree;
+				this->node_levels.push_back(com::PoolToken<NTreeNode>(0));
+			};
+
+			inline void free()
+			{
+				this->node_levels.free();
+			};
+
+			inline void foreach(File<FilePathMemoryLayout::STRING>& p_file, size_t p_depth)
+			{
+				//One level depper
+				if (this->node_levels.Size + 1 == p_depth)
+				{
+					this->node_levels.push_back(this->last_pushed_token);
+					auto l_token = this->tree->push_value(this->node_levels[p_depth - 1], p_file.clone());
+					this->last_pushed_token = com::PoolToken<NTreeNode>(l_token.Index);
+				}
+				else if (this->node_levels.Size == p_depth) // same level
+				{
+					this->last_pushed_token = com::PoolToken<NTreeNode>(this->tree->push_value(this->node_levels[p_depth - 1], p_file.clone()).Index);
+					// this->node_levels.push_back(com::PoolToken<NTreeNode>(l_token.Index));
+				}
+				else
+				{
+					while (this->node_levels.Size != p_depth)
+					{
+						this->node_levels.erase_at(this->node_levels.Size - 1);
+					}
+					
+					auto l_token = this->tree->push_value(this->node_levels[p_depth-1], p_file.clone());
+					this->last_pushed_token = com::PoolToken<NTreeNode>(l_token.Index);
+					// this->node_levels.push_back(com::PoolToken<NTreeNode>(l_token.Index));
+
+				}
+			};
+		};
+		FileForeach l_file_foreach;
+		l_file_foreach.allocate(*this);
+		{
+			l_root.walk(true, l_file_foreach);
+		}
+		l_file_foreach.free();
+
+	};
+
+	inline void free()
+	{
+		if (this->Indices.size() > 0)
+		{
+			struct FreeForeach
+			{
+				inline void foreach(NTreeResolve<File<FilePathMemoryLayout::STRING>>& p_node, com::PoolToken<NTreeNode>& p_token)
+				{
+					p_node.element->free();
+				};
+			};
+
+			this->traverse(com::PoolToken<NTreeNode>(0), FreeForeach());
+		}
+		
+		NTree<File<FilePathMemoryLayout::STRING>>::free();
+	};
+
+	inline FileTree move()
+	{
+		return *(FileTree*)&NTree<File<FilePathMemoryLayout::STRING>>::move();
+	}
 };
 
 struct FileAlgorithm

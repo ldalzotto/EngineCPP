@@ -194,4 +194,14 @@ namespace com
 		copy(&l_copy, *this);
 		return l_copy;
 	};
+
+	Vector_TemplateHeader
+		inline Vector<TYPE, Allocator> Vector_ClassName::move()
+	{
+		Vector<TYPE, Allocator> l_target = *this;
+		this->Memory = nullptr;
+		this->Capacity = 0;
+		this->Size = 0;
+		return l_target;
+	};
 }
