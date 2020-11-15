@@ -698,8 +698,19 @@ struct GPUMemory
 };
 
 
+
+enum DeferredCommandBufferExecutionType
+{
+	UNDEFINED = 0,
+	STAGING = 1,
+	TRANSITION = 2
+};
+
+
 struct StagedBufferWriteCommand
 {
+	inline static const DeferredCommandBufferExecutionType Type = DeferredCommandBufferExecutionType::STAGING;
+
 	vk::Buffer buffer;
 	size_t buffer_size;
 	bool isAborted = false;
@@ -709,8 +720,18 @@ struct StagedBufferWriteCommand
 
 	com::PoolToken completion_token;
 
-	void process_buffered(CommandBuffer& p_commandbuffer, com::Pool<bool>& p_stagin_completions, const Device& p_device);
-	void dispose(Device& p_device);
+	inline void process_buffered(CommandBuffer& p_commandbuffer, com::Pool<bool>& p_stagin_completions, const Device& p_device)
+	{
+		if (!this->isAborted)
+		{
+			vk::BufferCopy l_buffer_copy_regions;
+			l_buffer_copy_regions.setSize(buffer_size);
+			p_commandbuffer.command_buffer.copyBuffer(this->staging_memory.getBuffer(), this->buffer, 1, &l_buffer_copy_regions);
+			p_stagin_completions.resolve(this->completion_token) = true;
+		}
+	};
+
+	void dispose(Device& p_device, com::Pool<bool>& p_stagin_completions);
 	inline void invalidate()
 	{
 		// this->original_buffer_mappedmemory = nullptr;
@@ -721,18 +742,201 @@ struct StagedBufferWriteCommand
 struct StagedBufferCommands
 {
 	com::Vector<StagedBufferWriteCommand> commands;
-	com::Pool<bool> commands_completion;
 
 	void free()
 	{
 		this->commands.free();
-		this->commands_completion.free();
 	}
 
 	template<class ElementType>
 	StagedBufferWriteCommand allocate_stagedbufferwritecommand(vk::Buffer p_buffer, size_t p_buffer_element_count, const char* p_source,
-		com::PoolToken& p_completion_token, Device& p_device);
+		com::PoolToken& p_completion_token, com::Pool<bool>& p_command_completions, Device& p_device);
 
+	inline void dispose_all_commands(Device& p_device, com::Pool<bool>& p_commands_completion)
+	{
+		for (size_t i = 0; i < this->commands.Size; i++)
+		{
+			this->commands[i].dispose(p_device, p_commands_completion);
+		}
+	};
+};
+
+struct TextureLayoutTransitionCommand
+{
+	inline static const DeferredCommandBufferExecutionType Type = DeferredCommandBufferExecutionType::TRANSITION;
+
+	vk::ImageLayout source_layout;
+	vk::ImageLayout target_layout;
+	vk::Image image;
+	vk::ImageSubresourceRange image_subresource;
+
+	com::PoolToken completion_token;
+	bool isAborted = false;
+
+	inline void process_buffered(CommandBuffer& p_commandbuffer, com::Pool<bool>& p_stagin_completions)
+	{
+		if (!this->isAborted)
+		{
+			vk::ImageMemoryBarrier l_image_memory_barrier;
+			l_image_memory_barrier.setOldLayout(this->source_layout);
+			l_image_memory_barrier.setNewLayout(this->target_layout);
+			l_image_memory_barrier.setSrcQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED);
+			l_image_memory_barrier.setDstQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED);
+			l_image_memory_barrier.setImage(this->image);
+			l_image_memory_barrier.setSubresourceRange(this->image_subresource);
+
+			p_commandbuffer.command_buffer.pipelineBarrier(vk::PipelineStageFlags(), vk::PipelineStageFlags(),
+				vk::DependencyFlags(), 0, nullptr, 0, nullptr, 1, &l_image_memory_barrier);
+
+			p_stagin_completions.resolve(this->completion_token) = true;
+		}
+	};
+
+	inline void invalidate()
+	{
+		// this->original_buffer_mappedmemory = nullptr;
+		this->isAborted = true;
+	};
+};
+
+struct TextureLayoutTransitionCommands
+{
+	com::Vector<TextureLayoutTransitionCommand> commands;
+
+	inline void free()
+	{
+		this->commands.free();
+	};
+
+	inline TextureLayoutTransitionCommand allocate_texturelayouttransitioncommand(vk::Image p_image,
+		vk::ImageSubresourceRange p_image_subresource,
+		vk::ImageLayout p_source_layout, vk::ImageLayout p_target_layout,
+		com::Pool<bool>& p_commands_completion,
+		com::PoolToken& p_completion_token)
+	{
+		TextureLayoutTransitionCommand l_command;
+		l_command.image = p_image;
+		l_command.image_subresource = p_image_subresource;
+		l_command.source_layout = p_source_layout;
+		l_command.target_layout = p_target_layout;
+		p_commands_completion.resolve(p_completion_token) = false;
+		l_command.completion_token = p_completion_token;
+		return l_command;
+	};
+};
+
+struct DeferredCommandBufferExecution
+{
+	struct DeferredCommandBufferExecutionToken
+	{
+		DeferredCommandBufferExecutionType Type = DeferredCommandBufferExecutionType::UNDEFINED;
+		size_t CommandIndex = -1;
+
+		inline DeferredCommandBufferExecutionToken(const DeferredCommandBufferExecutionType type,
+			const size_t p_index) {
+			this->Type = type;
+			this->CommandIndex = p_index;
+		};
+
+	};
+
+	typedef size_t DeferredCommandBufferExecutionIndex;
+
+	com::Vector<DeferredCommandBufferExecutionToken> command_execution_order;
+	com::Pool<bool> commands_completion;
+
+	CommandBuffer command_buffer;
+	StagedBufferCommands stagingbuffers;
+	TextureLayoutTransitionCommands texturelayouttransitions;
+
+	inline void allocate(const Device& p_device, const vk::CommandPool& p_commandpool, const vk::Queue& p_queue) {
+
+		this->command_buffer = CommandBuffer(p_device, p_commandpool, p_queue);
+		this->commands_completion.allocate(0);
+	};
+
+	inline void dispose(const Device& p_device, vk::CommandPool& p_commandpool)
+	{
+		this->command_execution_order.free();
+		this->stagingbuffers.free();
+		this->texturelayouttransitions.free();
+		this->command_buffer.dispose(p_device, p_commandpool);
+		this->commands_completion.free();
+	};
+
+	inline DeferredCommandBufferExecutionIndex push_command(TextureLayoutTransitionCommand& p_command)
+	{
+		this->texturelayouttransitions.commands.push_back(p_command);
+		size_t l_command_index = this->texturelayouttransitions.commands.Size - 1;
+		DeferredCommandBufferExecutionToken l_execution_token = DeferredCommandBufferExecutionToken(TextureLayoutTransitionCommand::Type, l_command_index);
+		this->command_execution_order.push_back(l_execution_token);
+		return this->command_execution_order.Size - 1;
+	};
+
+	inline DeferredCommandBufferExecutionIndex push_command(StagedBufferWriteCommand& p_command)
+	{
+		this->stagingbuffers.commands.push_back(p_command);
+		size_t l_command_index = this->stagingbuffers.commands.Size - 1;
+		DeferredCommandBufferExecutionToken l_execution_token = DeferredCommandBufferExecutionToken(StagedBufferWriteCommand::Type, l_command_index);
+		this->command_execution_order.push_back(l_execution_token);
+		return this->command_execution_order.Size - 1;
+	};
+
+	inline void invalidate_command(DeferredCommandBufferExecutionIndex p_command_index)
+	{
+		DeferredCommandBufferExecutionToken& l_current_command_order = this->command_execution_order[p_command_index];
+		switch (l_current_command_order.Type)
+		{
+		case StagedBufferWriteCommand::Type:
+		{
+			this->stagingbuffers.commands[l_current_command_order.CommandIndex].invalidate();
+		}
+		break;
+		case TextureLayoutTransitionCommand::Type:
+		{
+			this->texturelayouttransitions.commands[l_current_command_order.CommandIndex].invalidate();
+		}
+		break;
+		default:
+			break;
+		}
+	};
+
+	inline void process_all_buffers(Device& p_device)
+	{
+		if (this->command_execution_order.Size > 0)
+		{
+			this->command_buffer.begin();
+
+			for (size_t i = 0; i < this->command_execution_order.Size; i++)
+			{
+				DeferredCommandBufferExecutionToken& l_current_command_order = this->command_execution_order[i];
+				switch (l_current_command_order.Type)
+				{
+				case StagedBufferWriteCommand::Type:
+				{
+					StagedBufferWriteCommand& l_command = this->stagingbuffers.commands[l_current_command_order.CommandIndex];
+					l_command.process_buffered(this->command_buffer, this->commands_completion, p_device);
+				}
+				break;
+				case TextureLayoutTransitionCommand::Type:
+				{
+				}
+				break;
+				default:
+					break;
+				}
+			}
+
+			this->command_buffer.flush(p_device);
+			// this->command_buffer.end();
+
+			this->stagingbuffers.dispose_all_commands(p_device, this->commands_completion);
+
+			this->command_execution_order.clear();
+		}
+
+	};
 };
 
 
@@ -769,7 +973,7 @@ public:
 
 
 	inline static void allocate(GPUMemory<char, MemoryType2::Image, WriteMethod2::GPUWrite>& p_gpumemory, const vk::ImageCreateInfo& p_imagecreateinfo,
-		StagedBufferCommands& p_staging_commands, Device& p_device)
+		DeferredCommandBufferExecution& p_staging_commands, Device& p_device)
 	{
 		p_gpumemory.setImage(p_device.device.createImage(p_imagecreateinfo));
 		p_gpumemory.mapped_memory.allocate(p_staging_commands.commands_completion);
@@ -781,7 +985,7 @@ public:
 
 	template<class ElementType>
 	inline static void allocate(GPUMemory<ElementType, MemoryType2::Buffer, WriteMethod2::GPUWrite>& p_gpumemory, size_t p_element_number, vk::BufferUsageFlags p_usageflags,
-		StagedBufferCommands& p_staging_commands, Device& p_device)
+		DeferredCommandBufferExecution& p_staging_commands, Device& p_device)
 	{
 		p_gpumemory.Capacity = p_element_number;
 		size_t l_buffer_size = p_element_number * sizeof(ElementType);
@@ -818,13 +1022,12 @@ public:
 
 	template<class ElementType, unsigned MemoryType>
 	inline static void push_commandbuffer(GPUMemory<ElementType, MemoryType, WriteMethod2::GPUWrite>& p_gpumemory, const ElementType* p_source,
-		StagedBufferCommands& p_staging_commands, Device& p_device)
+		DeferredCommandBufferExecution& p_staging_commands, Device& p_device)
 	{
 		StagedBufferWriteCommand l_command =
-			p_staging_commands.allocate_stagedbufferwritecommand<ElementType>(p_gpumemory.getBuffer(), p_gpumemory.Capacity, (const char*)p_source,
-				p_gpumemory.mapped_memory.staging_completion_token, p_device);
-		p_staging_commands.commands.push_back(l_command);
-		p_gpumemory.mapped_memory.StaginIndexQueue = p_staging_commands.commands.Size - 1;
+			p_staging_commands.stagingbuffers.allocate_stagedbufferwritecommand<ElementType>(p_gpumemory.getBuffer(), p_gpumemory.Capacity, (const char*)p_source,
+				p_gpumemory.mapped_memory.staging_completion_token, p_staging_commands.commands_completion, p_device);
+		p_gpumemory.mapped_memory.StaginIndexQueue = p_staging_commands.push_command(l_command);
 	}
 
 	template<class ElementType, unsigned MemoryType>
@@ -844,14 +1047,14 @@ public:
 		GPUMemoryKernel::dispose<char, MemoryType>(p_gpumemory, p_device);
 	}
 	template<class ElementType, unsigned MemoryType>
-	inline static void dispose(GPUMemory<ElementType, MemoryType, WriteMethod2::GPUWrite>& p_gpumemory, StagedBufferCommands& p_staging_commands, Device& p_device)
+	inline static void dispose(GPUMemory<ElementType, MemoryType, WriteMethod2::GPUWrite>& p_gpumemory, DeferredCommandBufferExecution& p_staging_commands, Device& p_device)
 	{
 		// The GPUWrite buffer has been disposed, but there is a staging buffer waiting to be executed.
 		// This happens if buffer is allocated and disposted at the same frame.
 		if (p_gpumemory.mapped_memory.isWaitingForStaging(p_staging_commands.commands_completion))
 		{
 			// We invalidate staging command
-			p_staging_commands.commands[p_gpumemory.mapped_memory.StaginIndexQueue].invalidate();
+			p_staging_commands.invalidate_command(p_gpumemory.mapped_memory.StaginIndexQueue);
 		}
 
 		p_gpumemory.mapped_memory.free(p_staging_commands.commands_completion);
@@ -904,30 +1107,19 @@ private:
 
 template<class ElementType>
 inline StagedBufferWriteCommand StagedBufferCommands::allocate_stagedbufferwritecommand(vk::Buffer p_buffer, size_t p_buffer_element_count, const char* p_source,
-	com::PoolToken& p_completion_token, Device& p_device)
+	com::PoolToken& p_completion_token, com::Pool<bool>& p_command_completions, Device& p_device)
 {
 	StagedBufferWriteCommand l_command;
 	l_command.buffer = p_buffer;
 	l_command.buffer_size = p_buffer_element_count * sizeof(ElementType);
 	GPUMemoryKernel::allocate_internal(&l_command.staging_memory, p_buffer_element_count, sizeof(ElementType), vk::BufferUsageFlags(), p_device);
 	GPUMemoryKernel::push_internal(&l_command.staging_memory, p_source, sizeof(ElementType), p_device);
-	this->commands_completion.resolve(p_completion_token) = false;
+	p_command_completions.resolve(p_completion_token) = false;
 	l_command.completion_token = p_completion_token;
 	return l_command;
 }
 
-inline void StagedBufferWriteCommand::process_buffered(CommandBuffer& p_commandbuffer, com::Pool<bool>& p_stagin_completions, const Device& p_device)
-{
-	if (!this->isAborted)
-	{
-		vk::BufferCopy l_buffer_copy_regions;
-		l_buffer_copy_regions.setSize(buffer_size);
-		p_commandbuffer.command_buffer.copyBuffer(this->staging_memory.getBuffer(), this->buffer, 1, &l_buffer_copy_regions);
-		p_stagin_completions.resolve(this->completion_token) = true;
-	}
-}
-
-inline void StagedBufferWriteCommand::dispose(Device& p_device)
+inline void StagedBufferWriteCommand::dispose(Device& p_device, com::Pool<bool>& p_stagin_completions)
 {
 	GPUMemoryKernel::dispose<MemoryType2::Buffer>(this->staging_memory, p_device);
 }
@@ -966,12 +1158,12 @@ struct GPUMemory_Buffer_GPUWrite : public GPUMemory<ElementType, MemoryType2::Bu
 		GPUMemoryKernel::allocate(*this, p_element_number, p_source, vk::BufferUsageFlags(), p_device, p_commandpool);
 	};
 
-	inline void dispose(StagedBufferCommands& p_staging_commands, Device& p_device)
+	inline void dispose(DeferredCommandBufferExecution& p_staging_commands, Device& p_device)
 	{
 		GPUMemoryKernel::dispose(*this, p_staging_commands, p_device);
 	};
 
-	inline void push_commandbuffer(const ElementType* p_source, StagedBufferCommands& p_staging_commands, Device& p_device)
+	inline void push_commandbuffer(const ElementType* p_source, DeferredCommandBufferExecution& p_staging_commands, Device& p_device)
 	{
 		GPUMemoryKernel::push_commandbuffer(*this, p_source, p_staging_commands, p_device);
 	};
@@ -981,7 +1173,7 @@ struct GPUMemory_Buffer_GPUWrite : public GPUMemory<ElementType, MemoryType2::Bu
 template<class ElementType>
 struct VertexMemory : public GPUMemory_Buffer_GPUWrite<ElementType>
 {
-	inline void allocate(size_t p_element_number, StagedBufferCommands& p_staging_commands, Device& p_device)
+	inline void allocate(size_t p_element_number, DeferredCommandBufferExecution& p_staging_commands, Device& p_device)
 	{
 		GPUMemoryKernel::allocate(*this, p_element_number, vk::BufferUsageFlags(vk::BufferUsageFlagBits::eVertexBuffer), p_staging_commands, p_device);
 	};
@@ -990,7 +1182,7 @@ struct VertexMemory : public GPUMemory_Buffer_GPUWrite<ElementType>
 template<class ElementType>
 struct IndexMemory : public GPUMemory_Buffer_GPUWrite<ElementType>
 {
-	inline void allocate(size_t p_element_number, StagedBufferCommands& p_staging_commands, Device& p_device)
+	inline void allocate(size_t p_element_number, DeferredCommandBufferExecution& p_staging_commands, Device& p_device)
 	{
 		GPUMemoryKernel::allocate(*this, p_element_number, vk::BufferUsageFlags(vk::BufferUsageFlagBits::eIndexBuffer), p_staging_commands, p_device);
 	};
@@ -1008,12 +1200,12 @@ struct UniformMemory_HostWrite : public GPUMemory_Buffer_HostWrite<ElementType>
 
 struct GPUOnlyImageMemory : public GPUMemory<char, MemoryType2::Image, WriteMethod2::GPUWrite>
 {
-	inline void allocate(const vk::ImageCreateInfo& p_image_create, StagedBufferCommands& p_staging_commands, Device& p_device)
+	inline void allocate(const vk::ImageCreateInfo& p_image_create, DeferredCommandBufferExecution& p_staging_commands, Device& p_device)
 	{
 		GPUMemoryKernel::allocate(*this, p_image_create, p_staging_commands, p_device);
 	};
 
-	inline void dispose(StagedBufferCommands& p_staging_commands, Device& p_device)
+	inline void dispose(DeferredCommandBufferExecution& p_staging_commands, Device& p_device)
 	{
 		GPUMemoryKernel::dispose(*this, p_staging_commands, p_device);
 	};
@@ -1066,7 +1258,7 @@ private:
 public:
 	inline SwapChain() = default;
 
-	inline void init(const vk::Instance& p_instance, Device& p_device, StagedBufferCommands& p_staging_commands,
+	inline void init(const vk::Instance& p_instance, Device& p_device, DeferredCommandBufferExecution& p_staging_commands,
 		const vk::PhysicalDevice& p_physical_device,
 		const vk::SurfaceKHR& p_surface, const RenderWindow& p_window)
 	{
@@ -1105,7 +1297,7 @@ public:
 		this->create_framebuffers(p_device);
 	}
 
-	inline void dispose(StagedBufferCommands& p_staging_commands)
+	inline void dispose(DeferredCommandBufferExecution& p_staging_commands)
 	{
 		this->destroy_framebuffers();
 		this->destroyRenderPass();
@@ -1242,7 +1434,7 @@ private:
 		this->buffers.free();
 	}
 
-	inline void create_depth_image(StagedBufferCommands& p_staging_commands)
+	inline void create_depth_image(DeferredCommandBufferExecution& p_staging_commands)
 	{
 		//TODO -> format check
 		this->depth_format = vk::Format::eD16Unorm;
@@ -1277,7 +1469,7 @@ private:
 		this->depth_image_view = this->device->device.createImageView(l_depth_view_create_info);
 	}
 
-	inline void destroy_depth_image(StagedBufferCommands& p_staging_commands)
+	inline void destroy_depth_image(DeferredCommandBufferExecution& p_staging_commands)
 	{
 		this->device->device.destroyImageView(this->depth_image_view);
 		this->depth_image.dispose(p_staging_commands, *this->device);
@@ -1378,8 +1570,7 @@ struct RenderAPI
 
 	com::Vector<CommandBuffer> draw_commandbuffers;
 
-	CommandBuffer staging_commandbuffer;
-	StagedBufferCommands stagedbuffer_commands;
+	DeferredCommandBufferExecution stagedbuffer_commands;
 
 	struct Sync
 	{
@@ -1699,12 +1890,12 @@ private:
 
 	inline void create_stagin()
 	{
-		this->staging_commandbuffer = CommandBuffer(this->device, this->command_pool, this->device.graphics_queue);
+		this->stagedbuffer_commands.allocate(this->device, this->command_pool, this->device.graphics_queue);
 	}
 
 	inline void destroy_stagin()
 	{
-		this->stagedbuffer_commands.free();
+		this->stagedbuffer_commands.dispose(this->device, this->command_pool);
 	}
 };
 
@@ -2092,7 +2283,7 @@ struct Mesh
 		this->indices_length = p_indices.Size;
 	}
 
-	inline void dispose(StagedBufferCommands& stagedbuffer_commands, Device& p_device)
+	inline void dispose(DeferredCommandBufferExecution& stagedbuffer_commands, Device& p_device)
 	{
 		this->vertices.dispose(stagedbuffer_commands, p_device);
 		this->indices.dispose(stagedbuffer_commands, p_device);
@@ -2400,7 +2591,7 @@ public:
 	inline com::PoolToken allocate_shader(const std::string& p_vertex, const std::string& p_fragment)
 	{
 		ShaderResourceKey l_key;
-		l_key.vertex_module = Hash<std::string>::hash(p_vertex); 
+		l_key.vertex_module = Hash<std::string>::hash(p_vertex);
 		l_key.fragment_module = Hash<std::string>::hash(p_fragment);
 		return this->allocate_shader_internal(l_key);
 	};
@@ -2507,23 +2698,7 @@ struct Render
 		this->renderApi.device.device.resetFences(1, &this->renderApi.synchronization.draw_command_fences[l_render_image_index]);
 
 
-		if (this->renderApi.stagedbuffer_commands.commands.Size > 0)
-		{
-			CommandBuffer& l_cmd = this->renderApi.staging_commandbuffer;
-			l_cmd.begin();
-			for (size_t i = 0; i < this->renderApi.stagedbuffer_commands.commands.Size; i++)
-			{
-				this->renderApi.stagedbuffer_commands.commands[i].process_buffered(l_cmd, this->renderApi.stagedbuffer_commands.commands_completion, this->renderApi.device);
-			}
-			l_cmd.flush(this->renderApi.device);
-			l_cmd.end();
-			for (size_t i = 0; i < this->renderApi.stagedbuffer_commands.commands.Size; i++)
-			{
-				this->renderApi.stagedbuffer_commands.commands[i].dispose(this->renderApi.device);
-			}
-			this->renderApi.stagedbuffer_commands.commands.Size = 0;
-		}
-
+		this->renderApi.stagedbuffer_commands.process_all_buffers(this->renderApi.device);
 
 		vk::ClearValue l_clear[2];
 		l_clear[0].color.setFloat32({ 0.0f, 0.0f, 0.2f, 1.0f });
