@@ -51,16 +51,15 @@ struct NTree
 
 	NTree<ElementType, Allocator> move();
 
-	NTreeResolve<ElementType> resolve(com::PoolToken<ElementType> p_token);
-	NTreeResolve<ElementType> resolve(com::PoolToken<NTreeNode> p_token);
+	NTreeResolve<ElementType> resolve(com::PoolToken p_token);
 
-	com::PoolToken<ElementType> push_root_value(const ElementType& p_value);
-	com::PoolToken<ElementType> push_value(const com::PoolToken<NTreeNode> p_parent, const ElementType& p_value);
-	com::PoolToken<ElementType> push_value(const ElementType& p_value);
-	void remove(const com::PoolToken<ElementType> p_value);
+	com::PoolToken push_root_value(const ElementType& p_value);
+	com::PoolToken push_value(const com::PoolToken p_parent, const ElementType& p_value);
+	com::PoolToken push_value(const ElementType& p_value);
+	void remove(const com::PoolToken p_value);
 
 	template<class NTreeForEach>
-	void traverse(com::PoolToken<NTreeNode>& p_start, NTreeForEach& p_foreach);
+	void traverse(com::PoolToken& p_start, NTreeForEach& p_foreach);
 
 	template<class NTreeMap, class TargetElementType>
 	NTree<TargetElementType> map(NTreeMap& p_map);

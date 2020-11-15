@@ -13,12 +13,12 @@ struct GeneralPurposeHeapMemoryChunk
 template<class ReturnType>
 struct IMemoryChunkMapper
 {
-	ReturnType map(const GeneralPurposeHeapMemoryChunk& p_chunk, com::PoolToken<GeneralPurposeHeapMemoryChunk>& p_chunktoken);
+	ReturnType map(const GeneralPurposeHeapMemoryChunk& p_chunk, com::PoolToken& p_chunktoken);
 };
 
-struct DefaultMemoryChunkMapper : public IMemoryChunkMapper<com::PoolToken<GeneralPurposeHeapMemoryChunk>&>
+struct DefaultMemoryChunkMapper : public IMemoryChunkMapper<com::PoolToken&>
 {
-	inline com::PoolToken<GeneralPurposeHeapMemoryChunk>& map(const GeneralPurposeHeapMemoryChunk& p_chunk, com::PoolToken<GeneralPurposeHeapMemoryChunk>& p_chunktoken) { return p_chunktoken; }
+	inline com::PoolToken& map(const GeneralPurposeHeapMemoryChunk& p_chunk, com::PoolToken& p_chunktoken) { return p_chunktoken; }
 };
 
 //TODO - defragmentation (sorting free_chunks by offset and merging if neghbors)
@@ -73,14 +73,14 @@ struct GeneralPurposeHeap
 	}
 
 	template<class ElementType>
-	inline ElementType* resolve(com::PoolToken<GeneralPurposeHeapMemoryChunk> p_memory)
+	inline ElementType* resolve(com::PoolToken p_memory)
 	{
 		return (ElementType*)(this->memory + this->allocated_chunks[p_memory].offset);
 	};
 
 	//TODO -> having multiple free_chunks indexed by allocation size range ?
 	//        to avoid fragmentation of huge chunk for a very small size.
-	template<class ReturnType = com::PoolToken<GeneralPurposeHeapMemoryChunk>&, class MemoryChunkMapper = DefaultMemoryChunkMapper >
+	template<class ReturnType = com::PoolToken&, class MemoryChunkMapper = DefaultMemoryChunkMapper >
 	inline bool allocate_element(size_t p_size, ReturnType* out_chunk, MemoryChunkMapper& p_memorychunk_mapper = DefaultMemoryChunkMapper())
 	{
 		// static_assert(std::is_base_of<IMemoryChunkMapper<ReturnType>, MemoryChunkMapper>::value, "MemoryChunkMapper must implements IMemoryChunkMapper.");
@@ -115,9 +115,9 @@ struct GeneralPurposeHeap
 		return false;
 	};
 
-	inline void release_element(const com::PoolToken<GeneralPurposeHeapMemoryChunk> p_buffer)
+	inline void release_element(const com::PoolToken p_buffer)
 	{
 		this->free_chunks.push_back(this->allocated_chunks[p_buffer]);
 		this->allocated_chunks.release_element(p_buffer);
-	}
+	};
 };

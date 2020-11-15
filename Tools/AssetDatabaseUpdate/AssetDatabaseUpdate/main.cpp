@@ -112,9 +112,9 @@ struct AssetSynchronizationPanel
 		QModelIndexList l_indices = this->tree_view.selectionModel()->selectedRows();
 		for (size_t i = 0; i < l_indices.size(); i++)
 		{
-			QStandardItem* l_item = this->tree_view_model.itemFromIndex(l_indices.at(i));
+			QStandardItem* l_item = this->tree_view_model.itemFromIndex(l_indices.at((int)i));
 			size_t l_tree_items_index = l_item->data().value<size_t>();
-			auto* l_file = this->tree.resolve(com::PoolToken<NTreeNode>(l_tree_items_index)).element;
+			auto* l_file = this->tree.resolve(l_tree_items_index).element;
 			if (l_file->type == FileType::FOLDER)
 			{
 				com::Vector<FileStr> l_nested_files;
@@ -173,11 +173,11 @@ private:
 
 		QStandardItem* l_parent_item = this->tree_view_model.invisibleRootItem();
 		QStandardItem* l_child_item = this->tree_items[0];
-		StringSlice l_filename = this->tree.resolve(com::PoolToken<NTreeNode>(0)).element->path.get_filename();
+		StringSlice l_filename = this->tree.resolve(0).element->path.get_filename();
 		l_child_item->setText(QString(l_filename.Memory + l_filename.Begin));
 		l_parent_item->appendRow(l_child_item);
 
-		this->tree.traverse(com::PoolToken<NTreeNode>(0), TreeForeach(this));
+		this->tree.traverse(com::PoolToken(0), TreeForeach(this));
 
 		this->tree_view.setModel(&this->tree_view_model);
 

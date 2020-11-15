@@ -10,7 +10,7 @@ void main(int argc, char** argv)
 	l_shaderasset_query.allocate(l_server.asset_path, l_server.connection);
 
 	com::Vector<char> l_source;
-	File::read_bytes(l_server.asset_path.asset_folder_path + "shader/TriFrag.spv", l_source);
+	FileAlgorithm::read_bytes(l_server.asset_path.asset_folder_path + "shader/TriFrag.spv", l_source);
 	l_shaderasset_query.insert_or_update("shader/TriFrag.spv");
 	// l_shaderasset_query.insert_or_update("shader/TriFrag.spv");
 	com::Vector<char> l_bytes;

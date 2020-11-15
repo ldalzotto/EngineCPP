@@ -8,7 +8,7 @@
 
 struct RenderableObjectEntry
 {
-	com::PoolToken<SceneNode> node;
+	com::PoolToken node;
 	MeshHandle mesh;
 	ShaderHandle shader;
 	MaterialHandle material;
@@ -33,7 +33,7 @@ struct RenderMiddleware
 		this->allocated_renderableobjects.free();
 	};
 
-	inline void on_elligible(const com::PoolToken<SceneNode> p_node_token, const NTreeResolve<SceneNode>& p_node, const MeshRenderer& p_mesh_renderer)
+	inline void on_elligible(const com::PoolToken p_node_token, const NTreeResolve<SceneNode>& p_node, const MeshRenderer& p_mesh_renderer)
 	{
 		RenderableObjectEntry l_entry;
 		l_entry.node = p_node_token;

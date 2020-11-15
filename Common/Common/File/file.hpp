@@ -273,20 +273,20 @@ struct FileTree : public NTree<File<FilePathMemoryLayout::STRING>>
 		this->push_root_value(l_root);
 
 
-		com::PoolToken<NTreeNode> l_root_token;
+		com::PoolToken l_root_token;
 		//this->resolve(com::PoolToken<NTreeNode>(0)).node.
 
 		struct FileForeach
 		{
 			FileTree* tree;
-			com::Vector<com::PoolToken<NTreeNode>> node_levels;
-			com::PoolToken<NTreeNode> last_pushed_token;
+			com::Vector<com::PoolToken> node_levels;
+			com::PoolToken last_pushed_token;
 			FileForeach() {};
 
 			inline void allocate(FileTree& p_tree)
 			{
 				this->tree = &p_tree;
-				this->node_levels.push_back(com::PoolToken<NTreeNode>(0));
+				this->node_levels.push_back(0);
 			};
 
 			inline void free()
@@ -301,11 +301,11 @@ struct FileTree : public NTree<File<FilePathMemoryLayout::STRING>>
 				{
 					this->node_levels.push_back(this->last_pushed_token);
 					auto l_token = this->tree->push_value(this->node_levels[p_depth - 1], p_file.clone());
-					this->last_pushed_token = com::PoolToken<NTreeNode>(l_token.Index);
+					this->last_pushed_token = l_token;
 				}
 				else if (this->node_levels.Size == p_depth) // same level
 				{
-					this->last_pushed_token = com::PoolToken<NTreeNode>(this->tree->push_value(this->node_levels[p_depth - 1], p_file.clone()).Index);
+					this->last_pushed_token = this->tree->push_value(this->node_levels[p_depth - 1], p_file.clone());
 					// this->node_levels.push_back(com::PoolToken<NTreeNode>(l_token.Index));
 				}
 				else
@@ -316,7 +316,7 @@ struct FileTree : public NTree<File<FilePathMemoryLayout::STRING>>
 					}
 					
 					auto l_token = this->tree->push_value(this->node_levels[p_depth-1], p_file.clone());
-					this->last_pushed_token = com::PoolToken<NTreeNode>(l_token.Index);
+					this->last_pushed_token = l_token.Index;
 					// this->node_levels.push_back(com::PoolToken<NTreeNode>(l_token.Index));
 
 				}
@@ -343,7 +343,7 @@ struct FileTree : public NTree<File<FilePathMemoryLayout::STRING>>
 				};
 			};
 
-			this->traverse(com::PoolToken<NTreeNode>(0), FreeForeach());
+			this->traverse(com::PoolToken(0), FreeForeach());
 		}
 		
 		NTree<File<FilePathMemoryLayout::STRING>>::free();

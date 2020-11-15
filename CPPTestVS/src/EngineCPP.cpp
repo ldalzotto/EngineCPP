@@ -13,7 +13,7 @@ using namespace Math;
 
 struct TestContext
 {
-	com::PoolToken<SceneNode> moving_node;
+	com::PoolToken moving_node;
 	bool executed = false;
 } testContext;
 

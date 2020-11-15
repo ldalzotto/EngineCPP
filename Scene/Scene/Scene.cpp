@@ -3,7 +3,7 @@
 #include "Common/Container/vector.hpp"
 #include "Common/Memory/heap.hpp"
 
-typedef com::PoolToken<GeneralPurposeHeapMemoryChunk> SceneNodeComponentToken;
+typedef com::PoolToken SceneNodeComponentToken;
 
 struct SceneHeap
 {
@@ -24,7 +24,7 @@ struct SceneHeap
 	{
 		// if(this->component_heap.chunk_total_size <)
 		size_t l_allocationsize = sizeof(SceneNodeComponentHeader) + p_type.size;
-		com::PoolToken<GeneralPurposeHeapMemoryChunk> l_memory_allocated;
+		com::PoolToken l_memory_allocated;
 		if (!this->component_heap.allocate_element<>(l_allocationsize, &l_memory_allocated))
 		{
 			this->component_heap.realloc((this->component_heap.chunk_total_size * 2) + l_allocationsize);
@@ -60,7 +60,7 @@ struct Scene
 		this->heap.allocate();
 
 		auto l_root = this->tree.push_root_value(SceneNode());
-		*(this->resolve_node(l_root).element) = SceneNode(Math::Transform(), &this->tree, com::PoolToken<NTreeNode>(l_root.Index));
+		*(this->resolve_node(l_root).element) = SceneNode(Math::Transform(), &this->tree, l_root.Index);
 	}
 
 	inline void free()
@@ -76,7 +76,7 @@ struct Scene
 					p_resolve.element->free();
 				};
 			};
-			this->tree.traverse(com::PoolToken<NTreeNode>(0), NodeDispoeForeach());
+			this->tree.traverse(com::PoolToken(0), NodeDispoeForeach());
 		}
 
 
@@ -92,14 +92,14 @@ struct Scene
 		}
 	}
 
-	inline com::PoolToken<SceneNode> allocate_node(const Math::Transform& p_initial_local_transform)
+	inline com::PoolToken allocate_node(const Math::Transform& p_initial_local_transform)
 	{
 		auto l_node = this->tree.push_value(SceneNode());
-		*(this->tree.resolve(l_node).element) = SceneNode(p_initial_local_transform, &this->tree, com::PoolToken<NTreeNode>(l_node.Index));
+		*(this->tree.resolve(l_node).element) = SceneNode(p_initial_local_transform, &this->tree, l_node.Index);
 		return l_node;
 	};
 
-	inline com::PoolToken<SceneNode> add_node(const com::PoolToken<SceneNode>& p_parent, const Math::Transform& p_initial_local_transform)
+	inline com::PoolToken add_node(const com::PoolToken& p_parent, const Math::Transform& p_initial_local_transform)
 	{
 		auto l_node = this->allocate_node(p_initial_local_transform);
 		this->tree.resolve(p_parent).element->addchild(l_node);
@@ -111,7 +111,7 @@ struct Scene
 		return this->heap.allocate_component(p_component_type_info, p_initial_value);
 	};
 
-	inline SceneNodeComponentToken add_component(const com::PoolToken<SceneNode> p_node, const SceneNodeComponent_TypeInfo& p_component_type_info, void* p_initial_value)
+	inline SceneNodeComponentToken add_component(const com::PoolToken p_node, const SceneNodeComponent_TypeInfo& p_component_type_info, void* p_initial_value)
 	{
 		SceneNodeComponentToken l_component = this->allocate_component(p_component_type_info, p_initial_value);
 		NTreeResolve<SceneNode> l_node = this->resolve_node(p_node);
@@ -121,7 +121,7 @@ struct Scene
 		return SceneNodeComponentToken(l_component.Index);
 	};
 
-	inline NTreeResolve<SceneNode> resolve_node(const com::PoolToken<SceneNode> p_node)
+	inline NTreeResolve<SceneNode> resolve_node(const com::PoolToken p_node)
 	{
 		return this->tree.resolve(p_node);
 	};
@@ -133,7 +133,7 @@ struct Scene
 
 	inline NTreeResolve<SceneNode> root()
 	{
-		return this->resolve_node(com::PoolToken<SceneNode>(0));
+		return this->resolve_node(0);
 	};
 };
 
@@ -150,22 +150,22 @@ void SceneHandle::free()
 }
 
 
-com::PoolToken<SceneNode> SceneHandle::allocate_node(const Math::Transform& p_initial_local_transform)
+com::PoolToken SceneHandle::allocate_node(const Math::Transform& p_initial_local_transform)
 {
 	return ((Scene*)this->handle)->allocate_node(p_initial_local_transform);
 };
 
-com::PoolToken<SceneNode> SceneHandle::add_node(const com::PoolToken<SceneNode>& p_parent, const Math::Transform& p_initial_local_transform)
+com::PoolToken SceneHandle::add_node(const com::PoolToken& p_parent, const Math::Transform& p_initial_local_transform)
 {
 	return ((Scene*)this->handle)->add_node(p_parent, p_initial_local_transform);
 };
 
-NTreeResolve<SceneNode> SceneHandle::resolve_node(const com::PoolToken<SceneNode> p_node)
+NTreeResolve<SceneNode> SceneHandle::resolve_node(const com::PoolToken p_node)
 {
 	return ((Scene*)this->handle)->resolve_node(p_node);
 };
 
-SceneNodeComponentHandle SceneHandle::add_component(const com::PoolToken<SceneNode> p_node, const SceneNodeComponent_TypeInfo& p_component_type_info, void* p_initial_value)
+SceneNodeComponentHandle SceneHandle::add_component(const com::PoolToken p_node, const SceneNodeComponent_TypeInfo& p_component_type_info, void* p_initial_value)
 {
 	return SceneNodeComponentHandle(((Scene*)this->handle)->add_component(p_node, p_component_type_info, p_initial_value).Index);
 };
@@ -175,9 +175,9 @@ SceneNodeComponentHeader* SceneHandle::resolve_componentheader(const SceneNodeCo
 	return ((Scene*)this->handle)->resolve_component(SceneNodeComponentToken(p_component.Index));
 };
 
-com::PoolToken<SceneNode> SceneHandle::root()
+com::PoolToken SceneHandle::root()
 {
-	return com::PoolToken<SceneNode>(0);
+	return 0;
 };
 
 void SceneHandle::new_frame()

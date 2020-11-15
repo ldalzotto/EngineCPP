@@ -5,7 +5,7 @@
 void RenderableObjectHandle::allocate(const RenderHandle& p_render, const MaterialHandle p_material, const MeshHandle p_meshhandle)
 {
 	Render* l_render = (Render*)p_render;
-	this->handle = l_render->heap.allocate_rendereableObject(com::PoolToken<Optional<Material>>(p_material.handle), com::PoolToken<Mesh>(p_meshhandle.handle)).Index;
+	this->handle = l_render->heap.allocate_rendereableObject(p_material.handle, p_meshhandle.handle).Index;
 };
 
 void RenderableObjectHandle::push_trs(const RenderHandle& p_render, const Math::mat4f& p_trs)
@@ -17,7 +17,7 @@ void RenderableObjectHandle::push_trs(const RenderHandle& p_render, const Math::
 void RenderableObjectHandle::free(const RenderHandle& p_render)
 {
 	Render* l_render = (Render*)p_render;
-	l_render->heap.free_renderableObject(com::PoolToken<Optional<RenderableObject>>(this->handle));
+	l_render->heap.free_renderableObject(this->handle);
 	this->reset();
 };
 
@@ -30,20 +30,20 @@ void ShaderHandle::allocate(const RenderHandle& p_render, const std::string& p_v
 void ShaderHandle::free(const RenderHandle& p_render)
 {
 	Render* l_render = (Render*)p_render;
-	l_render->heap.free_shader(com::PoolToken<Optional<Shader>>(this->handle));
+	l_render->heap.free_shader(this->handle);
 	this->reset();
 };
 
 void MaterialHandle::allocate(const RenderHandle& p_render, const ShaderHandle& p_shader)
 {
 	Render* l_render = (Render*)p_render;
-	this->handle = l_render->heap.allocate_material(com::PoolToken<Optional<Shader>>(p_shader.handle)).Index;
+	this->handle = l_render->heap.allocate_material(p_shader.handle).Index;
 };
 
 void MaterialHandle::free(const RenderHandle& p_render)
 {
 	Render* l_render = (Render*)p_render;
-	l_render->heap.free_material(com::PoolToken<Optional<Material>>(this->handle));
+	l_render->heap.free_material(this->handle);
 	this->reset();
 };
 
@@ -56,7 +56,7 @@ void MeshHandle::allocate(const RenderHandle& p_render, const std::string& p_mes
 void MeshHandle::free(const RenderHandle& p_render)
 {
 	Render* l_render = (Render*)p_render;
-	l_render->heap.free_mesh(com::PoolToken<Mesh>(this->handle));
+	l_render->heap.free_mesh(this->handle);
 	this->reset();
 }
 
