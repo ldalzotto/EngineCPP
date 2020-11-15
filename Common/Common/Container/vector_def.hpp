@@ -37,7 +37,7 @@ namespace com
 		char erase_at(const size_t p_index);
 		char swap(const size_t p_left, const size_t p_right);
 
-		
+		MemorySlice<TYPE> to_memoryslice();
 	};
 
 	template<class TYPE, class Allocator = HeapAllocator>

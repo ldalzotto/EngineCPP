@@ -99,7 +99,7 @@ private:
 				l_current_task->tick();
 			}
 
-			for (int i = l_nb_of_tasks - 1; i >= 0; i--)
+			for (int i = (int)l_nb_of_tasks - 1; i >= 0; i--)
 			{
 				Task*& l_current_task = this->tasks.get_unsafe()[i];
 				if (l_current_task->state == Task::State::ENDED)

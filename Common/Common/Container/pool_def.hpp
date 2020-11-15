@@ -11,8 +11,8 @@ namespace com
 	{
 		size_t Index;
 
-		PoolToken() : Index{(size_t)-1} {};
-		PoolToken(size_t p_index) : Index{p_index} {};
+		inline PoolToken() : Index{(size_t)-1} {};
+		inline PoolToken(size_t p_index) : Index{p_index} {};
 	};
 
 	template<class TYPE, class Allocator = HeapAllocator>

@@ -21,27 +21,35 @@
 #include <QtWidgets/qmenubar.h>
 #include <QtWidgets/qmessagebox.h>
 #include <QtWidgets/qlistwidget.h>
+#include <QtWidgets/qstatusbar.h>
 #include <QtWidgets/qtreeview.h>
 #include <QtGui/qstandarditemmodel.h>
 #include <QtCore/qtimer.h>
 
-template<class Task, class OnTaskEnded>
+template<class Task>
+struct QTAsyncTaskCallbacksDefault
+{
+	inline void on_running(Task& p_task) {};
+	inline void on_ended(Task& p_task) {};
+};
+
+template<class Task, class TaskCallbacks = QTAsyncTaskCallbacksDefault<Task>>
 struct QTAsyncTask
 {
 	QTimer* timer = nullptr;
 	Task task;
 	QObject* timer_parent = nullptr;
-	OnTaskEnded on_ended;
+	TaskCallbacks callbacks;
 
 	inline QTAsyncTask() {};
 
-	inline void run(const Task& p_task, const OnTaskEnded& p_on_ended, WorkerThread& p_worker_thread, QObject& p_timer_parent_object)
+	inline void run(const Task& p_task, WorkerThread& p_worker_thread, QObject& p_timer_parent_object, const TaskCallbacks& p_callbacks = QTAsyncTaskCallbacksDefault<Task>())
 	{
 		if (this->timer == nullptr)
 		{
 			this->task = p_task;
 			this->timer_parent = &p_timer_parent_object;
-			this->on_ended = p_on_ended;
+			this->callbacks = p_callbacks;
 
 			p_worker_thread.push_task(&this->task);
 
@@ -50,7 +58,11 @@ struct QTAsyncTask
 			this->timer->start();
 
 			this->timer_parent->connect(this->timer, &QTimer::timeout, [=]() {
-				if (this->task.state == Task::State::ENDED)
+				if (this->task.state == Task::State::RUNNING)
+				{
+					this->callbacks.on_running(this->task);
+				}
+				else if (this->task.state == Task::State::ENDED)
 				{
 					this->timer->stop();
 					this->timer_parent->disconnect(this->timer);
@@ -58,7 +70,7 @@ struct QTAsyncTask
 					this->timer = nullptr;
 
 					// this->on_ended();
-					this->on_ended.on_ended(this->task);
+					this->callbacks.on_ended(this->task);
 
 					this->task.free();
 				}
@@ -74,15 +86,15 @@ struct AssetSynchronizationPanel
 	com::Vector<QStandardItem*> tree_items;
 	FileTree tree;
 
+
 	inline void allocate()
 	{
-		// this->tree_view = QTreeView();
 		this->tree_view.setSelectionMode(QAbstractItemView::SelectionMode::ExtendedSelection);
 	};
 
 	inline void free()
 	{
-
+		this->free_tree();
 	};
 
 	inline void refresh_tree(FileTree& p_files)
@@ -91,21 +103,48 @@ struct AssetSynchronizationPanel
 		this->allocate_tree(p_files.move());
 	};
 
+	inline com::Vector<FileStr> get_all_selectedfiles()
+	{
+		com::Vector<FileStr> l_files;
+		QModelIndexList l_indices = this->tree_view.selectionModel()->selectedRows();
+		for (size_t i = 0; i < l_indices.size(); i++)
+		{
+			QStandardItem* l_item = this->tree_view_model.itemFromIndex(l_indices.at(i));
+			size_t l_tree_items_index = l_item->data().value<size_t>();
+			auto* l_file = this->tree.resolve(com::PoolToken<NTreeNode>(l_tree_items_index)).element;
+			if (l_file->type == FileType::FOLDER)
+			{
+				com::Vector<FileStr> l_nested_files;
+				{
+					l_file->find_files(l_nested_files, true);
+					l_files.insert_at(l_nested_files.to_memoryslice(), l_files.Size);
+				}
+				l_nested_files.free();
+			}
+			else if (l_file->type == FileType::CONTENT)
+			{
+				l_files.push_back(*l_file);
+			}
+
+		};
+		return l_files;
+	};
+
 private:
 	inline void allocate_tree(FileTree& p_files)
 	{
 		this->tree_items.resize(p_files.Indices.Memory.Size);
 		this->tree_items.Size = this->tree_items.Capacity;
-		
+
 		this->tree = p_files;
 
-		
+
 		for (size_t i = 0; i < this->tree_items.Size; i++)
 		{
 			this->tree_items[i] = new QStandardItem();
 			this->tree_items[i]->setData(QVariant(i));
 		}
-		
+
 
 		struct TreeForeach
 		{
@@ -115,12 +154,12 @@ private:
 			{
 				this->panel = p_panel;
 			};
-			inline void foreach(NTreeResolve<File<FilePathMemoryLayout::STRING>>& p_node, com::PoolToken<NTreeNode>& p_index)
+			inline void foreach(NTreeResolve<File<FilePathMemoryLayout::STRING>>& p_node)
 			{
 				if (p_node.node->has_parent())
 				{
 					QStandardItem* l_parent = this->panel->tree_items[p_node.node->parent];
-					QStandardItem* l_child = this->panel->tree_items[p_index.Index];
+					QStandardItem* l_child = this->panel->tree_items[p_node.node->index];
 					StringSlice l_filename = p_node.element->path.get_filename();
 					l_child->setText(QString(l_filename.Memory + l_filename.Begin));
 					l_parent->appendRow(l_child);
@@ -237,21 +276,18 @@ struct CompileAssets : WorkerThread::Task
 	struct In
 	{
 		AssetServerHandle asset_server;
-		com::Vector<File<FilePathMemoryLayout::STRING>> involved_files;
+		com::Vector<FileStr> involved_files;
 
 		inline void free()
 		{
-			for (size_t i = 0; i < this->involved_files.Size; i++)
-			{
-				this->involved_files[i].free();
-			}
-			this->involved_files.free();
+			FileStr::free_file_vector(this->involved_files);
 		}
 	} in;
 
 	struct Out
 	{
-		com::Vector<File<FilePathMemoryLayout::STRING>> updated_files;
+		com::Vector<FileStr> updated_files;
+		size_t file_processed = 0;
 
 		inline void free()
 		{
@@ -266,9 +302,10 @@ struct CompileAssets : WorkerThread::Task
 
 	inline CompileAssets() {};
 
-	inline CompileAssets(AssetServerHandle p_asset_server_handle)
+	inline CompileAssets(AssetServerHandle p_asset_server_handle, com::Vector<FileStr>& p_involed_files)
 	{
 		this->in.asset_server = p_asset_server_handle;
+		this->in.involved_files = p_involed_files.move();
 	};
 
 	inline void free()
@@ -281,123 +318,103 @@ struct CompileAssets : WorkerThread::Task
 		std::string l_folder_path = this->in.asset_server.get_asset_basepath();
 		StringSlice l_root_asset_folder_absolute = StringSlice(l_folder_path.c_str());
 
-		File<> l_root_file;
-		l_root_file.allocate(FileType::FOLDER, FilePath<FilePathMemoryLayout::SLICE>(l_root_asset_folder_absolute));
-#if 1
+		for (size_t i = 0; i < this->in.involved_files.Size; i++)
 		{
-			struct ForEachFile
+			FileStr& l_file = this->in.involved_files[i];
+
+			StringSlice l_asset_folder_relative = StringSlice(l_file.path.path.c_str(), l_root_asset_folder_absolute.End, strlen(l_file.path.path.c_str()));
+
+			if (l_file.type == FileType::CONTENT)
 			{
-				Out* out;
-				In* in;
-				File<>* root_file;
-
-				ForEachFile() {};
-				ForEachFile(File<>& p_root_file, Out& p_out, In& p_in)
+				size_t tmp;
+				if (l_file.extension.find(StringSlice("obj"), &tmp))
 				{
-					this->root_file = &p_root_file;
-					this->out = &p_out;
-					this->in = &p_in;
-				};
+					RenderHeap2::Resource::MeshResourceAllocator::MeshAsset l_mesh_resource;
+					com::Vector<char> l_mesh_resource_bytes;
 
-				inline void foreach(File<FilePathMemoryLayout::STRING>& p_file, size_t p_depth)
+					ObjReader::ReadObj(std::string(l_file.path.path.c_str()), l_mesh_resource.vertices, l_mesh_resource.indices);
+
+					l_mesh_resource.sertialize_to(l_mesh_resource_bytes);
+
+					this->in.asset_server.insert_or_update_resource(std::string(l_asset_folder_relative.Memory + l_asset_folder_relative.Begin), l_mesh_resource_bytes);
+
+					l_mesh_resource.free();
+					l_mesh_resource_bytes.free();
+
+					// this->out->updated_files.push_back(p_file);
+				}
+				/*
+				else if (p_file.extension.find(StringSlice("vert"), &tmp))
 				{
-					StringSlice l_asset_folder_relative = StringSlice(p_file.path.path.c_str(), this->root_file->path.path.End, strlen(p_file.path.path.c_str()));
+					shaderc::Compiler compiler;
+					shaderc::CompileOptions options;
+					std::ifstream l_file_stream(p_file.path.path.c_str());
+					std::ostringstream ss;
+					ss << l_file_stream.rdbuf(); // reading data
 
-					if (p_file.type == FileType::CONTENT)
-					{
-						size_t tmp;
-						if (p_file.extension.find(StringSlice("obj"), &tmp))
+					shaderc::SpvCompilationResult result = compiler.CompileGlslToSpv(ss.str(), shaderc_shader_kind::shaderc_glsl_vertex_shader, "vs", options);
+					if (result.GetCompilationStatus() == shaderc_compilation_status_success) {
+						com::Vector<uint32_t> l_compiled_shader;
+						const uint32_t* l_it = result.begin() - 1;
+						while (l_it != result.end())
 						{
-							RenderHeap2::Resource::MeshResourceAllocator::MeshAsset l_mesh_resource;
-							com::Vector<char> l_mesh_resource_bytes;
-
-							ObjReader::ReadObj(std::string(p_file.path.path.c_str()), l_mesh_resource.vertices, l_mesh_resource.indices);
-
-							l_mesh_resource.sertialize_to(l_mesh_resource_bytes);
-
-							this->in->asset_server.insert_or_update_resource(std::string(l_asset_folder_relative.Memory + l_asset_folder_relative.Begin), l_mesh_resource_bytes);
-
-							l_mesh_resource.free();
-							l_mesh_resource_bytes.free();
-
-							// this->out->updated_files.push_back(p_file);
+							l_compiled_shader.push_back(*l_it);
+							l_it += 1;
 						}
-						/*
-						else if (p_file.extension.find(StringSlice("vert"), &tmp))
-						{
-							shaderc::Compiler compiler;
-							shaderc::CompileOptions options;
-							std::ifstream l_file_stream(p_file.path.path.c_str());
-							std::ostringstream ss;
-							ss << l_file_stream.rdbuf(); // reading data
+						com::Vector<char> l_compiled_shader_as_char;
+						l_compiled_shader_as_char.Memory = (char*)l_compiled_shader.Memory;
+						l_compiled_shader_as_char.Capacity = l_compiled_shader.Capacity * sizeof(uint32_t);
+						l_compiled_shader_as_char.Size = l_compiled_shader.Size * sizeof(uint32_t);
 
-							shaderc::SpvCompilationResult result = compiler.CompileGlslToSpv(ss.str(), shaderc_shader_kind::shaderc_glsl_vertex_shader, "vs", options);
-							if (result.GetCompilationStatus() == shaderc_compilation_status_success) {
-								com::Vector<uint32_t> l_compiled_shader;
-								const uint32_t* l_it = result.begin() - 1;
-								while (l_it != result.end())
-								{
-									l_compiled_shader.push_back(*l_it);
-									l_it += 1;
-								}
-								com::Vector<char> l_compiled_shader_as_char;
-								l_compiled_shader_as_char.Memory = (char*)l_compiled_shader.Memory;
-								l_compiled_shader_as_char.Capacity = l_compiled_shader.Capacity * sizeof(uint32_t);
-								l_compiled_shader_as_char.Size = l_compiled_shader.Size * sizeof(uint32_t);
-
-								this->in->asset_server.insert_or_update_resource(std::string(l_asset_folder_relative.Memory + l_asset_folder_relative.Begin), l_compiled_shader_as_char);
-							}
-							else
-							{
-								printf(result.GetErrorMessage().c_str());
-							}
-
-						}
-
-						else if (p_file.extension.find(StringSlice("frag"), &tmp))
-						{
-							shaderc::Compiler compiler;
-							shaderc::CompileOptions options;
-							std::ifstream l_file_stream(p_file.path.path.c_str());
-							std::ostringstream ss;
-							ss << l_file_stream.rdbuf(); // reading data
-
-							shaderc::SpvCompilationResult result = compiler.CompileGlslToSpv(ss.str(), shaderc_shader_kind::shaderc_fragment_shader, "fs", options);
-							if (result.GetCompilationStatus() == shaderc_compilation_status_success) {
-								com::Vector<uint32_t> l_compiled_shader;
-								const uint32_t* l_it = result.begin() - 1;
-								while (l_it != result.end())
-								{
-									l_compiled_shader.push_back(*l_it);
-									l_it += 1;
-								}
-								com::Vector<char> l_compiled_shader_as_char;
-								l_compiled_shader_as_char.Memory = (char*)l_compiled_shader.Memory;
-								l_compiled_shader_as_char.Capacity = l_compiled_shader.Capacity * sizeof(uint32_t);
-								l_compiled_shader_as_char.Size = l_compiled_shader.Size * sizeof(uint32_t);
-
-								this->in->asset_server.insert_or_update_resource(std::string(l_asset_folder_relative.Memory + l_asset_folder_relative.Begin), l_compiled_shader_as_char);
-							}
-							else
-							{
-								printf(result.GetErrorMessage().c_str());
-							}
-						}
-						*/
-						else if (p_file.extension.find(StringSlice("spv"), &tmp))
-						{
-							this->in->asset_server.insert_or_update_resource_fromfile(std::string(l_asset_folder_relative.Memory + l_asset_folder_relative.Begin));
-
-							// this->out->updated_files.push_back(p_file);
-						}
+						this->in->asset_server.insert_or_update_resource(std::string(l_asset_folder_relative.Memory + l_asset_folder_relative.Begin), l_compiled_shader_as_char);
 					}
-				};
-			};
+					else
+					{
+						printf(result.GetErrorMessage().c_str());
+					}
 
-			l_root_file.walk(true, ForEachFile(l_root_file, this->out, this->in));
+				}
+
+				else if (p_file.extension.find(StringSlice("frag"), &tmp))
+				{
+					shaderc::Compiler compiler;
+					shaderc::CompileOptions options;
+					std::ifstream l_file_stream(p_file.path.path.c_str());
+					std::ostringstream ss;
+					ss << l_file_stream.rdbuf(); // reading data
+
+					shaderc::SpvCompilationResult result = compiler.CompileGlslToSpv(ss.str(), shaderc_shader_kind::shaderc_fragment_shader, "fs", options);
+					if (result.GetCompilationStatus() == shaderc_compilation_status_success) {
+						com::Vector<uint32_t> l_compiled_shader;
+						const uint32_t* l_it = result.begin() - 1;
+						while (l_it != result.end())
+						{
+							l_compiled_shader.push_back(*l_it);
+							l_it += 1;
+						}
+						com::Vector<char> l_compiled_shader_as_char;
+						l_compiled_shader_as_char.Memory = (char*)l_compiled_shader.Memory;
+						l_compiled_shader_as_char.Capacity = l_compiled_shader.Capacity * sizeof(uint32_t);
+						l_compiled_shader_as_char.Size = l_compiled_shader.Size * sizeof(uint32_t);
+
+						this->in->asset_server.insert_or_update_resource(std::string(l_asset_folder_relative.Memory + l_asset_folder_relative.Begin), l_compiled_shader_as_char);
+					}
+					else
+					{
+						printf(result.GetErrorMessage().c_str());
+					}
+				}
+				*/
+				else if (l_file.extension.find(StringSlice("spv"), &tmp))
+				{
+					this->in.asset_server.insert_or_update_resource_fromfile(std::string(l_asset_folder_relative.Memory + l_asset_folder_relative.Begin));
+
+					// this->out->updated_files.push_back(p_file);
+				}
+			}
+			this->out.file_processed += 1;
 		}
-		l_root_file.free();
-#endif
+
 
 		this->state = State::ENDED;
 	}
@@ -417,42 +434,45 @@ struct AssetDatabaseRefreshEditor
 	struct MainWindowCallbacks
 	{
 
-		struct OnCompileAssetsCompleted
+
+		struct RefreshAssetTreeCallbacks
 		{
 			MainWindow<MainWindowCallbacks>* window = nullptr;
 
-			inline OnCompileAssetsCompleted() {};
-			inline OnCompileAssetsCompleted(MainWindow<MainWindowCallbacks>& p_main_window) {
+			inline RefreshAssetTreeCallbacks() {};
+			inline RefreshAssetTreeCallbacks(MainWindow<MainWindowCallbacks>& p_main_window) {
 				this->window = &p_main_window;
 			};
 
-			inline void on_ended(CompileAssets& p_task)
-			{
-				/*
-				for (size_t i = 0; i < p_task.out.updated_files.Size; i++)
-				{
-					this->window->list.addItem(QString(p_task.out.updated_files[i].path.path.Memory.Memory));
-				}
-				*/
-			};
-		};
+			inline void on_running(RefreshAssetTree& p_task) {};
 
-		struct OnRefreshTreeCompleted
-		{
-			MainWindow<MainWindowCallbacks>* window = nullptr;
-
-			inline OnRefreshTreeCompleted() {};
-			inline OnRefreshTreeCompleted(MainWindow<MainWindowCallbacks>& p_main_window) {
-				this->window = &p_main_window;
-			};
 			inline void on_ended(RefreshAssetTree& p_task)
 			{
-				this->window->asset_synch_panel.refresh_tree(p_task.out.file_tree);				
+				this->window->asset_synch_panel.refresh_tree(p_task.out.file_tree);
 			};
 		};
 
-		QTAsyncTask<CompileAssets, OnCompileAssetsCompleted> compile_task;
-		QTAsyncTask<RefreshAssetTree, OnRefreshTreeCompleted> refreshtree_task;
+		struct CompileAssetsCallbacks
+		{
+			MainWindow<MainWindowCallbacks>* window = nullptr;
+
+			inline CompileAssetsCallbacks() {};
+			inline CompileAssetsCallbacks(MainWindow<MainWindowCallbacks>& p_main_window) {
+				this->window = &p_main_window;
+			};
+
+			inline void on_running(CompileAssets& p_task)
+			{
+				this->window->window.statusBar()->showMessage(QString("Compilation : %1 / %2").arg(p_task.out.file_processed).arg(p_task.in.involved_files.Size));
+			};
+
+			inline void on_ended(CompileAssets& p_task) {
+				this->window->window.statusBar()->hide();
+			};
+		};
+
+		QTAsyncTask<CompileAssets, CompileAssetsCallbacks> compile_task;
+		QTAsyncTask<RefreshAssetTree, RefreshAssetTreeCallbacks> refreshtree_task;
 
 		AssetDatabaseRefreshEditor* editor = nullptr;
 
@@ -468,12 +488,16 @@ struct AssetDatabaseRefreshEditor
 
 		inline void on_compile_clicked()
 		{
-			this->compile_task.run(CompileAssets(this->editor->asset_server), OnCompileAssetsCompleted(this->editor->window), this->editor->worker_thread, this->editor->window.window);
+			if (this->compile_task.task.state != WorkerThread::State::RUNNING)
+			{
+				this->compile_task.run(CompileAssets(this->editor->asset_server, this->editor->window.asset_synch_panel.get_all_selectedfiles()),
+					this->editor->worker_thread, this->editor->window.window, CompileAssetsCallbacks(this->editor->window));
+			}
 		}
 
 		inline void on_refresh_clicked()
 		{
-			this->refreshtree_task.run(RefreshAssetTree(this->editor->asset_server), OnRefreshTreeCompleted(this->editor->window), this->editor->worker_thread, this->editor->window.window);
+			this->refreshtree_task.run(RefreshAssetTree(this->editor->asset_server), this->editor->worker_thread, this->editor->window.window, RefreshAssetTreeCallbacks(this->editor->window));
 		}
 
 	};

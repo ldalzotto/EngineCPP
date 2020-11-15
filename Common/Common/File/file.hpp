@@ -128,12 +128,13 @@ struct File
 		this->path.free();
 	};
 
-	inline File<FilePathMemoryLayoutType> clone()
+	inline File<FilePathMemoryLayoutType> clone() const
 	{
 		File<FilePathMemoryLayoutType> l_target;
 		l_target.path = this->path.clone();
 		l_target.type = this->type;
-		l_target.extension = this->path.get_extension();
+		l_target.extension = this->extension;
+		l_target.extension.Memory = l_target.path.path.c_str();
 		return l_target;
 	};
 
@@ -207,7 +208,15 @@ struct File
 		FindClose(l_find);
 	};
 
-	template<class FindFileFilterFn>
+	struct FindFileFilterFnDefault
+	{
+		inline static bool filter(const File<FilePathMemoryLayout::STRING>& p_file)
+		{
+			return true;
+		};
+	};
+
+	template<class FindFileFilterFn = FindFileFilterFnDefault>
 	inline void find_files(com::Vector<File<FilePathMemoryLayout::STRING>>& out_paths_buffer, bool p_recursive)
 	{
 
@@ -221,16 +230,14 @@ struct File
 				out_paths_buffer = &p_out_paths_buffer;
 			};
 
-			inline void foreach(const File<FilePathMemoryLayout::STRING>& p_file)
+			inline void foreach(const File<FilePathMemoryLayout::STRING>& p_file, const size_t p_depth)
 			{
 				if (p_file.type == FileType::CONTENT)
 				{
 					if (FindFileFilterFn::filter(p_file))
 					{
 						//We clone the path because the incoming p_file is disposed by the walk algorithm
-						File<FilePathMemoryLayout::STRING> l_file;
-						l_file.type = p_file.type;
-						l_file.path = p_file.path.clone();
+						File<FilePathMemoryLayout::STRING> l_file = p_file.clone();
 						this->out_paths_buffer->push_back(l_file);
 					}
 				}
@@ -241,7 +248,18 @@ struct File
 
 
 	};
+
+	inline static void free_file_vector(com::Vector<File<FilePathMemoryLayoutType>>& p_files)
+	{
+		for (size_t i = 0; i < p_files.Size; i++)
+		{
+			p_files[i].free();
+		}
+		p_files.free();
+	};
 };
+
+using FileStr = File<FilePathMemoryLayout::STRING>;
 
 struct FileTree : public NTree<File<FilePathMemoryLayout::STRING>>
 {
@@ -319,7 +337,7 @@ struct FileTree : public NTree<File<FilePathMemoryLayout::STRING>>
 		{
 			struct FreeForeach
 			{
-				inline void foreach(NTreeResolve<File<FilePathMemoryLayout::STRING>>& p_node, com::PoolToken<NTreeNode>& p_token)
+				inline void foreach(NTreeResolve<File<FilePathMemoryLayout::STRING>>& p_node)
 				{
 					p_node.element->free();
 				};

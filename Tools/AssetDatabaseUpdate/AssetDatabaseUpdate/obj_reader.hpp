@@ -54,8 +54,8 @@ struct ObjReader
 					size_t l_first_space = l_line.find(" ", strlen("vt"));
 					size_t l_second_space = l_line.find(" ", l_first_space + 1);
 
-					l_uv.x = atof(l_line.substr(l_first_space + 1, l_second_space - l_first_space).c_str());
-					l_uv.y = atof(l_line.substr(l_second_space + 1, l_line.length() - l_second_space).c_str());
+					l_uv.x = (float)atof(l_line.substr(l_first_space + 1, l_second_space - l_first_space).c_str());
+					l_uv.y = (float)atof(l_line.substr(l_second_space + 1, l_line.length() - l_second_space).c_str());
 
 					uvs.push_back(l_uv);
 				}
@@ -67,11 +67,11 @@ struct ObjReader
 					size_t l_third_space = l_line.find(" ", l_second_space + 1);
 
 					std::string l_str = l_line.substr(l_first_space + 1, l_second_space - l_first_space);
-					l_local_position.x = atof(l_str.c_str());
+					l_local_position.x = (float)atof(l_str.c_str());
 					l_str = l_line.substr(l_second_space + 1, l_third_space - l_second_space);
-					l_local_position.y = atof(l_str.c_str());
+					l_local_position.y = (float)atof(l_str.c_str());
 					l_str = l_line.substr(l_third_space + 1, l_line.length() - l_third_space);
-					l_local_position.z = atof(l_str.c_str());
+					l_local_position.z = (float)atof(l_str.c_str());
 
 					positions.push_back(l_local_position);
 				}
@@ -134,7 +134,7 @@ struct ObjReader
 			out_vertices.push_back(l_vertex);
 		}
 
-		out_indices.push_back(l_key.computed_indice);
+		out_indices.push_back((uint32_t)l_key.computed_indice);
 
 	}
 };

@@ -21,6 +21,7 @@ inline void NTreeNode::allocate()
 
 inline void NTreeNode::allocate(const size_t p_parent_index, NTreeNode& p_parent, const size_t p_current_index)
 {
+	this->index = p_current_index;
 	this->parent = p_parent_index;
 	this->childs.allocate(1);
 	p_parent.childs.push_back(p_current_index);
@@ -125,7 +126,7 @@ inline void NTree<ElementType, Allocator>::remove(const com::PoolToken<ElementTy
 };
 
 template<class ElementType, class Allocator, class NTreeForEach>
-inline void traverse_resolved(NTree<ElementType, Allocator>* p_tree, NTreeResolve<ElementType>& p_start, com::PoolToken<NTreeNode>& p_start_index, NTreeForEach& p_foreach)
+inline void traverse_resolved(NTree<ElementType, Allocator>* p_tree, NTreeResolve<ElementType>& p_start, NTreeForEach& p_foreach)
 {
 	for (size_t l_child_index = 0; l_child_index < p_start.node->childs.Size; l_child_index++)
 	{
@@ -133,11 +134,11 @@ inline void traverse_resolved(NTree<ElementType, Allocator>* p_tree, NTreeResolv
 		NTreeResolve<ElementType> l_child = p_tree->resolve(l_treenode_token);
 		if (l_child.node->childs.Size > 0)
 		{
-			traverse_resolved(p_tree, l_child, l_treenode_token, p_foreach);
+			traverse_resolved(p_tree, l_child, p_foreach);
 		}
-		p_foreach.foreach(l_child, l_treenode_token);
+		p_foreach.foreach(l_child);
 	}
-	p_foreach.foreach(p_start, p_start_index);
+	p_foreach.foreach(p_start);
 };
 
 template<class ElementType, class Allocator>
@@ -149,18 +150,10 @@ inline void NTree<ElementType, Allocator>::traverse(com::PoolToken<NTreeNode>& p
 	NTreeResolve<ElementType> l_start = this->resolve(p_start);
 	for (size_t l_child_index = 0; l_child_index < l_start.node->childs.Size; l_child_index++)
 	{
-		com::PoolToken<NTreeNode> l_treenode_token = com::PoolToken<NTreeNode>(l_start.node->childs[l_child_index]);
-		NTreeResolve<ElementType> l_child = this->resolve(l_treenode_token);
-		traverse_resolved<ElementType, Allocator, NTreeForEach>(this, l_child, l_treenode_token, p_foreach);
-		/*
-		if (l_child.node->childs.Size > 0)
-		{
-			traverse_resolved<ElementType, Allocator, NTreeForEach>(this, l_child, p_foreach);
-		}
-		p_foreach.foreach(l_child, l_treenode_token);
-		*/
+		NTreeResolve<ElementType> l_child = this->resolve(com::PoolToken<NTreeNode>(l_start.node->childs[l_child_index]));
+		traverse_resolved<ElementType, Allocator, NTreeForEach>(this, l_child, p_foreach);
 	}
-	p_foreach.foreach(l_start, com::PoolToken<NTreeNode>(p_start.Index));
+	p_foreach.foreach(l_start);
 };
 
 

@@ -5,6 +5,7 @@
 
 struct NTreeNode
 {
+	size_t index;
 	size_t parent;
 	com::Vector<size_t> childs;
 

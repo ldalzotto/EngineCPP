@@ -2139,7 +2139,7 @@ struct RenderableObject
 		vk::DeviceSize l_offsets[1] = { 0 };
 		p_commandbuffer.command_buffer.bindVertexBuffers(0, 1, &p_mesh_heap[this->mesh].vertices.buffer.buffer, l_offsets);
 		p_commandbuffer.command_buffer.bindIndexBuffer(p_mesh_heap[this->mesh].indices.buffer.buffer, 0, vk::IndexType::eUint32);
-		p_commandbuffer.command_buffer.drawIndexed(p_mesh_heap[this->mesh].indices_length, 1, 0, 0, 1);
+		p_commandbuffer.command_buffer.drawIndexed((uint32_t)p_mesh_heap[this->mesh].indices_length, (uint32_t)1, (uint32_t)0, (uint32_t)0, (uint32_t)1);
 	}
 };
 

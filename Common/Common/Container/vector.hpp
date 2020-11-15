@@ -204,4 +204,10 @@ namespace com
 		this->Size = 0;
 		return l_target;
 	};
+
+	Vector_TemplateHeader
+		inline MemorySlice<TYPE> Vector_ClassName::to_memoryslice()
+	{
+		return MemorySlice<TYPE>(*this->Memory, this->Size);
+	};
 }
