@@ -1,5 +1,7 @@
 #pragma once
 
+// #define _ITERATOR_DEBUG_LEVEL 0;
+
 #include <string>
 #include <Common/Thread/thread.hpp>
 #include <Common/Container/vector.hpp>
@@ -13,6 +15,7 @@
 
 #include "../Render/Render/Render.cpp"
 #include "obj_reader.hpp"
+#include "shaderc/shaderc.hpp"
 
 #define QT_NO_KEYWORDS 1
 
@@ -343,74 +346,77 @@ struct CompileAssets : WorkerThread::Task
 
 					// this->out->updated_files.push_back(p_file);
 				}
+				
+				else if (l_file.extension.find(StringSlice("vert"), &tmp))
+				{
+					shaderc::Compiler compiler;
+					shaderc::CompileOptions options;
+					std::ifstream l_file_stream(l_file.path.path.c_str());
+					std::ostringstream ss;
+					ss << l_file_stream.rdbuf(); // reading data
+
+					StringSlice l_file_name = l_file.path.get_filename();
+					shaderc::SpvCompilationResult result = compiler.CompileGlslToSpv(ss.str(), shaderc_shader_kind::shaderc_glsl_vertex_shader, l_file_name.Memory + l_file_name.Begin, options);
+					if (result.GetCompilationStatus() == shaderc_compilation_status_success) {
+						com::Vector<uint32_t> l_compiled_shader;
+						const uint32_t* l_it = result.begin();
+						while (l_it != result.end())
+						{
+							l_compiled_shader.push_back(*l_it);
+							l_it += 1;
+						}
+						com::Vector<char> l_compiled_shader_as_char;
+						l_compiled_shader_as_char.Memory = (char*)l_compiled_shader.Memory;
+						l_compiled_shader_as_char.Capacity = l_compiled_shader.Capacity * sizeof(uint32_t);
+						l_compiled_shader_as_char.Size = l_compiled_shader.Size * sizeof(uint32_t);
+
+						this->in.asset_server.insert_or_update_resource(std::string(l_asset_folder_relative.Memory + l_asset_folder_relative.Begin), l_compiled_shader_as_char);
+					}
+					else
+					{
+						printf(result.GetErrorMessage().c_str());
+					}
+
+				}
+
+				else if (l_file.extension.find(StringSlice("frag"), &tmp))
+				{
+					shaderc::Compiler compiler;
+					shaderc::CompileOptions options;
+					std::ifstream l_file_stream(l_file.path.path.c_str());
+					std::ostringstream ss;
+					ss << l_file_stream.rdbuf(); // reading data
+
+					StringSlice l_file_name = l_file.path.get_filename();
+					shaderc::SpvCompilationResult result = compiler.CompileGlslToSpv(ss.str(), shaderc_shader_kind::shaderc_fragment_shader, l_file_name.Memory + l_file_name.Begin, options);
+					if (result.GetCompilationStatus() == shaderc_compilation_status_success) {
+						com::Vector<uint32_t> l_compiled_shader;
+						const uint32_t* l_it = result.begin();
+						while (l_it != result.end())
+						{
+							l_compiled_shader.push_back(*l_it);
+							l_it += 1;
+						}
+						com::Vector<char> l_compiled_shader_as_char;
+						l_compiled_shader_as_char.Memory = (char*)l_compiled_shader.Memory;
+						l_compiled_shader_as_char.Capacity = l_compiled_shader.Capacity * sizeof(uint32_t);
+						l_compiled_shader_as_char.Size = l_compiled_shader.Size * sizeof(uint32_t);
+
+						this->in.asset_server.insert_or_update_resource(std::string(l_asset_folder_relative.Memory + l_asset_folder_relative.Begin), l_compiled_shader_as_char);
+					}
+					else
+					{
+						printf(result.GetErrorMessage().c_str());
+					}
+				}
 				/*
-				else if (p_file.extension.find(StringSlice("vert"), &tmp))
-				{
-					shaderc::Compiler compiler;
-					shaderc::CompileOptions options;
-					std::ifstream l_file_stream(p_file.path.path.c_str());
-					std::ostringstream ss;
-					ss << l_file_stream.rdbuf(); // reading data
-
-					shaderc::SpvCompilationResult result = compiler.CompileGlslToSpv(ss.str(), shaderc_shader_kind::shaderc_glsl_vertex_shader, "vs", options);
-					if (result.GetCompilationStatus() == shaderc_compilation_status_success) {
-						com::Vector<uint32_t> l_compiled_shader;
-						const uint32_t* l_it = result.begin() - 1;
-						while (l_it != result.end())
-						{
-							l_compiled_shader.push_back(*l_it);
-							l_it += 1;
-						}
-						com::Vector<char> l_compiled_shader_as_char;
-						l_compiled_shader_as_char.Memory = (char*)l_compiled_shader.Memory;
-						l_compiled_shader_as_char.Capacity = l_compiled_shader.Capacity * sizeof(uint32_t);
-						l_compiled_shader_as_char.Size = l_compiled_shader.Size * sizeof(uint32_t);
-
-						this->in->asset_server.insert_or_update_resource(std::string(l_asset_folder_relative.Memory + l_asset_folder_relative.Begin), l_compiled_shader_as_char);
-					}
-					else
-					{
-						printf(result.GetErrorMessage().c_str());
-					}
-
-				}
-
-				else if (p_file.extension.find(StringSlice("frag"), &tmp))
-				{
-					shaderc::Compiler compiler;
-					shaderc::CompileOptions options;
-					std::ifstream l_file_stream(p_file.path.path.c_str());
-					std::ostringstream ss;
-					ss << l_file_stream.rdbuf(); // reading data
-
-					shaderc::SpvCompilationResult result = compiler.CompileGlslToSpv(ss.str(), shaderc_shader_kind::shaderc_fragment_shader, "fs", options);
-					if (result.GetCompilationStatus() == shaderc_compilation_status_success) {
-						com::Vector<uint32_t> l_compiled_shader;
-						const uint32_t* l_it = result.begin() - 1;
-						while (l_it != result.end())
-						{
-							l_compiled_shader.push_back(*l_it);
-							l_it += 1;
-						}
-						com::Vector<char> l_compiled_shader_as_char;
-						l_compiled_shader_as_char.Memory = (char*)l_compiled_shader.Memory;
-						l_compiled_shader_as_char.Capacity = l_compiled_shader.Capacity * sizeof(uint32_t);
-						l_compiled_shader_as_char.Size = l_compiled_shader.Size * sizeof(uint32_t);
-
-						this->in->asset_server.insert_or_update_resource(std::string(l_asset_folder_relative.Memory + l_asset_folder_relative.Begin), l_compiled_shader_as_char);
-					}
-					else
-					{
-						printf(result.GetErrorMessage().c_str());
-					}
-				}
-				*/
 				else if (l_file.extension.find(StringSlice("spv"), &tmp))
 				{
 					this->in.asset_server.insert_or_update_resource_fromfile(std::string(l_asset_folder_relative.Memory + l_asset_folder_relative.Begin));
 
 					// this->out->updated_files.push_back(p_file);
 				}
+				*/
 			}
 			this->out.file_processed += 1;
 		}

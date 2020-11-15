@@ -32,16 +32,16 @@ void update(void* p_engine, float p_delta)
 		{
 			auto l_node = l_scenehandle.add_node(l_scenehandle.root(), Math::Transform());
 			MeshRenderer l_mesh_renderer;
-			l_mesh_renderer.vertex_shader = "shader/TriVert.spv";
-			l_mesh_renderer.fragment_shader = "shader/TriFrag.spv";
+			l_mesh_renderer.vertex_shader = "shader/TriVert.vert";
+			l_mesh_renderer.fragment_shader = "shader/TriFrag.frag";
 			l_mesh_renderer.model = "models/16.09.obj";
 			l_scenehandle.add_component<MeshRenderer>(l_node, l_mesh_renderer);
 		}
 		{
 			auto l_node = l_scenehandle.add_node(l_scenehandle.root(), Math::Transform(vec3f(0.0f, 0.0f, 0.0f), QuatConst::IDENTITY, VecConst<float>::ONE));
 			MeshRenderer l_mesh_renderer;
-			l_mesh_renderer.vertex_shader = "shader/TriVert.spv";
-			l_mesh_renderer.fragment_shader = "shader/TriFrag.spv";
+			l_mesh_renderer.vertex_shader = "shader/TriVert.vert";
+			l_mesh_renderer.fragment_shader = "shader/TriFrag.frag";
 			l_mesh_renderer.model = "models/cube.obj";
 			l_scenehandle.add_component<MeshRenderer>(l_node, l_mesh_renderer);
 
