@@ -10,6 +10,13 @@ struct GeneralPurposeHeapMemoryChunk
 	size_t offset;
 };
 
+struct AllocationAlignementConstraint
+{
+	size_t alignment_modulo;
+
+	inline AllocationAlignementConstraint(const size_t p_alignment_modulo) { this->alignment_modulo = p_alignment_modulo; }
+};
+
 template<class ReturnType>
 struct IMemoryChunkMapper
 {
@@ -91,16 +98,11 @@ struct GeneralPurposeHeap
 
 			if (l_chunk.chunk_size > p_size)
 			{
-				size_t l_split_size = l_chunk.chunk_size - p_size;
-
 				GeneralPurposeHeapMemoryChunk l_new_allocated_chunk;
-				l_new_allocated_chunk.chunk_size = l_chunk.chunk_size - l_split_size;
-				l_new_allocated_chunk.offset = l_chunk.offset;
+
+				this->slice_memorychunk(l_chunk, l_chunk.offset + p_size, l_new_allocated_chunk, l_chunk);
 
 				*out_chunk = p_memorychunk_mapper.map(l_new_allocated_chunk, this->allocated_chunks.alloc_element(l_new_allocated_chunk));
-
-				this->free_chunks[i].chunk_size = l_split_size;
-				this->free_chunks[i].offset = l_new_allocated_chunk.offset + l_new_allocated_chunk.chunk_size;
 
 				return true;
 			}
@@ -115,9 +117,84 @@ struct GeneralPurposeHeap
 		return false;
 	};
 
+	template<class ReturnType = com::PoolToken&, class MemoryChunkMapper = DefaultMemoryChunkMapper >
+	inline bool allocate_element(size_t p_size, AllocationAlignementConstraint& p_alignment_constraint, ReturnType* out_chunk, MemoryChunkMapper& p_memorychunk_mapper = DefaultMemoryChunkMapper())
+	{
+		for (size_t i = 0; i < this->free_chunks.Size; i++)
+		{
+			GeneralPurposeHeapMemoryChunk& l_chunk = this->free_chunks[i];
+
+			if (l_chunk.chunk_size > p_size)
+			{
+				size_t l_offset_modulo = (l_chunk.offset % p_alignment_constraint.alignment_modulo);
+				if (l_offset_modulo == 0)
+				{
+					// create one free chunk (after)
+
+					GeneralPurposeHeapMemoryChunk l_new_allocated_chunk;
+					this->slice_memorychunk(l_chunk, l_chunk.offset + p_size, l_new_allocated_chunk, l_chunk);
+					*out_chunk = p_memorychunk_mapper.map(l_new_allocated_chunk, this->allocated_chunks.alloc_element(l_new_allocated_chunk));
+					return true;
+				}
+				else
+				{
+					size_t l_chunk_offset_delta = p_alignment_constraint.alignment_modulo - l_offset_modulo;
+					// Does the offsetted new memory is able to be allocated in the chunk ?
+					if (l_chunk.chunk_size > (p_size + l_chunk_offset_delta)) //offsetted chunk is in the middle of the free chunk
+					{
+						//create two free chunk (before and after)
+						GeneralPurposeHeapMemoryChunk l_new_allocated_chunk, l_free_chunk, l_tmp_chunk;
+
+						this->slice_memorychunk(l_chunk, l_chunk.offset + l_chunk_offset_delta, l_chunk, l_tmp_chunk);
+						this->slice_memorychunk(l_tmp_chunk, l_tmp_chunk.offset + p_size, l_new_allocated_chunk, l_free_chunk);
+
+						*out_chunk = p_memorychunk_mapper.map(l_new_allocated_chunk, this->allocated_chunks.alloc_element(l_new_allocated_chunk));
+						this->free_chunks.push_back(l_free_chunk);
+
+						return true;
+					}
+					else if (l_chunk.chunk_size == (p_size + l_chunk_offset_delta)) //offsetted chunk end matches perfectly the end of the free chunk
+					{
+						//TODO -> create one free chunk (before)
+
+						GeneralPurposeHeapMemoryChunk l_new_allocated_chunk;
+						this->slice_memorychunk(l_chunk, l_chunk.offset + l_chunk_offset_delta, l_chunk, l_new_allocated_chunk);
+						*out_chunk = p_memorychunk_mapper.map(l_new_allocated_chunk, this->allocated_chunks.alloc_element(l_new_allocated_chunk));
+						
+						return true;
+					}
+				}
+			}
+			else if (l_chunk.chunk_size == p_size)
+			{
+				size_t l_offset_modulo = (l_chunk.offset % p_alignment_constraint.alignment_modulo);
+				if (l_offset_modulo == 0)
+				{
+					*out_chunk = p_memorychunk_mapper.map(l_chunk, this->allocated_chunks.alloc_element(l_chunk));
+					this->free_chunks.erase_at(i);
+					return true;
+				}
+			}
+		}
+
+		return false;
+	};
+
 	inline void release_element(const com::PoolToken p_buffer)
 	{
 		this->free_chunks.push_back(this->allocated_chunks[p_buffer]);
 		this->allocated_chunks.release_element(p_buffer);
 	};
+
+private:
+	void slice_memorychunk(const GeneralPurposeHeapMemoryChunk& p_source_chunk, size_t p_slice_offset, GeneralPurposeHeapMemoryChunk& out_left, GeneralPurposeHeapMemoryChunk& out_right)
+	{
+		size_t l_source_chunk_size = p_source_chunk.chunk_size;
+
+		out_left.chunk_size = (p_slice_offset - p_source_chunk.offset);
+		out_left.offset = p_source_chunk.offset;
+
+		out_right.chunk_size = l_source_chunk_size - out_left.chunk_size;
+		out_right.offset = p_slice_offset;
+	}
 };

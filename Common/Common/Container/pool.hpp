@@ -66,6 +66,7 @@ namespace com
 		{
 			size_t l_availableIndex = this->FreeBlocks.Memory[this->FreeBlocks.Size - 1];
 			this->Memory.Memory[l_availableIndex] = p_element;
+			this->FreeBlocks.erase_at(this->FreeBlocks.Size - 1);
 			return l_availableIndex;
 		}
 		else

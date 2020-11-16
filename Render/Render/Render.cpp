@@ -170,9 +170,9 @@ struct PageGPUMemory2
 		};
 	};
 
-	inline bool allocate_element(size_t p_size, GPUMemoryWithOffset* out_chunk)
+	inline bool allocate_element(size_t p_size, size_t p_alignmenent_constaint, GPUMemoryWithOffset* out_chunk)
 	{
-		return this->heap.allocate_element<GPUMemoryWithOffset, GPUMemoryWithOffsetMapper>(p_size, out_chunk, GPUMemoryWithOffsetMapper(this));
+		return this->heap.allocate_element<GPUMemoryWithOffset, GPUMemoryWithOffsetMapper>(p_size, AllocationAlignementConstraint(p_alignmenent_constaint), out_chunk, GPUMemoryWithOffsetMapper(this));
 	}
 
 	inline void release_element(const GPUMemoryWithOffset& p_buffer)
@@ -205,11 +205,11 @@ struct PagedGPUMemory
 		this->page_buffers.free();
 	}
 
-	inline bool allocate_element(size_t p_size, vk::Device p_device, GPUMemoryWithOffset* out_chunk)
+	inline bool allocate_element(size_t p_size, size_t p_alignmenent_constaint, vk::Device p_device, GPUMemoryWithOffset* out_chunk)
 	{
 		for (size_t i = 0; i < this->page_buffers.Size; i++)
 		{
-			if (this->page_buffers[i].allocate_element(p_size, out_chunk))
+			if (this->page_buffers[i].allocate_element(p_size, p_alignmenent_constaint, out_chunk))
 			{
 				return true;
 			}
@@ -217,7 +217,7 @@ struct PagedGPUMemory
 
 		this->page_buffers.push_back(PageGPUMemory2<WriteMethod>());
 		this->page_buffers[this->page_buffers.Size - 1].allocate(this->page_buffers.Size - 1, this->chunk_size, this->memory_type, p_device);
-		return this->page_buffers[this->page_buffers.Size - 1].allocate_element(p_size, out_chunk);
+		return this->page_buffers[this->page_buffers.Size - 1].allocate_element(p_size, p_alignmenent_constaint, out_chunk);
 	}
 
 	inline void free_element(const GPUMemoryWithOffset& p_buffer)
@@ -243,20 +243,20 @@ struct PagedMemories
 		this->i8.free(p_device);
 	}
 
-	inline bool allocate_element(size_t p_size, uint32_t p_memory_type, vk::Device p_device, GPUMemoryWithOffset* out_chunk)
+	inline bool allocate_element(size_t p_size, size_t p_alignmenent_constaint, uint32_t p_memory_type, vk::Device p_device, GPUMemoryWithOffset* out_chunk)
 	{
 		switch (p_memory_type)
 		{
 		case 7:
 		{
-			bool l_success = this->i7.allocate_element(p_size, p_device, out_chunk);
+			bool l_success = this->i7.allocate_element(p_size, p_alignmenent_constaint, p_device, out_chunk);
 			out_chunk->memory_type = 7;
 			return l_success;
 		}
 		break;
 		case 8:
 		{
-			bool l_success = this->i8.allocate_element(p_size, p_device, out_chunk);
+			bool l_success = this->i8.allocate_element(p_size, p_alignmenent_constaint, p_device, out_chunk);
 			out_chunk->memory_type = 8;
 			return l_success;
 		}
@@ -1063,7 +1063,7 @@ public:
 
 		vk::MemoryRequirements l_requirements = p_device.device.getBufferMemoryRequirements(p_gpumemory->getBuffer());
 
-		p_device.devicememory_allocator.allocate_element(l_requirements.size, p_device.getMemoryTypeIndex(l_requirements.memoryTypeBits, vk::MemoryPropertyFlagBits::eHostCoherent),
+		p_device.devicememory_allocator.allocate_element(l_requirements.size, l_requirements.alignment, p_device.getMemoryTypeIndex(l_requirements.memoryTypeBits, vk::MemoryPropertyFlagBits::eHostCoherent),
 			p_device.device, &p_gpumemory->memory);
 
 		GPUMemoryKernel::map_internal(*p_gpumemory, p_device, p_element_number, p_element_size);
@@ -1077,7 +1077,7 @@ public:
 		p_gpumemory.setImage(p_device.device.createImage(p_imagecreateinfo));
 		p_gpumemory.mapped_memory.allocate(p_staging_commands.commands_completion);
 		vk::MemoryRequirements l_memory_requirements = p_device.device.getImageMemoryRequirements(p_gpumemory.getImage());
-		p_device.devicememory_allocator.allocate_element(l_memory_requirements.size, p_device.getMemoryTypeIndex(l_memory_requirements.memoryTypeBits, vk::MemoryPropertyFlags(vk::MemoryPropertyFlagBits::eDeviceLocal)),
+		p_device.devicememory_allocator.allocate_element(l_memory_requirements.size, l_memory_requirements.alignment, p_device.getMemoryTypeIndex(l_memory_requirements.memoryTypeBits, vk::MemoryPropertyFlags(vk::MemoryPropertyFlagBits::eDeviceLocal)),
 			p_device.device, &p_gpumemory.memory);
 		GPUMemoryKernel::bind(p_gpumemory, p_device);
 	};
@@ -1099,7 +1099,7 @@ public:
 
 		vk::MemoryRequirements l_requirements = p_device.device.getBufferMemoryRequirements(p_gpumemory.getBuffer());
 
-		p_device.devicememory_allocator.allocate_element(l_requirements.size, p_device.getMemoryTypeIndex(l_requirements.memoryTypeBits, vk::MemoryPropertyFlags(vk::MemoryPropertyFlagBits::eDeviceLocal)),
+		p_device.devicememory_allocator.allocate_element(l_requirements.size, l_requirements.alignment, p_device.getMemoryTypeIndex(l_requirements.memoryTypeBits, vk::MemoryPropertyFlags(vk::MemoryPropertyFlagBits::eDeviceLocal)),
 			p_device.device, &p_gpumemory.memory);
 
 		GPUMemoryKernel::bind(p_gpumemory, p_device);
