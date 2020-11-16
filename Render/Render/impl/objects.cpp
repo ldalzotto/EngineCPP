@@ -60,3 +60,16 @@ void MeshHandle::free(const RenderHandle& p_render)
 	this->reset();
 }
 
+void TextureHandle::allocate(const RenderHandle& p_render, const std::string& p_texture)
+{
+	Render* l_render = (Render*)p_render;
+	this->handle = l_render->heap.allocate_texture(p_texture).Index;
+};
+
+
+void TextureHandle::free(const RenderHandle& p_render)
+{
+	Render* l_render = (Render*)p_render;
+	l_render->heap.free_texture(this->handle);
+	this->reset();
+};

@@ -22,6 +22,12 @@ struct MeshHandle : public Handle
 	void free(const RenderHandle& p_render);
 };
 
+struct TextureHandle : public Handle
+{
+	void allocate(const RenderHandle& p_render, const std::string& p_texture);
+	void free(const RenderHandle& p_render);
+};
+
 struct ShaderHandle : public Handle
 {
 	void allocate(const RenderHandle& p_render, const std::string& p_vertex_shader, const std::string& p_fragment_shader);

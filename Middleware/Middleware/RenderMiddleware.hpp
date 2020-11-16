@@ -39,6 +39,11 @@ struct RenderMiddleware
 		l_entry.node = p_node_token;
 		render_allocate_renderableobject(this->render, p_mesh_renderer.vertex_shader, p_mesh_renderer.fragment_shader, p_mesh_renderer.model,
 			p_node.element->get_localtoworld(), l_entry.mesh, l_entry.shader, l_entry.material, l_entry.renderableobject);
+		
+		//TODO -> remove
+		TextureHandle l_tex_test;
+		l_tex_test.allocate(this->render, "NULL");
+
 		this->allocated_renderableobjects.push_back(l_entry);
 	};
 

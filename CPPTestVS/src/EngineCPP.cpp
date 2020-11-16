@@ -47,6 +47,7 @@ void update(void* p_engine, float p_delta)
 
 			testContext.moving_node = l_node;
 		}
+
 	}
 
 	SceneNode* l_node = l_scenehandle.resolve_node(testContext.moving_node).element;
