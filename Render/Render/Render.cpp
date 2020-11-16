@@ -559,20 +559,23 @@ struct CommandBuffer
 		}
 	}
 
-	inline void flush(const Device& p_device)
+	inline void submit()
 	{
 		this->end();
-
-		vk::Fence l_command_buffer_end_fence = p_device.device.createFence(vk::FenceCreateInfo());
-
 		vk::SubmitInfo l_wait_for_end_submit;
 		l_wait_for_end_submit.setCommandBufferCount(1);
 		l_wait_for_end_submit.setPCommandBuffers(&this->command_buffer);
-		this->queue->submit(1, &l_wait_for_end_submit, l_command_buffer_end_fence);
+		this->queue->submit(1, &l_wait_for_end_submit, nullptr);
+	}
 
-		p_device.device.waitForFences(1, &l_command_buffer_end_fence, true, DEFAULT_FENCE_TIMEOUT);
-
-		p_device.device.destroyFence(l_command_buffer_end_fence);
+	inline void flush_sync()
+	{
+		this->end();
+		vk::SubmitInfo l_wait_for_end_submit;
+		l_wait_for_end_submit.setCommandBufferCount(1);
+		l_wait_for_end_submit.setPCommandBuffers(&this->command_buffer);
+		this->queue->submit(1, &l_wait_for_end_submit, nullptr);
+		this->queue->waitIdle();
 	}
 
 	inline void dispose(const Device& p_device, vk::CommandPool& p_command_pool)
@@ -674,6 +677,7 @@ struct MappedMemory<ElementType, WriteMethod2::HostWrite>
 template<class ElementType>
 struct MappedMemory<ElementType, WriteMethod2::GPUWrite>
 {
+	//TODO -> generalize deferred command token
 	size_t StaginIndexQueue = -1;
 	com::PoolToken staging_completion_token;
 
@@ -748,7 +752,7 @@ struct StagedBufferWriteCommand
 		}
 	};
 
-	void dispose(Device& p_device, com::Pool<bool>& p_stagin_completions);
+	void dispose(Device& p_device);
 	inline void invalidate()
 	{
 		// this->original_buffer_mappedmemory = nullptr;
@@ -759,21 +763,37 @@ struct StagedBufferWriteCommand
 struct StagedBufferCommands
 {
 	com::Vector<StagedBufferWriteCommand> commands;
+	com::Vector<StagedBufferWriteCommand> lastframe_commands;
 
 	void free()
 	{
 		this->commands.free();
+		this->lastframe_commands.free();
 	}
 
 	template<class ElementType>
 	StagedBufferWriteCommand allocate_stagedbufferwritecommand(vk::Buffer p_buffer, size_t p_buffer_element_count, const char* p_source,
 		com::PoolToken& p_completion_token, com::Pool<bool>& p_command_completions, Device& p_device);
 
-	inline void dispose_all_commands(Device& p_device, com::Pool<bool>& p_commands_completion)
+	inline void push_to_lastframe()
+	{
+		this->lastframe_commands.insert_at(com::MemorySlice<StagedBufferWriteCommand>(*this->commands.Memory, this->commands.Size), 0);
+		this->commands.clear();
+	};
+
+	inline void dispose_lastframe_commands(Device& p_device)
+	{
+		for (size_t i = 0; i < this->lastframe_commands.Size; i++)
+		{
+			this->lastframe_commands[i].dispose(p_device);
+		}
+	}
+
+	inline void dispose_all_commands(Device& p_device)
 	{
 		for (size_t i = 0; i < this->commands.Size; i++)
 		{
-			this->commands[i].dispose(p_device, p_commands_completion);
+			this->commands[i].dispose(p_device);
 		}
 	};
 };
@@ -811,7 +831,7 @@ struct StagedImageWriteCommand
 		}
 	};
 
-	void dispose(Device& p_device, com::Pool<bool>& p_stagin_completions);
+	void dispose(Device& p_device);
 
 	inline void invalidate()
 	{
@@ -832,12 +852,57 @@ struct StagedImageWriteCommands
 		vk::ImageSubresourceRange& p_image_subresource_range, Vector<2, int>& p_image_size,
 		const char* p_source, size_t p_pixel_size, com::PoolToken& p_completion_token, com::Pool<bool>& p_command_completions, Device& p_device);
 
-	inline void dispose_all_commands(Device& p_device, com::Pool<bool>& p_commands_completion)
+	inline void dispose_all_commands(Device& p_device)
 	{
 		for (size_t i = 0; i < this->commands.Size; i++)
 		{
-			this->commands[i].dispose(p_device, p_commands_completion);
+			this->commands[i].dispose(p_device);
 		}
+	};
+};
+
+struct TextureLayoutTransitionBarrierConfiguration {
+	vk::AccessFlags src_access_mask;
+	vk::AccessFlags dst_access_mask;
+
+	vk::PipelineStageFlags src_stage;
+	vk::PipelineStageFlags dst_stage;
+};
+
+template<vk::ImageLayout SourceLayout, vk::ImageLayout TargetLayout>
+struct TransitionBarrierConfigurationBuilder
+{
+	inline static TextureLayoutTransitionBarrierConfiguration build();
+};
+
+template<>
+struct TransitionBarrierConfigurationBuilder<vk::ImageLayout::eUndefined, vk::ImageLayout::eTransferDstOptimal> {
+	
+	inline static TextureLayoutTransitionBarrierConfiguration build()
+	{
+		TextureLayoutTransitionBarrierConfiguration l_transition;
+		l_transition.src_access_mask = vk::AccessFlags(0);
+		l_transition.dst_access_mask = vk::AccessFlags(vk::AccessFlagBits::eTransferWrite);
+
+		l_transition.src_stage = vk::PipelineStageFlags(vk::PipelineStageFlagBits::eTopOfPipe);
+		l_transition.dst_stage = vk::PipelineStageFlags(vk::PipelineStageFlagBits::eTransfer);
+		return l_transition;
+	};
+};
+
+
+template<>
+struct TransitionBarrierConfigurationBuilder<vk::ImageLayout::eTransferDstOptimal, vk::ImageLayout::eShaderReadOnlyOptimal> {
+
+	inline static TextureLayoutTransitionBarrierConfiguration build()
+	{
+		TextureLayoutTransitionBarrierConfiguration l_transition;
+		l_transition.src_access_mask = vk::AccessFlags(vk::AccessFlagBits::eTransferWrite);
+		l_transition.dst_access_mask = vk::AccessFlags(vk::AccessFlagBits::eShaderRead);
+
+		l_transition.src_stage = vk::PipelineStageFlags(vk::PipelineStageFlagBits::eTransfer);
+		l_transition.dst_stage = vk::PipelineStageFlags(vk::PipelineStageFlagBits::eFragmentShader);
+		return l_transition;
 	};
 };
 
@@ -847,6 +912,7 @@ struct TextureLayoutTransitionCommand
 
 	vk::ImageLayout source_layout;
 	vk::ImageLayout target_layout;
+	TextureLayoutTransitionBarrierConfiguration transition_barrier;
 	vk::Image image;
 	vk::ImageSubresourceRange image_subresource;
 
@@ -865,7 +931,10 @@ struct TextureLayoutTransitionCommand
 			l_image_memory_barrier.setImage(this->image);
 			l_image_memory_barrier.setSubresourceRange(this->image_subresource);
 
-			p_commandbuffer.command_buffer.pipelineBarrier(vk::PipelineStageFlags(), vk::PipelineStageFlags(),
+			l_image_memory_barrier.setSrcAccessMask(this->transition_barrier.src_access_mask);
+			l_image_memory_barrier.setDstAccessMask(this->transition_barrier.dst_access_mask);
+
+			p_commandbuffer.command_buffer.pipelineBarrier(this->transition_barrier.src_stage, this->transition_barrier.dst_stage,
 				vk::DependencyFlags(), 0, nullptr, 0, nullptr, 1, &l_image_memory_barrier);
 
 			p_stagin_completions.resolve(this->completion_token) = true;
@@ -891,6 +960,7 @@ struct TextureLayoutTransitionCommands
 	inline TextureLayoutTransitionCommand allocate_texturelayouttransitioncommand(vk::Image p_image,
 		vk::ImageSubresourceRange p_image_subresource,
 		vk::ImageLayout p_source_layout, vk::ImageLayout p_target_layout,
+		TextureLayoutTransitionBarrierConfiguration& p_transition_barrier,
 		com::Pool<bool>& p_commands_completion,
 		com::PoolToken& p_completion_token)
 	{
@@ -899,6 +969,7 @@ struct TextureLayoutTransitionCommands
 		l_command.image_subresource = p_image_subresource;
 		l_command.source_layout = p_source_layout;
 		l_command.target_layout = p_target_layout;
+		l_command.transition_barrier = p_transition_barrier;
 		p_commands_completion.resolve(p_completion_token) = false;
 		l_command.completion_token = p_completion_token;
 		return l_command;
@@ -1000,6 +1071,8 @@ struct DeferredCommandBufferExecution
 
 	inline void process_all_buffers(Device& p_device)
 	{
+		this->dispose_lastframe_commands(p_device);
+
 		if (this->command_execution_order.Size > 0)
 		{
 			this->command_buffer.begin();
@@ -1017,6 +1090,8 @@ struct DeferredCommandBufferExecution
 				break;
 				case TextureLayoutTransitionCommand::Type:
 				{
+					TextureLayoutTransitionCommand& l_command = this->texturelayouttransitions.commands[l_current_command_order.CommandIndex];
+					l_command.process_buffered(this->command_buffer, this->commands_completion);
 				}
 				break;
 				case StagedImageWriteCommand::Type:
@@ -1030,14 +1105,20 @@ struct DeferredCommandBufferExecution
 				}
 			}
 
-			this->command_buffer.flush(p_device);
-			// this->command_buffer.end();
+			this->command_buffer.submit();
 
-			this->stagingbuffers.dispose_all_commands(p_device, this->commands_completion);
+			this->stagingbuffers.push_to_lastframe();
+			// this->stagingbuffers.dispose_all_commands(p_device, this->commands_completion);
 
 			this->command_execution_order.clear();
 		}
 
+	};
+
+private:
+	inline void dispose_lastframe_commands(Device& p_device)
+	{
+		this->stagingbuffers.dispose_lastframe_commands(p_device);
 	};
 };
 
@@ -1250,12 +1331,12 @@ StagedImageWriteCommand StagedImageWriteCommands::allocate_stagedimagewritecomma
 };
 
 
-inline void StagedBufferWriteCommand::dispose(Device& p_device, com::Pool<bool>& p_stagin_completions)
+inline void StagedBufferWriteCommand::dispose(Device& p_device)
 {
 	GPUMemoryKernel::dispose<MemoryType2::MemBuffer>(this->staging_memory, p_device);
 }
 
-inline void StagedImageWriteCommand::dispose(Device& p_device, com::Pool<bool>& p_stagin_completions)
+inline void StagedImageWriteCommand::dispose(Device& p_device)
 {
 	GPUMemoryKernel::dispose<MemoryType2::MemBuffer>(this->staging_memory, p_device);
 };
@@ -1738,9 +1819,9 @@ struct RenderAPI
 		this->device.getPhysicalDevice(this->instance, this->surface);
 		this->device.createPhysicalDevice(this->validation_layer);
 		this->createCommandBufferPool();
-		this->create_stagin();
-
 		this->createSwapChain(p_window);
+
+		this->create_stagin();
 		this->create_draw_commandbuffers();
 		this->create_synchronization();
 		this->create_descriptor_pool();
@@ -1753,9 +1834,9 @@ struct RenderAPI
 		this->destroy_descriptor_pool();
 		this->destroy_synchronization();
 		this->destroy_draw_commandbuffers();
-		this->destroySwapChain();
 
 		this->destroy_stagin();
+		this->destroySwapChain();
 		this->destroyCommandBufferPool();
 		this->destroySurface();
 		this->device.destroy();
@@ -1964,7 +2045,7 @@ private:
 	{
 		for (int i = 0; i < this->draw_commandbuffers.Size; i++)
 		{
-			this->draw_commandbuffers[i].flush(this->device);
+			this->draw_commandbuffers[i].flush_sync();
 		}
 		this->draw_commandbuffers.free();
 	}
@@ -2447,6 +2528,31 @@ struct Texture
 	vk::ImageView image_view;
 	Vector<2, int> image_size;
 
+	//TODO generalize deferred buffer token
+	struct LayoutTransitionToken
+	{
+		size_t QueueIndex = -1;
+		com::PoolToken CompletionToken;
+		inline LayoutTransitionToken(){}
+		inline LayoutTransitionToken(const size_t p_queue_index, const com::PoolToken p_completiontoken)
+		{
+			this->QueueIndex = p_queue_index;
+			this->CompletionToken = p_completiontoken;
+		};
+
+		inline void invalidate(DeferredCommandBufferExecution& p_execution)
+		{
+			p_execution.invalidate_command(this->QueueIndex);
+		};
+
+		inline bool isCompleted(com::Pool<bool>& p_completion_tokens)
+		{
+			return p_completion_tokens.resolve(this->CompletionToken);
+		};
+	};
+
+	com::Vector<LayoutTransitionToken> layout_transitions;
+
 	inline void allocate(const size_t p_key,
 		const size_t p_chanel_size, const size_t p_channel_nb,
 		const int p_width, const int p_height, const char* p_pixels, DeferredCommandBufferExecution& p_commandbuffer_execution, Device& p_device)
@@ -2483,7 +2589,9 @@ struct Texture
 
 		this->image_buffer.allocate(l_image_create, p_commandbuffer_execution, p_device);
 
+		this->layout_transitions.push_back(this->layout_transition<vk::ImageLayout::eUndefined, vk::ImageLayout::eTransferDstOptimal>(p_commandbuffer_execution, p_device));
 		this->push_pixels(p_pixels, p_commandbuffer_execution, p_device);
+		this->layout_transitions.push_back(this->layout_transition<vk::ImageLayout::eTransferDstOptimal, vk::ImageLayout::eShaderReadOnlyOptimal>(p_commandbuffer_execution, p_device));
 	};
 
 	inline void push_pixels(const char* p_image_buffer, DeferredCommandBufferExecution& p_commandbuffer_execution, Device& p_device)
@@ -2495,6 +2603,32 @@ struct Texture
 	inline void free(DeferredCommandBufferExecution& p_commandbuffer_execution, Device& p_device)
 	{
 		this->image_buffer.dispose(p_commandbuffer_execution, p_device);
+
+		for (size_t i = 0; i < this->layout_transitions.Size; i++)
+		{
+			if (this->layout_transitions[i].isCompleted(p_commandbuffer_execution.commands_completion))
+			{
+				this->layout_transitions[i].invalidate(p_commandbuffer_execution);
+			}
+		}
+		this->layout_transitions.free();
+	};
+
+private:
+	template<vk::ImageLayout SourceLayout, vk::ImageLayout TargetLayout>
+	inline LayoutTransitionToken layout_transition(DeferredCommandBufferExecution& p_commandbuffer_execution, Device& p_device)
+	{
+		
+		LayoutTransitionToken l_token;
+		l_token.CompletionToken = p_commandbuffer_execution.commands_completion.alloc_element(false);
+		
+		l_token.QueueIndex =
+			p_commandbuffer_execution.push_command(
+				p_commandbuffer_execution.texturelayouttransitions.allocate_texturelayouttransitioncommand(this->image_buffer.getImage(), this->image_subresource_range, SourceLayout, TargetLayout,
+					TransitionBarrierConfigurationBuilder<SourceLayout, TargetLayout>::build(),
+					p_commandbuffer_execution.commands_completion, l_token.CompletionToken)
+			);
+		return l_token;
 	};
 };
 
@@ -3100,7 +3234,6 @@ struct Render
 		l_submit.setPSignalSemaphores(&this->renderApi.synchronization.render_complete_semaphore);
 		l_submit.setCommandBufferCount(1);
 		l_submit.setPCommandBuffers(&l_command_buffer.command_buffer);
-
 
 		this->renderApi.device.graphics_queue.submit(1, &l_submit, this->renderApi.synchronization.draw_command_fences[l_render_image_index]);
 		this->renderApi.swap_chain.presentImage(this->renderApi.device.present_queue, l_render_image_index, this->renderApi.synchronization.render_complete_semaphore);
