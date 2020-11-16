@@ -791,6 +791,7 @@ struct StagedBufferCommands
 
 	inline void dispose_all_commands(Device& p_device)
 	{
+		this->dispose_lastframe_commands(p_device);
 		for (size_t i = 0; i < this->commands.Size; i++)
 		{
 			this->commands[i].dispose(p_device);
@@ -842,18 +843,35 @@ struct StagedImageWriteCommand
 struct StagedImageWriteCommands
 {
 	com::Vector<StagedImageWriteCommand> commands;
+	com::Vector<StagedImageWriteCommand> lastframe_commands;
 
 	void free()
 	{
 		this->commands.free();
+		this->lastframe_commands.free();
 	}
 
 	StagedImageWriteCommand allocate_stagedimagewritecommand(vk::Image& p_image, vk::ImageSubresource& p_image_subresource,
 		vk::ImageSubresourceRange& p_image_subresource_range, Vector<2, int>& p_image_size,
 		const char* p_source, size_t p_pixel_size, com::PoolToken& p_completion_token, com::Pool<bool>& p_command_completions, Device& p_device);
 
+	inline void push_to_lastframe()
+	{
+		this->lastframe_commands.insert_at(com::MemorySlice<StagedImageWriteCommand>(*this->commands.Memory, this->commands.Size), 0);
+		this->commands.clear();
+	};
+
+	inline void dispose_lastframe_commands(Device& p_device)
+	{
+		for (size_t i = 0; i < this->lastframe_commands.Size; i++)
+		{
+			this->lastframe_commands[i].dispose(p_device);
+		}
+	}
+
 	inline void dispose_all_commands(Device& p_device)
 	{
+		this->dispose_lastframe_commands(p_device);
 		for (size_t i = 0; i < this->commands.Size; i++)
 		{
 			this->commands[i].dispose(p_device);
@@ -906,6 +924,7 @@ struct TransitionBarrierConfigurationBuilder<vk::ImageLayout::eTransferDstOptima
 	};
 };
 
+//TODO -> destroy
 struct TextureLayoutTransitionCommand
 {
 	inline static const RenderEnums::DeferredCommandBufferExecutionType Type = RenderEnums::DeferredCommandBufferExecutionType::IMAGE_TRANSITION;
@@ -943,7 +962,6 @@ struct TextureLayoutTransitionCommand
 
 	inline void invalidate()
 	{
-		// this->original_buffer_mappedmemory = nullptr;
 		this->isAborted = true;
 	};
 };
@@ -974,6 +992,7 @@ struct TextureLayoutTransitionCommands
 		l_command.completion_token = p_completion_token;
 		return l_command;
 	};
+
 };
 
 struct DeferredCommandBufferExecution
@@ -996,24 +1015,21 @@ struct DeferredCommandBufferExecution
 	com::Vector<DeferredCommandBufferExecutionToken> command_execution_order;
 	com::Pool<bool> commands_completion;
 
-	CommandBuffer command_buffer;
 	StagedBufferCommands stagingbuffers;
 	StagedImageWriteCommands stagingimages;
 	TextureLayoutTransitionCommands texturelayouttransitions;
 
-	inline void allocate(const Device& p_device, const vk::CommandPool& p_commandpool, const vk::Queue& p_queue) {
+	inline void allocate(const Device& p_device) {
 
-		this->command_buffer = CommandBuffer(p_device, p_commandpool, p_queue);
 		this->commands_completion.allocate(0);
 	};
 
-	inline void dispose(const Device& p_device, vk::CommandPool& p_commandpool)
+	inline void dispose(Device& p_device)
 	{
 		this->command_execution_order.free();
 		this->stagingbuffers.free();
 		this->stagingimages.free();
 		this->texturelayouttransitions.free();
-		this->command_buffer.dispose(p_device, p_commandpool);
 		this->commands_completion.free();
 	};
 
@@ -1069,13 +1085,13 @@ struct DeferredCommandBufferExecution
 		}
 	};
 
-	inline void process_all_buffers(Device& p_device)
+	inline void process_all_buffers(CommandBuffer& p_commandbuffer, Device& p_device)
 	{
 		this->dispose_lastframe_commands(p_device);
 
 		if (this->command_execution_order.Size > 0)
 		{
-			this->command_buffer.begin();
+			// this->command_buffer.begin();
 
 			for (size_t i = 0; i < this->command_execution_order.Size; i++)
 			{
@@ -1085,19 +1101,19 @@ struct DeferredCommandBufferExecution
 				case StagedBufferWriteCommand::Type:
 				{
 					StagedBufferWriteCommand& l_command = this->stagingbuffers.commands[l_current_command_order.CommandIndex];
-					l_command.process_buffered(this->command_buffer, this->commands_completion, p_device);
+					l_command.process_buffered(p_commandbuffer, this->commands_completion, p_device);
 				}
 				break;
 				case TextureLayoutTransitionCommand::Type:
 				{
 					TextureLayoutTransitionCommand& l_command = this->texturelayouttransitions.commands[l_current_command_order.CommandIndex];
-					l_command.process_buffered(this->command_buffer, this->commands_completion);
+					l_command.process_buffered(p_commandbuffer, this->commands_completion);
 				}
 				break;
 				case StagedImageWriteCommand::Type:
 				{
 					StagedImageWriteCommand& l_command = this->stagingimages.commands[l_current_command_order.CommandIndex];
-					l_command.process_buffered(this->command_buffer, this->commands_completion, p_device);
+					l_command.process_buffered(p_commandbuffer, this->commands_completion, p_device);
 				}
 				break;
 				default:
@@ -1105,9 +1121,11 @@ struct DeferredCommandBufferExecution
 				}
 			}
 
-			this->command_buffer.submit();
+			// this->command_buffer.submit();
 
 			this->stagingbuffers.push_to_lastframe();
+			this->stagingimages.push_to_lastframe();
+
 			// this->stagingbuffers.dispose_all_commands(p_device, this->commands_completion);
 
 			this->command_execution_order.clear();
@@ -1119,6 +1137,7 @@ private:
 	inline void dispose_lastframe_commands(Device& p_device)
 	{
 		this->stagingbuffers.dispose_lastframe_commands(p_device);
+		this->stagingimages.dispose_lastframe_commands(p_device);
 	};
 };
 
@@ -1819,11 +1838,12 @@ struct RenderAPI
 		this->device.getPhysicalDevice(this->instance, this->surface);
 		this->device.createPhysicalDevice(this->validation_layer);
 		this->createCommandBufferPool();
+		
 		this->createSwapChain(p_window);
 
-		this->create_stagin();
 		this->create_draw_commandbuffers();
 		this->create_synchronization();
+		this->create_stagin();
 		this->create_descriptor_pool();
 		this->create_global_descriptorset_layouts();
 	};
@@ -1835,8 +1855,8 @@ struct RenderAPI
 		this->destroy_synchronization();
 		this->destroy_draw_commandbuffers();
 
-		this->destroy_stagin();
 		this->destroySwapChain();
+		this->destroy_stagin();
 		this->destroyCommandBufferPool();
 		this->destroySurface();
 		this->device.destroy();
@@ -2114,12 +2134,12 @@ private:
 
 	inline void create_stagin()
 	{
-		this->stagedbuffer_commands.allocate(this->device, this->command_pool, this->device.graphics_queue);
+		this->stagedbuffer_commands.allocate(this->device);
 	}
 
 	inline void destroy_stagin()
 	{
-		this->stagedbuffer_commands.dispose(this->device, this->command_pool);
+		this->stagedbuffer_commands.dispose(this->device);
 	}
 };
 
@@ -3146,11 +3166,14 @@ struct Render
 		OPTICK_EVENT();
 
 		uint32_t l_render_image_index = this->renderApi.swap_chain.getNextImage(this->renderApi.synchronization.present_complete_semaphore);
-		this->renderApi.device.device.waitForFences(1, &this->renderApi.synchronization.draw_command_fences[l_render_image_index], true, UINT64_MAX);
+
+		// this->renderApi.device.device.waitForFences(1, &this->renderApi.synchronization.draw_command_fences[l_render_image_index], true, UINT64_MAX);
 		this->renderApi.device.device.resetFences(1, &this->renderApi.synchronization.draw_command_fences[l_render_image_index]);
 
+		CommandBuffer& l_command_buffer = this->renderApi.draw_commandbuffers[l_render_image_index];
+		l_command_buffer.begin();
 
-		this->renderApi.stagedbuffer_commands.process_all_buffers(this->renderApi.device);
+		this->renderApi.stagedbuffer_commands.process_all_buffers(l_command_buffer, this->renderApi.device);
 
 		vk::ClearValue l_clear[2];
 		l_clear[0].color.setFloat32({ 0.0f, 0.0f, 0.2f, 1.0f });
@@ -3180,8 +3203,7 @@ struct Render
 		l_windowarea.setOffset(vk::Offset2D(0, 0));
 		l_windowarea.setExtent(vk::Extent2D(this->window.Width, this->window.Height));
 
-		CommandBuffer& l_command_buffer = this->renderApi.draw_commandbuffers[l_render_image_index];
-		l_command_buffer.begin();
+		
 		l_command_buffer.command_buffer.beginRenderPass(l_renderpass_begin, vk::SubpassContents::eInline);
 		l_command_buffer.command_buffer.setViewport(0, 1, &l_viewport);
 		l_command_buffer.command_buffer.setScissor(0, 1, &l_windowarea);
@@ -3237,6 +3259,8 @@ struct Render
 
 		this->renderApi.device.graphics_queue.submit(1, &l_submit, this->renderApi.synchronization.draw_command_fences[l_render_image_index]);
 		this->renderApi.swap_chain.presentImage(this->renderApi.device.present_queue, l_render_image_index, this->renderApi.synchronization.render_complete_semaphore);
+
+		this->renderApi.device.device.waitForFences(1, &this->renderApi.synchronization.draw_command_fences[l_render_image_index], true, UINT64_MAX);
 	}
 
 private:
