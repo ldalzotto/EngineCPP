@@ -713,19 +713,22 @@ struct GPUMemory
 };
 
 
-
-enum DeferredCommandBufferExecutionType
+struct RenderEnums
 {
-	UNDEFINED = 0,
-	STAGING_BUFFER = 1,
-	STAGING_IMAGE = 2,
-	IMAGE_TRANSITION = 3
+	enum DeferredCommandBufferExecutionType
+	{
+		UNDEFINED = 0,
+		STAGING_BUFFER = 1,
+		STAGING_IMAGE = 2,
+		IMAGE_TRANSITION = 3
+	};
 };
+
 
 
 struct StagedBufferWriteCommand
 {
-	inline static const DeferredCommandBufferExecutionType Type = DeferredCommandBufferExecutionType::STAGING_BUFFER;
+	inline static const RenderEnums::DeferredCommandBufferExecutionType Type = RenderEnums::DeferredCommandBufferExecutionType::STAGING_BUFFER;
 
 	vk::Buffer buffer;
 	size_t buffer_size;
@@ -777,7 +780,7 @@ struct StagedBufferCommands
 
 struct StagedImageWriteCommand
 {
-	inline static const DeferredCommandBufferExecutionType Type = DeferredCommandBufferExecutionType::STAGING_IMAGE;
+	inline static const RenderEnums::DeferredCommandBufferExecutionType Type = RenderEnums::DeferredCommandBufferExecutionType::STAGING_IMAGE;
 
 	Image image;
 
@@ -825,9 +828,9 @@ struct StagedImageWriteCommands
 		this->commands.free();
 	}
 
-	template<class PixelChannelType, unsigned ChannelNb>
 	StagedImageWriteCommand allocate_stagedimagewritecommand(vk::Image& p_image, vk::ImageSubresource& p_image_subresource,
-		vk::ImageSubresourceRange& p_image_subresource_range, Vector<2, int>& p_image_size, const PixelChannelType* p_source, com::PoolToken& p_completion_token, com::Pool<bool>& p_command_completions, Device& p_device);
+		vk::ImageSubresourceRange& p_image_subresource_range, Vector<2, int>& p_image_size,
+		const char* p_source, size_t p_pixel_size, com::PoolToken& p_completion_token, com::Pool<bool>& p_command_completions, Device& p_device);
 
 	inline void dispose_all_commands(Device& p_device, com::Pool<bool>& p_commands_completion)
 	{
@@ -840,7 +843,7 @@ struct StagedImageWriteCommands
 
 struct TextureLayoutTransitionCommand
 {
-	inline static const DeferredCommandBufferExecutionType Type = DeferredCommandBufferExecutionType::IMAGE_TRANSITION;
+	inline static const RenderEnums::DeferredCommandBufferExecutionType Type = RenderEnums::DeferredCommandBufferExecutionType::IMAGE_TRANSITION;
 
 	vk::ImageLayout source_layout;
 	vk::ImageLayout target_layout;
@@ -906,10 +909,10 @@ struct DeferredCommandBufferExecution
 {
 	struct DeferredCommandBufferExecutionToken
 	{
-		DeferredCommandBufferExecutionType Type = DeferredCommandBufferExecutionType::UNDEFINED;
+		RenderEnums::DeferredCommandBufferExecutionType Type = RenderEnums::DeferredCommandBufferExecutionType::UNDEFINED;
 		size_t CommandIndex = -1;
 
-		inline DeferredCommandBufferExecutionToken(const DeferredCommandBufferExecutionType type,
+		inline DeferredCommandBufferExecutionToken(const RenderEnums::DeferredCommandBufferExecutionType type,
 			const size_t p_index) {
 			this->Type = type;
 			this->CommandIndex = p_index;
@@ -1129,14 +1132,13 @@ public:
 		p_gpumemory.mapped_memory.StaginIndexQueue = p_staging_commands.push_command(l_command);
 	}
 
-	template<class PixelChannelType, unsigned ChannelNb>
 	inline static void push_commandbuffer(GPUMemory<char, MemoryType2::MemImage, WriteMethod2::GPUWrite>& p_gpumemory,
-		const PixelChannelType* p_imagebuffer, vk::ImageSubresource& p_image_subresource, vk::ImageSubresourceRange& p_image_subresource_range,
-		Vector<2, int>& p_image_size, DeferredCommandBufferExecution& p_staging_commands, Device& p_device)
+		const char* p_imagebuffer, vk::ImageSubresource& p_image_subresource, vk::ImageSubresourceRange& p_image_subresource_range,
+		Vector<2, int>& p_image_size, size_t p_pixel_size, DeferredCommandBufferExecution& p_staging_commands, Device& p_device)
 	{
 		StagedImageWriteCommand l_command =
-			p_staging_commands.stagingimages.allocate_stagedimagewritecommand<PixelChannelType, ChannelNb>(p_gpumemory.getImage(), p_image_subresource, p_image_subresource_range, 
-				p_image_size, p_imagebuffer, p_gpumemory.mapped_memory.staging_completion_token, p_staging_commands.commands_completion, p_device);
+			p_staging_commands.stagingimages.allocate_stagedimagewritecommand(p_gpumemory.getImage(), p_image_subresource, p_image_subresource_range,
+				p_image_size, p_imagebuffer, p_pixel_size, p_gpumemory.mapped_memory.staging_completion_token, p_staging_commands.commands_completion, p_device);
 		p_gpumemory.mapped_memory.StaginIndexQueue = p_staging_commands.push_command(l_command);
 	}
 
@@ -1229,9 +1231,9 @@ inline StagedBufferWriteCommand StagedBufferCommands::allocate_stagedbufferwrite
 	return l_command;
 }
 
-template<class PixelChannelType, unsigned ChannelNb>
 StagedImageWriteCommand StagedImageWriteCommands::allocate_stagedimagewritecommand(vk::Image& p_image, vk::ImageSubresource& p_image_subresource,
-	vk::ImageSubresourceRange& p_image_subresource_range, Vector<2, int>& p_image_size, const PixelChannelType* p_source, com::PoolToken& p_completion_token, com::Pool<bool>& p_command_completions, Device& p_device)
+	vk::ImageSubresourceRange& p_image_subresource_range, Vector<2, int>& p_image_size,
+	const char* p_source, size_t p_pixel_size, com::PoolToken& p_completion_token, com::Pool<bool>& p_command_completions, Device& p_device)
 {
 	StagedImageWriteCommand l_command;
 	l_command.image.ImageSize = p_image_size;
@@ -1239,8 +1241,8 @@ StagedImageWriteCommand StagedImageWriteCommands::allocate_stagedimagewritecomma
 	l_command.image.ImageSubresource = p_image_subresource;
 	l_command.image.ImageSubresourceRange = p_image_subresource_range;
 
-	GPUMemoryKernel::allocate_internal(&l_command.staging_memory, (p_image_size.x * p_image_size.y) * ChannelNb, sizeof(PixelChannelType), vk::BufferUsageFlags(), p_device);
-	GPUMemoryKernel::push_internal(&l_command.staging_memory, (const char*)p_source, sizeof(PixelChannelType), p_device);
+	GPUMemoryKernel::allocate_internal(&l_command.staging_memory, (p_image_size.x * p_image_size.y), p_pixel_size, vk::BufferUsageFlags(), p_device);
+	GPUMemoryKernel::push_internal(&l_command.staging_memory, (const char*)p_source, p_pixel_size, p_device);
 
 	p_command_completions.resolve(p_completion_token) = false;
 	l_command.completion_token = p_completion_token;
@@ -1344,10 +1346,10 @@ struct GPUOnlyImageMemory : public GPUMemory<char, MemoryType2::MemImage, WriteM
 		GPUMemoryKernel::dispose(*this, p_staging_commands, p_device);
 	};
 
-	template<class PixelChannelType, unsigned ChannelNb>
-	inline void push_commandbuffer(const com::Vector<char>& p_imagebuffer, DeferredCommandBufferExecution& p_staging_commands, Device& p_device)
+	inline void push_commandbuffer(const char* p_imagebuffer, vk::ImageSubresource& p_image_subresource, vk::ImageSubresourceRange& p_image_subresource_range,
+		Vector<2, int>& p_image_size, size_t pixel_size, DeferredCommandBufferExecution& p_staging_commands, Device& p_device)
 	{
-		GPUMemoryKernel::push_commandbuffer(*this, p_imagebuffer, p_staging_commands, p_device);
+		GPUMemoryKernel::push_commandbuffer(*this, p_imagebuffer, p_image_subresource, p_image_subresource_range, p_image_size, pixel_size, p_staging_commands, p_device);
 	};
 
 };
@@ -2433,6 +2435,11 @@ struct Mesh
 
 struct Texture
 {
+	size_t key;
+
+	size_t channel_size;
+	size_t channel_nb;
+
 	GPUOnlyImageMemory image_buffer;
 	vk::ImageSubresourceRange image_subresource_range;
 
@@ -2440,9 +2447,12 @@ struct Texture
 	vk::ImageView image_view;
 	Vector<2, int> image_size;
 
-	template<class PixelChanelType, unsigned ChannelNb>
-	inline void allocate(const int p_width, const int p_height, DeferredCommandBufferExecution& p_commandbuffer_execution, Device& p_device)
+	inline void allocate(const size_t p_key,
+		const size_t p_chanel_size, const size_t p_channel_nb,
+		const int p_width, const int p_height, const char* p_pixels, DeferredCommandBufferExecution& p_commandbuffer_execution, Device& p_device)
 	{
+		this->channel_size = p_chanel_size;
+		this->channel_nb = p_channel_nb;
 		this->image_size = Vector<2, int>(p_width, p_height);
 		this->image_subresource_range.setAspectMask(vk::ImageAspectFlags(vk::ImageAspectFlagBits::eColor));
 		this->image_subresource_range.setBaseMipLevel(0);
@@ -2450,6 +2460,9 @@ struct Texture
 		this->image_subresource_range.setBaseArrayLayer(0);
 		this->image_subresource_range.setLayerCount(1);
 
+		this->image_subresource.setAspectMask(this->image_subresource_range.aspectMask);
+		this->image_subresource.setArrayLayer(this->image_subresource_range.baseArrayLayer);
+		this->image_subresource.setMipLevel(this->image_subresource_range.baseMipLevel);
 
 		vk::ImageCreateInfo l_image_create;
 		l_image_create.setImageType(vk::ImageType::e2D);
@@ -2459,6 +2472,7 @@ struct Texture
 
 		//TODO -> this must be calculated from PixelChanelType and ChannelNb
 		l_image_create.setFormat(vk::Format::eR8G8B8A8Srgb);
+
 		l_image_create.setTiling(vk::ImageTiling::eOptimal);
 		l_image_create.setInitialLayout(vk::ImageLayout::eUndefined);
 
@@ -2468,6 +2482,14 @@ struct Texture
 		l_image_create.setSamples(vk::SampleCountFlagBits::e1);
 
 		this->image_buffer.allocate(l_image_create, p_commandbuffer_execution, p_device);
+
+		this->push_pixels(p_pixels, p_commandbuffer_execution, p_device);
+	};
+
+	inline void push_pixels(const char* p_image_buffer, DeferredCommandBufferExecution& p_commandbuffer_execution, Device& p_device)
+	{
+		this->image_buffer.push_commandbuffer(p_image_buffer, this->image_subresource, this->image_subresource_range,
+			this->image_size, this->channel_nb * this->channel_size, p_commandbuffer_execution, p_device);
 	};
 
 	inline void free(DeferredCommandBufferExecution& p_commandbuffer_execution, Device& p_device)
@@ -2732,15 +2754,113 @@ struct RenderHeap2
 			};
 		};
 
+		struct TextureResourceAllocator
+		{
+			RenderHeap2* render_heap;
+			AssetServerHandle asset_server;
+
+			inline TextureResourceAllocator() {};
+
+			inline TextureResourceAllocator(const AssetServerHandle& p_asset_server, RenderHeap2& p_render_heap)
+			{
+				this->asset_server = p_asset_server;
+				this->render_heap = &p_render_heap;
+			};
+
+			struct TextureAsset
+			{
+				struct TextureAssetIndex
+				{
+					size_t pixels_char_count;
+				} index;
+
+				Vector<2, int> size;
+				int channel_number;
+				com::Vector<char> pixels;
+
+				inline void free()
+				{
+					this->pixels.free();
+				}
+
+				inline void clear()
+				{
+					this->pixels.clear();
+				}
+
+				inline static TextureAsset cast_from(const char* p_data)
+				{
+					size_t l_current_pointer = 0;
+					const TextureAssetIndex* p_index = (const TextureAssetIndex*)p_data;
+
+					TextureAsset l_resource;
+
+					l_resource.index = *p_index;
+
+					l_current_pointer += sizeof(TextureAssetIndex);
+					l_resource.size = *(Vector<2, int>*)(p_data + l_current_pointer);
+					l_current_pointer += sizeof(l_resource.size);
+					l_resource.channel_number = *(int*)(p_data + l_current_pointer);
+					l_current_pointer += sizeof(l_resource.channel_number);
+					l_resource.pixels.Memory = (char*)(p_data + l_current_pointer);
+					l_resource.pixels.Size = p_index->pixels_char_count;
+					l_resource.pixels.Capacity = p_index->pixels_char_count;
+
+					return l_resource;
+				};
+
+				inline void sertialize_to(com::Vector<char>& out_target)
+				{
+					size_t l_current_pointer = 0;
+					out_target.insert_at(com::MemorySlice<char>(*(char*)&this->index, sizeof(this->index)), l_current_pointer);
+					l_current_pointer += sizeof(this->index);
+					out_target.insert_at(com::MemorySlice<char>(*(char*)&this->size, sizeof(this->size)), l_current_pointer);
+					l_current_pointer += sizeof(this->size);
+					out_target.insert_at(com::MemorySlice<char>(*(char*)&this->channel_number, sizeof(this->channel_number)), l_current_pointer);
+					l_current_pointer += sizeof(this->channel_number);
+					out_target.insert_at(com::MemorySlice<char>(*(char*)this->pixels.Memory, this->pixels.size_in_bytes()), l_current_pointer);
+					l_current_pointer += this->pixels.size_in_bytes();
+
+
+					TextureAssetIndex* l_index = (TextureAssetIndex*)out_target.Memory;
+					l_index->pixels_char_count = this->pixels.Size;
+				};
+			};
+
+			inline com::PoolToken allocate(const size_t& p_key)
+			{
+				com::PoolToken l_texture;
+				com::Vector<char> l_texture_asset_binary = this->asset_server.get_resource(p_key);
+				{
+					TextureAsset l_texture_asset = TextureAsset::cast_from(l_texture_asset_binary.Memory);
+					Texture l_texture_resource;
+					l_texture_resource.allocate(p_key, sizeof(char), l_texture_asset.channel_number, l_texture_asset.size.x, l_texture_asset.size.y, l_texture_asset.pixels.Memory,
+						this->render_heap->render_api->stagedbuffer_commands, this->render_heap->render_api->device);
+					l_texture = this->render_heap->textures.alloc_element(l_texture_resource);
+				}
+				l_texture_asset_binary.free();
+				return l_texture;
+			};
+
+			inline void free(const com::PoolToken& p_texture)
+			{
+				this->render_heap->textures[p_texture].free(this->render_heap->render_api->stagedbuffer_commands, this->render_heap->render_api->device);
+				this->render_heap->textures.release_element(p_texture);
+			};
+
+		};
+
 		ResourceMap<size_t, com::PoolToken, ShaderModuleResourceAllocator> shader_module_resources;
 		ResourceMap<ShaderResourceKey, com::PoolToken, ShaderResourceAllocator> shader_resources;
 		ResourceMap<size_t, com::PoolToken, MeshResourceAllocator> mesh_resources;
+		ResourceMap<size_t, com::PoolToken, TextureResourceAllocator> texture_resources;
 
 		inline void allocate(RenderHeap2& p_render_heap, AssetServerHandle p_asset_server)
 		{
 			this->shader_module_resources.allocate(1, ShaderModuleResourceAllocator(p_asset_server, p_render_heap));
 			this->shader_resources.allocate(1, ShaderResourceAllocator(p_asset_server, p_render_heap));
 			this->mesh_resources.allocate(1, MeshResourceAllocator(p_asset_server, p_render_heap));
+			this->texture_resources.allocate(1, TextureResourceAllocator(p_asset_server, p_render_heap));
 		};
 
 		inline void free()
@@ -2748,6 +2868,7 @@ struct RenderHeap2
 			this->shader_module_resources.free();
 			this->shader_resources.free();
 			this->mesh_resources.free();
+			this->texture_resources.free();
 		};
 
 	} resource;
@@ -2821,15 +2942,12 @@ public:
 
 	inline com::PoolToken allocate_texture(const std::string& p_path)
 	{
-		Texture l_texture_asset;
-		l_texture_asset.allocate<unsigned long int, 4>(800, 600, this->render_api->stagedbuffer_commands, this->render_api->device);
-		return this->textures.alloc_element(l_texture_asset);
+		return this->resource.texture_resources.allocate_resource(Hash<std::string>::hash(p_path));
 	};
 
 	inline void free_texture(const com::PoolToken& p_texture)
 	{
-		this->textures.resolve(p_texture).free(this->render_api->stagedbuffer_commands, this->render_api->device);
-		this->textures.release_element(p_texture);
+		this->resource.texture_resources.free_resource(this->textures[p_texture].key);
 	};
 
 	inline com::PoolToken allocate_rendereableObject(const com::PoolToken& p_material, const com::PoolToken& p_mesh)

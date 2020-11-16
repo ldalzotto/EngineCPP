@@ -42,7 +42,7 @@ struct RenderMiddleware
 		
 		//TODO -> remove
 		TextureHandle l_tex_test;
-		l_tex_test.allocate(this->render, "NULL");
+		l_tex_test.allocate(this->render, "textures/texture.jpg");
 
 		this->allocated_renderableobjects.push_back(l_entry);
 	};

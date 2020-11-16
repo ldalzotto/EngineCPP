@@ -27,7 +27,7 @@ target_link_libraries(AssetDatabaseUpdate Math)
 target_link_libraries(AssetDatabaseUpdate Render)
 target_link_libraries(AssetDatabaseUpdate AssetServer)
 target_link_libraries(AssetDatabaseUpdate Qt5::Widgets Qt5::Core Qt5::Gui)
-target_link_libraries(AssetDatabaseUpdate Vulkan)
+target_link_libraries(AssetDatabaseUpdate StbImage)
 
 copy_qt_dll(${PROJECT_BINARY_DIR}/${BUILD_TYPE}${CMAKE_CONFIGURATION_TYPES})
 
