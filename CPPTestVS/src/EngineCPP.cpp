@@ -13,6 +13,7 @@ using namespace Math;
 
 struct TestContext
 {
+	com::PoolToken center_node;
 	com::PoolToken moving_node;
 	bool executed = false;
 } testContext;
@@ -36,13 +37,15 @@ void update(void* p_engine, float p_delta)
 			l_mesh_renderer.fragment_shader = "shader/TriFrag.frag";
 			l_mesh_renderer.model = "models/16.09.obj";
 			l_scenehandle.add_component<MeshRenderer>(l_node, l_mesh_renderer);
+
+			testContext.center_node = l_node;
 		}
 		{
 			auto l_node = l_scenehandle.add_node(l_scenehandle.root(), Math::Transform(vec3f(0.0f, 0.0f, 0.0f), QuatConst::IDENTITY, VecConst<float>::ONE));
 			MeshRenderer l_mesh_renderer;
 			l_mesh_renderer.vertex_shader = "shader/TriVert.vert";
 			l_mesh_renderer.fragment_shader = "shader/TriFrag.frag";
-			l_mesh_renderer.model = "models/cube.obj";
+			l_mesh_renderer.model = "models/16.09.obj";
 			l_scenehandle.add_component<MeshRenderer>(l_node, l_mesh_renderer);
 
 			testContext.moving_node = l_node;
@@ -50,9 +53,17 @@ void update(void* p_engine, float p_delta)
 
 	}
 
-	SceneNode* l_node = l_scenehandle.resolve_node(testContext.moving_node).element;
-	l_node->set_localposition(l_node->get_localposition() + (vec3f(1.0f, 0.0f, 0.0f) * p_delta));
-	l_node->set_localrotation(mul(l_node->get_localrotation(), rotateAround(vec3f(0.0f, 1.0f, 0.0f), p_delta)));
+	{
+		SceneNode* l_node = l_scenehandle.resolve_node(testContext.moving_node).element;
+		l_node->set_localposition(l_node->get_localposition() + (vec3f(1.0f, 0.0f, 0.0f) * p_delta));
+		l_node->set_localrotation(mul(l_node->get_localrotation(), rotateAround(vec3f(0.0f, 1.0f, 0.0f), p_delta)));
+	}
+	
+	{
+		SceneNode* l_node = l_scenehandle.resolve_node(testContext.center_node).element;
+		l_node->set_localrotation(mul(l_node->get_localrotation(), rotateAround(vec3f(0.0f, 1.0f, 0.0f), p_delta)));
+	}
+	
 };
 
 int main(int argc, char** argv)

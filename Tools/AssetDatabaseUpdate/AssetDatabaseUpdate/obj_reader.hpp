@@ -55,7 +55,7 @@ struct ObjReader
 					size_t l_second_space = l_line.find(" ", l_first_space + 1);
 
 					l_uv.x = (float)atof(l_line.substr(l_first_space + 1, l_second_space - l_first_space).c_str());
-					l_uv.y = (float)atof(l_line.substr(l_second_space + 1, l_line.length() - l_second_space).c_str());
+					l_uv.y = 1.0f - (float)atof(l_line.substr(l_second_space + 1, l_line.length() - l_second_space).c_str());
 
 					uvs.push_back(l_uv);
 				}

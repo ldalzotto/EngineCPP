@@ -14,12 +14,11 @@ layout(set = 1, binding = 0) uniform Model
 	mat4 model;
 } model;
 
-layout(location = 0) out vec3 fragColor;
+layout(location = 0) out vec2 out_uv;
 
 void main()
 {
 	gl_Position = camera.projection * (camera.view * (model.model * vec4(pos, 1.0)));
-	// gl_Position.x = 1.0 - gl_Position.x;
-	fragColor = vec3(uv, 0.0);
+	out_uv = uv;
 }
 
