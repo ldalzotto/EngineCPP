@@ -73,7 +73,6 @@ struct GPUMemoryWithOffset
 	vk::DeviceMemory original_memory;
 	char* original_mapped_memory;
 	uint32_t memory_type;
-	size_t offset;
 	com::PoolToken allocated_chunk_token;
 	size_t pagedbuffer_index;
 };
@@ -142,30 +141,13 @@ struct PageGPUMemory2
 		this->heap.dispose();
 	}
 
-	struct GPUMemoryWithOffsetMapper : public IMemoryChunkMapper<GPUMemoryWithOffset>
-	{
-		PageGPUMemory2<WriteMethod>* page_gpu_memory;
-
-		inline GPUMemoryWithOffsetMapper(PageGPUMemory2<WriteMethod>* p_pagegpumemory)
-		{
-			this->page_gpu_memory = p_pagegpumemory;
-		};
-
-		inline GPUMemoryWithOffset map(const GeneralPurposeHeapMemoryChunk& p_chunk, com::PoolToken& p_chunktoken)
-		{
-			GPUMemoryWithOffset l_gpumemory;
-			l_gpumemory.pagedbuffer_index = this->page_gpu_memory->page_index;
-			l_gpumemory.allocated_chunk_token = p_chunktoken;
-			l_gpumemory.offset = p_chunk.offset;
-			l_gpumemory.original_memory = this->page_gpu_memory->heap.allocator.root_memory;
-			l_gpumemory.original_mapped_memory = this->page_gpu_memory->heap.memory;
-			return l_gpumemory;
-		};
-	};
-
 	inline bool allocate_element(size_t p_size, size_t p_alignmenent_constaint, GPUMemoryWithOffset* out_chunk)
 	{
-		return this->heap.allocate_element<GPUMemoryWithOffset, GPUMemoryWithOffsetMapper>(p_size, AllocationAlignementConstraint(p_alignmenent_constaint), out_chunk, GPUMemoryWithOffsetMapper(this));
+		out_chunk->pagedbuffer_index = this->page_index;
+		out_chunk->original_memory = this->heap.allocator.root_memory;
+		out_chunk->original_mapped_memory = this->heap.memory;
+
+		return this->heap.allocate_element(p_size, AllocationAlignementConstraint(p_alignmenent_constaint), &out_chunk->allocated_chunk_token);
 	}
 
 	inline void release_element(const GPUMemoryWithOffset& p_buffer)
@@ -216,7 +198,12 @@ struct PagedGPUMemory
 	inline void free_element(const GPUMemoryWithOffset& p_buffer)
 	{
 		this->page_buffers[p_buffer.pagedbuffer_index].release_element(p_buffer);
-	}
+	};
+
+	inline GeneralPurposeHeapMemoryChunk& resolve(const GPUMemoryWithOffset& p_buffer)
+	{
+		return this->page_buffers[p_buffer.pagedbuffer_index].heap.resolve_allocated_chunk(p_buffer.allocated_chunk_token);
+	};
 };
 
 struct PagedMemories
@@ -275,6 +262,27 @@ struct PagedMemories
 		break;
 		}
 	}
+
+	inline void resolve_allocated_chunk(const GPUMemoryWithOffset& p_chunk, GeneralPurposeHeapMemoryChunk** out_chunk)
+	{
+		switch (p_chunk.memory_type)
+		{
+		case 7:
+		{
+			*out_chunk = &this->i7.resolve(p_chunk);
+			return;
+		}
+		break;
+		case 8:
+		{
+			*out_chunk = &this->i8.resolve(p_chunk);
+			return;
+		}
+		break;
+		}
+
+		*out_chunk = nullptr;
+	};
 };
 
 
@@ -628,11 +636,13 @@ struct MappedMemory2
 	ElementType* mapped_data = nullptr;
 	size_t size_count = -1;
 
-	inline void map(const Device& p_device, const GPUMemoryWithOffset& p_memory, const size_t p_size_count)
+	inline void map(Device& p_device, const GPUMemoryWithOffset& p_memory, const size_t p_size_count)
 	{
 		if (!this->isMapped())
 		{
-			this->mapped_data = (ElementType*)(p_memory.original_mapped_memory + p_memory.offset);
+			GeneralPurposeHeapMemoryChunk* l_chunk;
+			p_device.devicememory_allocator.resolve_allocated_chunk(p_memory, &l_chunk);
+			this->mapped_data = (ElementType*)(p_memory.original_mapped_memory + l_chunk->offset);
 			this->size_count = p_size_count;
 		}
 	};
@@ -699,10 +709,12 @@ struct GPUBufferMemoryHost2
 
 	inline void bind(Device& p_device)
 	{
-		p_device.device.bindBufferMemory(this->buffer, this->memory.original_memory, this->memory.offset);
+		GeneralPurposeHeapMemoryChunk* l_chunk;
+		p_device.devicememory_allocator.resolve_allocated_chunk(this->memory, &l_chunk);
+		p_device.device.bindBufferMemory(this->buffer, this->memory.original_memory, l_chunk->offset);
 	};
 
-	inline void map(const Device& p_device, size_t p_size_count)
+	inline void map(Device& p_device, size_t p_size_count)
 	{
 		this->mapped_memory.map(p_device, this->memory, p_size_count);
 	};
@@ -782,7 +794,9 @@ struct GPUBufferMemoryGPU2
 
 	inline void bind(Device& p_device)
 	{
-		p_device.device.bindBufferMemory(this->buffer, this->memory.original_memory, this->memory.offset);
+		GeneralPurposeHeapMemoryChunk* l_chunk;
+		p_device.devicememory_allocator.resolve_allocated_chunk(this->memory, &l_chunk);
+		p_device.device.bindBufferMemory(this->buffer, this->memory.original_memory, l_chunk->offset);
 	};
 
 	template<class StagedBufferWriteCommandAllocator>
@@ -830,7 +844,9 @@ struct GPUImageMemoryGPU2
 
 	inline void bind(Device& p_device)
 	{
-		p_device.device.bindImageMemory(this->buffer, this->memory.original_memory, this->memory.offset);
+		GeneralPurposeHeapMemoryChunk* l_chunk;
+		p_device.devicememory_allocator.resolve_allocated_chunk(this->memory, &l_chunk);
+		p_device.device.bindImageMemory(this->buffer, this->memory.original_memory, l_chunk->offset);
 	};
 
 	template<class ImageBufferWriteCommandAllocator>

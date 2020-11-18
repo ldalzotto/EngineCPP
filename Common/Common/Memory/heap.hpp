@@ -6,8 +6,8 @@
 
 struct GeneralPurposeHeapMemoryChunk
 {
-	size_t chunk_size;
-	size_t offset;
+	size_t chunk_size = -1;
+	size_t offset = -1;
 };
 
 struct AllocationAlignementConstraint
@@ -77,12 +77,17 @@ struct GeneralPurposeHeap
 		this->allocator.free(this->memory);
 		this->allocated_chunks.free();
 		this->free_chunks.free();
-	}
+	};
 
 	template<class ElementType>
-	inline ElementType* resolve(com::PoolToken p_memory)
+	inline ElementType* map(com::PoolToken p_memory)
 	{
 		return (ElementType*)(this->memory + this->allocated_chunks[p_memory].offset);
+	};
+
+	inline GeneralPurposeHeapMemoryChunk& resolve_allocated_chunk(const com::PoolToken p_memory)
+	{
+		return this->allocated_chunks[p_memory];
 	};
 
 	//TODO -> having multiple free_chunks indexed by allocation size range ?
@@ -117,8 +122,7 @@ struct GeneralPurposeHeap
 		return false;
 	};
 
-	template<class ReturnType = com::PoolToken&, class MemoryChunkMapper = DefaultMemoryChunkMapper >
-	inline bool allocate_element(size_t p_size, AllocationAlignementConstraint& p_alignment_constraint, ReturnType* out_chunk, MemoryChunkMapper& p_memorychunk_mapper = DefaultMemoryChunkMapper())
+	inline bool allocate_element(size_t p_size, AllocationAlignementConstraint& p_alignment_constraint, com::PoolToken* out_token)
 	{
 		for (size_t i = 0; i < this->free_chunks.Size; i++)
 		{
@@ -133,7 +137,7 @@ struct GeneralPurposeHeap
 
 					GeneralPurposeHeapMemoryChunk l_new_allocated_chunk;
 					this->slice_memorychunk(l_chunk, l_chunk.offset + p_size, l_new_allocated_chunk, l_chunk);
-					*out_chunk = p_memorychunk_mapper.map(l_new_allocated_chunk, this->allocated_chunks.alloc_element(l_new_allocated_chunk));
+					*out_token = this->allocated_chunks.alloc_element(l_new_allocated_chunk);
 					return true;
 				}
 				else
@@ -148,18 +152,16 @@ struct GeneralPurposeHeap
 						this->slice_memorychunk(l_chunk, l_chunk.offset + l_chunk_offset_delta, l_chunk, l_tmp_chunk);
 						this->slice_memorychunk(l_tmp_chunk, l_tmp_chunk.offset + p_size, l_new_allocated_chunk, l_free_chunk);
 
-						*out_chunk = p_memorychunk_mapper.map(l_new_allocated_chunk, this->allocated_chunks.alloc_element(l_new_allocated_chunk));
+						*out_token = this->allocated_chunks.alloc_element(l_new_allocated_chunk);
 						this->free_chunks.push_back(l_free_chunk);
 
 						return true;
 					}
 					else if (l_chunk.chunk_size == (p_size + l_chunk_offset_delta)) //offsetted chunk end matches perfectly the end of the free chunk
 					{
-						//TODO -> create one free chunk (before)
-
 						GeneralPurposeHeapMemoryChunk l_new_allocated_chunk;
 						this->slice_memorychunk(l_chunk, l_chunk.offset + l_chunk_offset_delta, l_chunk, l_new_allocated_chunk);
-						*out_chunk = p_memorychunk_mapper.map(l_new_allocated_chunk, this->allocated_chunks.alloc_element(l_new_allocated_chunk));
+						*out_token = this->allocated_chunks.alloc_element(l_new_allocated_chunk);
 						
 						return true;
 					}
@@ -170,7 +172,7 @@ struct GeneralPurposeHeap
 				size_t l_offset_modulo = (l_chunk.offset % p_alignment_constraint.alignment_modulo);
 				if (l_offset_modulo == 0)
 				{
-					*out_chunk = p_memorychunk_mapper.map(l_chunk, this->allocated_chunks.alloc_element(l_chunk));
+					*out_token = this->allocated_chunks.alloc_element(l_chunk);
 					this->free_chunks.erase_at(i);
 					return true;
 				}

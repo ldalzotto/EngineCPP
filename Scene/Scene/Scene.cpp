@@ -31,7 +31,7 @@ struct SceneHeap
 			this->component_heap.allocate_element<>(l_allocationsize, &l_memory_allocated);
 		}
 
-		SceneNodeComponentHeader* l_header = this->component_heap.resolve<SceneNodeComponentHeader>(l_memory_allocated);
+		SceneNodeComponentHeader* l_header = this->component_heap.map<SceneNodeComponentHeader>(l_memory_allocated);
 		l_header->id = p_type.id;
 		memcpy((char*)l_header + sizeof(SceneNodeComponentHeader), p_initial_value, p_type.size);
 
@@ -128,7 +128,7 @@ struct Scene
 
 	inline SceneNodeComponentHeader* resolve_component(const SceneNodeComponentToken p_component)
 	{
-		return this->heap.component_heap.resolve<SceneNodeComponentHeader>(p_component);
+		return this->heap.component_heap.map<SceneNodeComponentHeader>(p_component);
 	};
 
 	inline NTreeResolve<SceneNode> root()
