@@ -55,6 +55,6 @@ bool render_window_should_close(const RenderHandle& p_render);
 void render_window_pool_event(const RenderHandle& p_render);
 void render_draw(const RenderHandle& p_render);
 
-void render_allocate_renderableobject(const RenderHandle& p_render, const std::string& p_vertex_shader, const std::string& p_fragment_shader, const std::string& p_mesh, const Math::mat4f& p_initial_trs,
+void render_allocate_renderableobject(const RenderHandle& p_render, const std::string& p_vertex_shader, const std::string& p_fragment_shader, const std::string& p_mesh,
 	const std::string& p_base_texture,
 	MeshHandle& out_mesh, ShaderHandle& out_shader, MaterialHandle& out_material, RenderableObjectHandle& out_renderableobject);

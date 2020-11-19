@@ -159,9 +159,9 @@ inline void SceneCallbacks::on_component_added(Engine* p_engine, ComponentAddedP
 	}
 	break;
 	}
-
-	
 };
+
+//TODO -> add on component_removed -> then calling the appropriate middleware
 
 void engine_destroy(const EngineHandle& p_engine)
 {

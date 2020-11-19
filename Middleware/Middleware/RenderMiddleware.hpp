@@ -38,8 +38,10 @@ struct RenderMiddleware
 		RenderableObjectEntry l_entry;
 		l_entry.node = p_node_token;
 		render_allocate_renderableobject(this->render, p_mesh_renderer.vertex_shader, p_mesh_renderer.fragment_shader, p_mesh_renderer.model,
-			p_node.element->get_localtoworld(), "textures/16.09_diffuse.jpg", l_entry.mesh, l_entry.shader, l_entry.material, l_entry.renderableobject);
+			"textures/16.09_diffuse.jpg", l_entry.mesh, l_entry.shader, l_entry.material, l_entry.renderableobject);
 		
+		l_entry.renderableobject.push_trs(this->render, p_node.element->get_localtoworld());
+
 		this->allocated_renderableobjects.push_back(l_entry);
 	};
 
