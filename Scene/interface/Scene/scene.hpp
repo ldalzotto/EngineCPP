@@ -309,6 +309,7 @@ struct SceneHandle
 	void free();
 
 	com::PoolToken allocate_node(const Math::Transform& p_initial_local_transform);
+	void free_node(com::PoolToken& p_node);
 	com::PoolToken add_node(const com::PoolToken& p_parent, const Math::Transform& p_initial_local_transform);
 
 	NTreeResolve<SceneNode> resolve_node(const com::PoolToken p_node);

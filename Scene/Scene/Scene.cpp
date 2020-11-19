@@ -101,6 +101,31 @@ struct Scene
 		return l_node;
 	};
 
+	inline void free_node(com::PoolToken& p_node)
+	{
+
+		struct RemoveAllComponents
+		{
+			Scene* scene;
+
+			inline RemoveAllComponents() {};
+			inline RemoveAllComponents(Scene* p_scene) { this->scene = p_scene; };
+
+			inline void foreach(NTreeResolve<SceneNode>& p_node)
+			{
+				com::Vector<SceneNodeComponentHandle>& l_components = p_node.element->get_components();
+				for (size_t i = l_components.Size - 1; i < l_components.Size; i--)
+				{
+					this->scene->remove_component(p_node, l_components[i]);
+				}
+
+				p_node.element->free();
+			};
+		};
+
+		this->tree.remove(p_node, RemoveAllComponents(this));
+	};
+
 	inline com::PoolToken add_node(const com::PoolToken& p_parent, const Math::Transform& p_initial_local_transform)
 	{
 		auto l_node = this->allocate_node(p_initial_local_transform);
@@ -142,15 +167,22 @@ struct Scene
 		}
 	};
 
-	inline void remove_component(const com::PoolToken p_node, SceneNodeComponentToken& p_component_token)
+	inline void remove_component(NTreeResolve<SceneNode>& p_node, SceneNodeComponentToken& p_component_token)
 	{
-		NTreeResolve<SceneNode> l_node = this->resolve_node(p_node);
-		l_node.element->removecomponent(SceneNodeComponentHandle(p_component_token));
-		ComponentRemovedParameter l_component_removed = ComponentRemovedParameter(p_node, l_node, this->resolve_component(p_component_token));
+		p_node.element->removecomponent(SceneNodeComponentHandle(p_component_token));
+		ComponentRemovedParameter l_component_removed = ComponentRemovedParameter(p_node.node->index, p_node, this->resolve_component(p_component_token));
 		this->component_removed_callback.call(&l_component_removed);
 		this->free_component(p_component_token);
 	};
 
+
+	inline void remove_component(const com::PoolToken p_node, SceneNodeComponentToken& p_component_token)
+	{
+		NTreeResolve<SceneNode> l_node = this->resolve_node(p_node);
+		this->remove_component(l_node, p_component_token);
+	};
+
+	//TODO -> adding an error when trying to resolve a node that is already freed ?
 	inline NTreeResolve<SceneNode> resolve_node(const com::PoolToken p_node)
 	{
 		return this->tree.resolve(p_node);
@@ -198,6 +230,12 @@ com::PoolToken SceneHandle::allocate_node(const Math::Transform& p_initial_local
 {
 	return ((Scene*)this->handle)->allocate_node(p_initial_local_transform);
 };
+
+void SceneHandle::free_node(com::PoolToken& p_node)
+{
+	((Scene*)this->handle)->free_node(p_node);
+};
+
 
 com::PoolToken SceneHandle::add_node(const com::PoolToken& p_parent, const Math::Transform& p_initial_local_transform)
 {

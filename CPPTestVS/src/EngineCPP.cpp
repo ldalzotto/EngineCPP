@@ -36,7 +36,7 @@ void update(void* p_engine, float p_delta)
 			testContext.center_node = l_node;
 		}
 		{
-			auto l_node = l_scenehandle.add_node(l_scenehandle.root(), Math::Transform(vec3f(0.0f, 0.0f, 0.0f), QuatConst::IDENTITY, VecConst<float>::ONE));
+			auto l_node = l_scenehandle.add_node(testContext.center_node, Math::Transform(vec3f(0.0f, 0.0f, 0.0f), QuatConst::IDENTITY, VecConst<float>::ONE));
 			MeshRenderer l_mesh_renderer;
 			l_mesh_renderer.vertex_shader = "shader/TriVert.vert";
 			l_mesh_renderer.fragment_shader = "shader/TriFrag.frag";
@@ -50,12 +50,16 @@ void update(void* p_engine, float p_delta)
 
 	if (testContext.framecount == 200)
 	{
-		l_scenehandle.remove_component<MeshRenderer>(testContext.moving_node);
+	//	l_scenehandle.remove_component<MeshRenderer>(testContext.moving_node);
 	}
 	else if (testContext.framecount == 300)
 	{
-		l_scenehandle.remove_component<MeshRenderer>(testContext.center_node);
+		l_scenehandle.free_node(testContext.center_node);
+		// l_scenehandle.remove_component<MeshRenderer>(testContext.center_node);
 	}
+	// else if()
+
+#if 0
 	else if (testContext.framecount > 350)
 	{
 		if ((testContext.framecount % 2) == 0)
@@ -82,6 +86,7 @@ void update(void* p_engine, float p_delta)
 		}
 		*/
 	}
+#endif
 	{
 		SceneNode* l_node = l_scenehandle.resolve_node(testContext.moving_node).element;
 		l_node->set_localposition(l_node->get_localposition() + (vec3f(1.0f, 0.0f, 0.0f) * p_delta));
@@ -92,7 +97,7 @@ void update(void* p_engine, float p_delta)
 		SceneNode* l_node = l_scenehandle.resolve_node(testContext.center_node).element;
 		l_node->set_localrotation(mul(l_node->get_localrotation(), rotateAround(vec3f(0.0f, 1.0f, 0.0f), p_delta)));
 	}
-	
+
 	testContext.framecount += 1;
 };
 

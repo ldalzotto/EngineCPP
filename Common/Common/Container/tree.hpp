@@ -10,12 +10,14 @@ inline void NTreeNode::allocate_as_root()
 {
 	this->parent = -1;
 	this->childs.allocate(1);
+	this->index = 0;
 };
 
-inline void NTreeNode::allocate()
+inline void NTreeNode::allocate(const size_t p_current_index)
 {
 	this->parent = -1;
 	this->childs.allocate(1);
+	this->index = p_current_index;
 };
 
 
@@ -37,6 +39,24 @@ inline void NTreeNode::free()
 inline bool NTreeNode::has_parent()
 {
 	return this->parent != -1;
+};
+
+template<class ElementType, class Allocator>
+inline void tree_detach_from_tree(NTree<ElementType, Allocator>& p_tree, NTreeResolve<ElementType>& p_node)
+{
+	if (p_node.node->has_parent())
+	{
+		NTreeResolve<ElementType> l_parent = p_tree.resolve(p_node.node->parent);
+		for (size_t i = 0; i < l_parent.node->childs.Size; i++)
+		{
+			if (l_parent.node->childs[i] == p_node.node->index)
+			{
+				l_parent.node->childs.erase_at(i);
+				break;
+			}
+		}
+	}
+	p_node.node->parent = -1;
 };
 
 template<class ElementType, class Allocator>
@@ -106,14 +126,58 @@ inline com::PoolToken NTree<ElementType, Allocator>::push_value(const ElementTyp
 {
 	auto l_allcoated_item = this->Memory.alloc_element(p_value);
 	NTreeNode l_node;
-	l_node.allocate();
+	l_node.allocate(l_allcoated_item.Index);
 	this->Indices.alloc_element(l_node);
 	return l_allcoated_item;
 };
 
 template<class ElementType, class Allocator>
-inline void NTree<ElementType, Allocator>::remove(const com::PoolToken p_value)
+template<class NTreeForEach>
+inline void NTree<ElementType, Allocator>::remove(com::PoolToken p_value, NTreeForEach& p_foreach_childs)
 {
+	struct RemoveFoearch
+	{
+		NTree<ElementType, Allocator>* tree;
+		NTreeForEach* parameter_foreach;
+
+		com::Vector<NTreeResolve<ElementType>> involved_nodes;
+
+		inline RemoveFoearch() { };
+
+		inline void allocate(NTree<ElementType, Allocator>* p_tree, NTreeForEach& p_parameter_foreach)
+		{
+			this->tree = p_tree;
+			this->parameter_foreach = &p_parameter_foreach;
+		};
+
+		inline void free()
+		{
+			this->involved_nodes.free();
+		};
+
+		inline void foreach(NTreeResolve<ElementType>& p_node)
+		{
+			this->involved_nodes.push_back(p_node);
+			this->parameter_foreach->foreach(p_node);
+		};
+	};
+
+	RemoveFoearch l_removetree_foreach;
+	l_removetree_foreach.allocate(this, p_foreach_childs);
+	{
+		this->traverse<RemoveFoearch>(p_value, l_removetree_foreach);
+
+		tree_detach_from_tree(*this, this->resolve(p_value));
+
+		for (size_t i = 0; i < l_removetree_foreach.involved_nodes.Size; i++)
+		{
+			NTreeResolve<ElementType>& l_resolve = l_removetree_foreach.involved_nodes[i];
+			l_resolve.node->free();
+			this->Indices.release_element(l_resolve.node->index);
+			this->Memory.release_element(l_resolve.node->index);
+		}
+	}
+	l_removetree_foreach.free();
 };
 
 template<class ElementType, class Allocator, class NTreeForEach>

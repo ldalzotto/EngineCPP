@@ -12,7 +12,7 @@ struct NTreeNode
 	inline NTreeNode(){}
 
 	void allocate_as_root();
-	void allocate();
+	void allocate(const size_t p_current_index);
 	void allocate(const size_t p_parent_index, NTreeNode& p_parent, const size_t p_current_index);
 	void free();
 
@@ -56,7 +56,9 @@ struct NTree
 	com::PoolToken push_root_value(const ElementType& p_value);
 	com::PoolToken push_value(const com::PoolToken p_parent, const ElementType& p_value);
 	com::PoolToken push_value(const ElementType& p_value);
-	void remove(const com::PoolToken p_value);
+
+	template<class NTreeForEach>
+	void remove(com::PoolToken p_value, NTreeForEach& p_foreach_childs);
 
 	template<class NTreeForEach>
 	void traverse(com::PoolToken& p_start, NTreeForEach& p_foreach);
