@@ -37,11 +37,11 @@ struct ResourceMap
 
 	inline Value allocate_resource(const Key& p_key)
 	{
-		CountedResource<Value> l_existing_resourece;
+		CountedResource<Value>* l_existing_resourece;
 		if (this->map.get(p_key, &l_existing_resourece))
 		{
-			l_existing_resourece.usage += 1;
-			return l_existing_resourece.value;
+			l_existing_resourece->usage += 1;
+			return l_existing_resourece->value;
 		}
 		else
 		{
@@ -55,11 +55,11 @@ struct ResourceMap
 	
 	void free_resource(const Key& p_key)
 	{
-		CountedResource<Value> l_existing_resourece;
+		CountedResource<Value>* l_existing_resourece;
 		if (this->map.get(p_key, &l_existing_resourece))
 		{
-			l_existing_resourece.usage -= 1;
-			if (l_existing_resourece.usage == 0)
+			l_existing_resourece->usage -= 1;
+			if (l_existing_resourece->usage == 0)
 			{
 				this->resource_allocation.free(this->map[p_key].value);
 				this->map.remove(p_key);

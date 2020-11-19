@@ -17,7 +17,7 @@ struct EngineCallbacks
 
 	Engine* closure;
 
-	EngineCallbacks(){}
+	EngineCallbacks() {}
 
 	inline EngineCallbacks(Engine* p_engine, const ExternalHooks& p_external_hooks)
 	{
@@ -50,13 +50,15 @@ struct Engine
 struct SceneCallbacks
 {
 	static void on_component_added(Engine* p_engine, ComponentAddedParameter* p_parameter);
+	static void on_component_removed(Engine* p_engine, ComponentRemovedParameter* p_parameter);
 };
 
 inline Engine::Engine(const std::string& p_executeable_path, const ExternalHooks& p_hooks)
 {
 	this->asset_server.allocate(p_executeable_path);
 	this->loop = EngineLoop<EngineCallbacks>(EngineCallbacks(this, p_hooks), 16000);
-	this->scene.allocate(*(Callback<void, ComponentAddedParameter>*)&Callback<Engine, ComponentAddedParameter>(this, SceneCallbacks::on_component_added));
+	this->scene.allocate(*(Callback<void, ComponentAddedParameter>*) & Callback<Engine, ComponentAddedParameter>(this, SceneCallbacks::on_component_added),
+		*(Callback<void, ComponentRemovedParameter>*) & Callback<Engine, ComponentRemovedParameter>(this, SceneCallbacks::on_component_removed));
 	this->render = create_render(this->asset_server);
 	this->render_middleware.allocate(this->render);
 }
@@ -153,9 +155,21 @@ inline void SceneCallbacks::on_component_added(Engine* p_engine, ComponentAddedP
 		for (size_t i = 0; i < l_components.Size; i++)
 		{
 			SceneNodeComponentHeader* l_header = p_engine->scene.resolve_componentheader(l_components.Memory[i]);
-			
+
 		}
 		*/
+	}
+	break;
+	}
+};
+
+inline void SceneCallbacks::on_component_removed(Engine* p_engine, ComponentRemovedParameter* p_paramter)
+{
+	switch (p_paramter->component->id)
+	{
+	case MeshRenderer::Id:
+	{
+		p_engine->render_middleware.on_not_elligible(p_paramter->node_token);
 	}
 	break;
 	}

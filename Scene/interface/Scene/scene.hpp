@@ -101,7 +101,19 @@ public:
 		this->components.push_back(p_component);
 	};
 
-	inline const com::Vector<SceneNodeComponentHandle>& get_components() const
+	inline void removecomponent(const SceneNodeComponentHandle p_component)
+	{
+		for (size_t i = 0; i < this->components.Size; i++)
+		{
+			if (this->components[i].Index == p_component.Index)
+			{
+				this->components.erase_at(i);
+				return;
+			}
+		}
+	};
+
+	inline com::Vector<SceneNodeComponentHandle>& get_components()
 	{
 		return this->components;
 	};
@@ -275,10 +287,25 @@ struct ComponentAddedParameter
 	};
 };
 
+struct ComponentRemovedParameter
+{
+	com::PoolToken node_token;
+	NTreeResolve<SceneNode> node;
+	SceneNodeComponentHeader* component;
+
+	ComponentRemovedParameter() {};
+	inline ComponentRemovedParameter(const com::PoolToken p_node_token, const NTreeResolve<SceneNode>& p_node, SceneNodeComponentHeader* p_component)
+	{
+		this->node_token = p_node_token;
+		this->node = p_node;
+		this->component = p_component;
+	};
+};
+
 struct SceneHandle
 {
 	void* handle;
-	void allocate(const Callback<void, ComponentAddedParameter>& p_componentadded_callback);
+	void allocate(const Callback<void, ComponentAddedParameter>& p_componentadded_callback, const Callback<void, ComponentRemovedParameter>& p_componentremoved_callback);
 	void free();
 
 	com::PoolToken allocate_node(const Math::Transform& p_initial_local_transform);
@@ -289,16 +316,27 @@ struct SceneHandle
 	template<class ComponentType>
 	ComponentType* resolve_component(const com::PoolToken p_component)
 	{
-		return (ComponentType*) ((char*)resolve_componentheader(SceneNodeComponentHandle(p_component.Index)) + sizeof(SceneNodeComponentHeader));
+		return resolve_componentheader(SceneNodeComponentHandle(p_component.Index))->cast<ComponentType>();
 	};
 
 	SceneNodeComponentHeader* resolve_componentheader(const SceneNodeComponentHandle& p_component);
 
 	template<class ComponentType>
-	inline com::PoolToken add_component(const com::PoolToken p_node, const ComponentType& p_initialvalue = ComponentType())
+	inline SceneNodeComponentHandle add_component(const com::PoolToken p_node, const ComponentType& p_initialvalue = ComponentType())
 	{
-		com::PoolToken l_component = this->add_component(p_node, ComponentType::Type, (void*)&p_initialvalue);
-		return l_component;
+		return this->add_component(p_node, ComponentType::Type, (void*)&p_initialvalue);
+	};
+
+	template<class ComponentType>
+	inline ComponentType* get_component(const com::PoolToken p_node)
+	{
+		return this->get_component(p_node, ComponentType::Type)->cast<ComponentType>();
+	};
+
+	template<class ComponentType>
+	inline void remove_component(const com::PoolToken p_node)
+	{
+		this->remove_component(p_node, ComponentType::Type);
 	};
 
 	com::PoolToken root();
@@ -306,5 +344,7 @@ struct SceneHandle
 
 private:
 	SceneNodeComponentHandle add_component(const com::PoolToken p_node, const SceneNodeComponent_TypeInfo& p_component_type_info, void* p_initial_value);
-	
+	SceneNodeComponentHeader* get_component(const com::PoolToken p_node, const SceneNodeComponent_TypeInfo& p_component_type_info);
+	void remove_component(const com::PoolToken p_node, SceneNodeComponentHandle& p_component);
+	void remove_component(const com::PoolToken p_node, const SceneNodeComponent_TypeInfo& p_component_type_info);
 };

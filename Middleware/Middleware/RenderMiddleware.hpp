@@ -45,6 +45,20 @@ struct RenderMiddleware
 		this->allocated_renderableobjects.push_back(l_entry);
 	};
 
+	inline void on_not_elligible(const com::PoolToken p_node_token)
+	{
+		for (size_t i = 0; i < this->allocated_renderableobjects.Size; i++)
+		{
+			RenderableObjectEntry& l_entry = this->allocated_renderableobjects[i];
+			if (l_entry.node.Index == p_node_token.Index)
+			{
+				render_free_renderableobject(this->render, l_entry.renderableobject, l_entry.material, l_entry.shader);
+				this->allocated_renderableobjects.erase_at(i);
+				return;
+			}
+		}
+	};
+
 	inline void pre_render(SceneHandle p_scene)
 	{
 		OPTICK_EVENT();

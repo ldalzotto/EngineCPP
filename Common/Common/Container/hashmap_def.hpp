@@ -25,7 +25,7 @@ struct HashMap
 
 	Value& operator[](const Key& p_key);
 	bool conains_key(const Key& p_key);
-	bool get(const Key& p_key, Value* out_value);
+	bool get(const Key& p_key, Value** out_value);
 	void push_entry(const Entry& p_entry);
 	void remove(const Key& p_key);
 };

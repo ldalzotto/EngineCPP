@@ -91,7 +91,7 @@ inline bool HashMap<Key, Value, HashFn, Allocator>::conains_key(const Key& p_key
 };
 
 template<class Key, class Value, class HashFn, class Allocator>
-inline bool HashMap<Key, Value, HashFn, Allocator>::get(const Key& p_key, Value* out_value)
+inline bool HashMap<Key, Value, HashFn, Allocator>::get(const Key& p_key, Value** out_value)
 {
 	size_t l_inputkey_hash = HashFn::hash(p_key);
 	Entry& l_entry = this->Entries.Memory[hashmap_calculateindex_from_hash(l_inputkey_hash, this->Entries.Capacity)];
@@ -99,7 +99,7 @@ inline bool HashMap<Key, Value, HashFn, Allocator>::get(const Key& p_key, Value*
 	{
 		if (HashFn::hash(l_entry.key) == l_inputkey_hash)
 		{
-			*out_value = l_entry.value;
+			*out_value = &l_entry.value;
 			return true;
 		}
 	}

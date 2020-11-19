@@ -15,7 +15,7 @@ struct TestContext
 {
 	com::PoolToken center_node;
 	com::PoolToken moving_node;
-	bool executed = false;
+	size_t framecount = 0;
 } testContext;
 
 void update(void* p_engine, float p_delta)
@@ -23,13 +23,8 @@ void update(void* p_engine, float p_delta)
 	EngineHandle* l_engine = (EngineHandle*)p_engine;
 	SceneHandle l_scenehandle = engine_scene(*l_engine);
 
-	if (!testContext.executed)
+	if (testContext.framecount == 0)
 	{
-		testContext.executed = true;
-		/*
-		for (int i = 0; i < 100; i++)
-		{
-			*/
 		{
 			auto l_node = l_scenehandle.add_node(l_scenehandle.root(), Math::Transform());
 			MeshRenderer l_mesh_renderer;
@@ -53,6 +48,40 @@ void update(void* p_engine, float p_delta)
 
 	}
 
+	if (testContext.framecount == 200)
+	{
+		l_scenehandle.remove_component<MeshRenderer>(testContext.moving_node);
+	}
+	else if (testContext.framecount == 300)
+	{
+		l_scenehandle.remove_component<MeshRenderer>(testContext.center_node);
+	}
+	else if (testContext.framecount > 350)
+	{
+		if ((testContext.framecount % 2) == 0)
+		{
+			MeshRenderer l_mesh_renderer;
+			l_mesh_renderer.vertex_shader = "shader/TriVert.vert";
+			l_mesh_renderer.fragment_shader = "shader/TriFrag.frag";
+			l_mesh_renderer.model = "models/16.09.obj";
+			l_scenehandle.add_component<MeshRenderer>(testContext.center_node, l_mesh_renderer);
+		}
+		else
+		{
+			l_scenehandle.remove_component<MeshRenderer>(testContext.center_node);
+		}
+		
+		/*
+		{
+			auto l_node = l_scenehandle.add_node(l_scenehandle.root(), Math::Transform());
+			MeshRenderer l_mesh_renderer;
+			l_mesh_renderer.vertex_shader = "shader/TriVert.vert";
+			l_mesh_renderer.fragment_shader = "shader/TriFrag.frag";
+			l_mesh_renderer.model = "models/16.09.obj";
+			l_scenehandle.add_component<MeshRenderer>(l_node, l_mesh_renderer);
+		}
+		*/
+	}
 	{
 		SceneNode* l_node = l_scenehandle.resolve_node(testContext.moving_node).element;
 		l_node->set_localposition(l_node->get_localposition() + (vec3f(1.0f, 0.0f, 0.0f) * p_delta));
@@ -64,6 +93,7 @@ void update(void* p_engine, float p_delta)
 		l_node->set_localrotation(mul(l_node->get_localrotation(), rotateAround(vec3f(0.0f, 1.0f, 0.0f), p_delta)));
 	}
 	
+	testContext.framecount += 1;
 };
 
 int main(int argc, char** argv)

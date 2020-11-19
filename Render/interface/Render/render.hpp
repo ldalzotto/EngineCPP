@@ -58,3 +58,4 @@ void render_draw(const RenderHandle& p_render);
 void render_allocate_renderableobject(const RenderHandle& p_render, const std::string& p_vertex_shader, const std::string& p_fragment_shader, const std::string& p_mesh,
 	const std::string& p_base_texture,
 	MeshHandle& out_mesh, ShaderHandle& out_shader, MaterialHandle& out_material, RenderableObjectHandle& out_renderableobject);
+void render_free_renderableobject(const RenderHandle& p_render, RenderableObjectHandle& p_rendereableobject, MaterialHandle& p_material, ShaderHandle& p_shader);

@@ -2022,6 +2022,7 @@ private:
 		l_descriptor_pool_create_info.setPNext(nullptr);
 		l_descriptor_pool_create_info.setPoolSizeCount(1);
 		l_descriptor_pool_create_info.setPPoolSizes(l_types);
+		l_descriptor_pool_create_info.setFlags(vk::DescriptorPoolCreateFlags(vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet));
 		l_descriptor_pool_create_info.setMaxSets(1000);
 
 		this->descriptor_pool = this->device.device.createDescriptorPool(l_descriptor_pool_create_info);
@@ -2338,6 +2339,7 @@ struct Texture
 		const size_t p_chanel_size, const size_t p_channel_nb,
 		const int p_width, const int p_height, const char* p_pixels, DeferredCommandBufferExecution& p_commandbuffer_execution, Device& p_device)
 	{
+		this->key = p_key;
 		this->channel_size = p_chanel_size;
 		this->channel_nb = p_channel_nb;
 		this->image_size = Vector<2, int>(p_width, p_height);
@@ -2769,12 +2771,9 @@ struct RenderHeap2
 			{
 				Optional<Shader>& l_shader = this->render_heap->shaders[p_shader];
 				l_shader.value.dispose(this->render_heap->render_api->device);
-				com::Vector<com::PoolToken>& l_shader_to_materials = this->render_heap->shaders_to_materials[p_shader.Index];
-				for (size_t i = 0; i < l_shader_to_materials.Size; i++)
-				{
-					this->render_heap->free_material(l_shader_to_materials[i]);
-				}
-				this->render_heap->shaders_to_materials.release_element(p_shader.Index);
+				this->render_heap->shaders_to_materials[p_shader].free();
+				this->render_heap->shaders_to_materials.release_element(p_shader);
+				this->render_heap->shaders.release_element(p_shader);
 			};
 		};
 
@@ -3043,13 +3042,8 @@ public:
 	inline void free_material(const com::PoolToken& p_material)
 	{
 		this->materials.release_element(p_material);
-
-		com::Vector<com::PoolToken>& l_material_to_renderableobjects = this->material_to_renderableobjects[p_material.Index];
-		for (size_t i = 0; i < l_material_to_renderableobjects.Size; i++)
-		{
-			this->free_renderableObject(l_material_to_renderableobjects[i]);
-		}
-		this->material_to_renderableobjects.release_element(p_material.Index);
+		this->material_to_renderableobjects[p_material].free();
+		this->material_to_renderableobjects.release_element(p_material);
 	};
 
 	inline com::PoolToken allocate_mesh(const std::string& p_path)
@@ -3127,6 +3121,7 @@ struct RenderObjectsAllocator
 		Optional<Material>& l_material_value = this->render_heap->materials[p_material];
 		this->render_heap->free_texture(l_material_value.value.diffuse_texture.texture);
 		l_material_value.value.free(p_render_api);
+		this->render_heap->free_material(p_material);
 	};
 
 	inline com::PoolToken allocate_renderableobject(RenderAPI& p_render_api, const std::string& p_vertex_shader, const std::string& p_fragment_shader, const std::string& p_mesh, const std::string& p_base_texture,
@@ -3336,4 +3331,12 @@ void render_allocate_renderableobject(const RenderHandle& p_render, const std::s
 	out_mesh.handle = l_mesh.Index;
 	out_shader.handle = l_shader.Index;
 	out_material.handle = l_material.Index;
+};
+
+void render_free_renderableobject(const RenderHandle& p_render, RenderableObjectHandle& p_rendereableobject, MaterialHandle& p_material, ShaderHandle& p_shader)
+{
+	Render* l_render = (Render*)p_render;
+	l_render->render_objects_allocator.free_renderableobject(l_render->renderApi, com::PoolToken(p_rendereableobject.handle),
+		com::PoolToken(p_material.handle),
+		com::PoolToken(p_shader.handle));
 };
