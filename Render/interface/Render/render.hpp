@@ -36,12 +36,18 @@ struct ShaderHandle : public Handle
 
 struct MaterialHandle : public Handle
 {
-	void allocate(const RenderHandle& p_render, const ShaderHandle& p_shader);
+	ShaderHandle shader;
+	TextureHandle texture;
+
+	void allocate(const RenderHandle& p_render, const ShaderHandle& p_shader, const TextureHandle& p_texture);
 	void free(const RenderHandle& p_render);
 };
 
 struct RenderableObjectHandle : public Handle
 {
+	MeshHandle mesh;
+	MaterialHandle material;
+
 	void allocate(const RenderHandle& p_render, const MaterialHandle p_material, const MeshHandle p_meshhandle);
 	void push_trs(const RenderHandle& p_render, const Math::mat4f& p_trs);
 	void free(const RenderHandle& p_render);
@@ -54,8 +60,3 @@ void destroy_render(const RenderHandle& p_render);
 bool render_window_should_close(const RenderHandle& p_render);
 void render_window_pool_event(const RenderHandle& p_render);
 void render_draw(const RenderHandle& p_render);
-
-void render_allocate_renderableobject(const RenderHandle& p_render, const std::string& p_vertex_shader, const std::string& p_fragment_shader, const std::string& p_mesh,
-	const std::string& p_base_texture,
-	MeshHandle& out_mesh, ShaderHandle& out_shader, MaterialHandle& out_material, RenderableObjectHandle& out_renderableobject);
-void render_free_renderableobject(const RenderHandle& p_render, RenderableObjectHandle& p_rendereableobject, MaterialHandle& p_material, ShaderHandle& p_shader);

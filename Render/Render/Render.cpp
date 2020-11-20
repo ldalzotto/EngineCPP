@@ -16,8 +16,6 @@
 
 using namespace Math;
 
-#define DEFAULT_FENCE_TIMEOUT 2000
-
 struct CameraMatrices
 {
 	mat4f view;
@@ -242,6 +240,8 @@ struct PagedMemories
 		}
 		break;
 		}
+
+		abort();
 
 		return false;
 	}
@@ -1345,7 +1345,7 @@ struct DeferredCommandbufferExecutionToken
 };
 
 
-
+//TODO -> dissociating the present image (which is the final texture displayed to the application) with render render target image (which is the internal image buffer that is used to render models onto)
 struct SwapChain
 {
 public:
@@ -3030,9 +3030,10 @@ public:
 		this->resource.shader_resources.free_resource(this->shaders[p_shader].value.key);
 	};
 
-	inline com::PoolToken allocate_material(const com::PoolToken& p_shader)
+	inline com::PoolToken allocate_material(const com::PoolToken& p_shader, const com::PoolToken& p_texture)
 	{
-		Material l_material = Material();
+		Material l_material;
+		l_material.allocate(p_texture, this->textures, *this->render_api);
 		com::PoolToken l_material_handle = this->materials.alloc_element(l_material);
 		this->material_to_renderableobjects.alloc_element(com::Vector<com::PoolToken>());
 		this->shaders_to_materials[p_shader.Index].push_back(l_material_handle);
@@ -3095,54 +3096,6 @@ private:
 	};
 };
 
-struct RenderObjectsAllocator
-{
-	RenderHeap2* render_heap = nullptr;
-
-	inline RenderObjectsAllocator() {};
-
-	inline RenderObjectsAllocator(RenderHeap2& p_render_heap)
-	{
-		this->render_heap = &p_render_heap;
-	};
-
-	inline com::PoolToken allocate_material(RenderAPI& p_render_api, const com::PoolToken& p_shader, const std::string& p_texture_key)
-	{
-		com::PoolToken l_material = this->render_heap->allocate_material(p_shader);
-		com::PoolToken l_texture = this->render_heap->allocate_texture(p_texture_key);
-
-		Optional<Material>& l_material_value = this->render_heap->materials[l_material];
-		l_material_value.value.allocate(l_texture, this->render_heap->textures, p_render_api);
-		return l_material;
-	};
-
-	inline void free_material(RenderAPI& p_render_api, const com::PoolToken& p_material)
-	{
-		Optional<Material>& l_material_value = this->render_heap->materials[p_material];
-		this->render_heap->free_texture(l_material_value.value.diffuse_texture.texture);
-		l_material_value.value.free(p_render_api);
-		this->render_heap->free_material(p_material);
-	};
-
-	inline com::PoolToken allocate_renderableobject(RenderAPI& p_render_api, const std::string& p_vertex_shader, const std::string& p_fragment_shader, const std::string& p_mesh, const std::string& p_base_texture,
-		com::PoolToken& out_mesh, com::PoolToken& out_shader, com::PoolToken& out_material)
-	{
-		out_mesh = this->render_heap->allocate_mesh(p_mesh);
-		out_shader = this->render_heap->allocate_shader(p_vertex_shader, p_fragment_shader);
-		out_material = this->allocate_material(p_render_api, out_shader, p_base_texture);
-		return this->render_heap->allocate_rendereableObject(out_material, out_mesh);
-	};
-
-	inline void free_renderableobject(RenderAPI& p_render_api, const com::PoolToken& p_rendereableobject, const com::PoolToken& p_material, const com::PoolToken& p_shader)
-	{
-		Optional<RenderableObject>& p_renderable_object = this->render_heap->renderableobjects[p_rendereableobject];
-		this->render_heap->free_mesh(p_renderable_object.value.mesh);
-		this->free_material(p_render_api, p_material);
-		this->render_heap->free_shader(p_shader);
-		this->render_heap->free_renderableObject(p_rendereableobject);
-	};
-};
-
 struct Render
 {
 	RenderWindow window;
@@ -3151,7 +3104,6 @@ struct Render
 	GlobalUniformBuffer<CameraMatrices> camera_matrices_globalbuffer;
 
 	RenderHeap2 heap;
-	RenderObjectsAllocator render_objects_allocator;
 
 	inline Render(const AssetServerHandle p_asset_server)
 	{
@@ -3159,7 +3111,6 @@ struct Render
 		this->renderApi.init(window);
 		this->create_global_buffers();
 		this->heap.allocate(p_asset_server, this->renderApi);
-		this->render_objects_allocator = RenderObjectsAllocator(this->heap);
 	};
 
 	inline void dispose()
@@ -3320,23 +3271,4 @@ void render_draw(const RenderHandle& p_render)
 {
 	Render* l_render = (Render*)p_render;
 	l_render->draw();
-};
-
-void render_allocate_renderableobject(const RenderHandle& p_render, const std::string& p_vertex_shader, const std::string& p_fragment_shader, const std::string& p_mesh, const std::string& p_base_texture,
-	MeshHandle& out_mesh, ShaderHandle& out_shader, MaterialHandle& out_material, RenderableObjectHandle& out_renderableobject)
-{
-	Render* l_render = (Render*)p_render;
-	com::PoolToken l_mesh, l_shader, l_material;
-	out_renderableobject.handle = l_render->render_objects_allocator.allocate_renderableobject(l_render->renderApi, p_vertex_shader, p_fragment_shader, p_mesh, p_base_texture, l_mesh, l_shader, l_material).Index;
-	out_mesh.handle = l_mesh.Index;
-	out_shader.handle = l_shader.Index;
-	out_material.handle = l_material.Index;
-};
-
-void render_free_renderableobject(const RenderHandle& p_render, RenderableObjectHandle& p_rendereableobject, MaterialHandle& p_material, ShaderHandle& p_shader)
-{
-	Render* l_render = (Render*)p_render;
-	l_render->render_objects_allocator.free_renderableobject(l_render->renderApi, com::PoolToken(p_rendereableobject.handle),
-		com::PoolToken(p_material.handle),
-		com::PoolToken(p_shader.handle));
 };

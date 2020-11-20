@@ -9,9 +9,6 @@
 struct RenderableObjectEntry
 {
 	com::PoolToken node;
-	MeshHandle mesh;
-	ShaderHandle shader;
-	MaterialHandle material;
 	RenderableObjectHandle renderableobject;
 
 	RenderableObjectEntry() {}
@@ -35,12 +32,22 @@ struct RenderMiddleware
 
 	inline void on_elligible(const com::PoolToken p_node_token, const NTreeResolve<SceneNode>& p_node, const MeshRenderer& p_mesh_renderer)
 	{
+		ShaderHandle l_shader;
+		l_shader.allocate(this->render, p_mesh_renderer.vertex_shader, p_mesh_renderer.fragment_shader);
+		TextureHandle l_texture;
+		l_texture.allocate(this->render, p_mesh_renderer.texture);
+		MaterialHandle l_material;
+		l_material.allocate(this->render, l_shader, l_texture);
+		MeshHandle l_mesh;
+		l_mesh.allocate(this->render, p_mesh_renderer.model);
+		RenderableObjectHandle l_renderable_object;
+		l_renderable_object.allocate(this->render, l_material, l_mesh);
+
+		l_renderable_object.push_trs(this->render, p_node.element->get_localtoworld());
+
 		RenderableObjectEntry l_entry;
 		l_entry.node = p_node_token;
-		render_allocate_renderableobject(this->render, p_mesh_renderer.vertex_shader, p_mesh_renderer.fragment_shader, p_mesh_renderer.model,
-			"textures/16.09_diffuse.jpg", l_entry.mesh, l_entry.shader, l_entry.material, l_entry.renderableobject);
-		
-		l_entry.renderableobject.push_trs(this->render, p_node.element->get_localtoworld());
+		l_entry.renderableobject = l_renderable_object;
 
 		this->allocated_renderableobjects.push_back(l_entry);
 	};
@@ -52,7 +59,7 @@ struct RenderMiddleware
 			RenderableObjectEntry& l_entry = this->allocated_renderableobjects[i];
 			if (l_entry.node.Index == p_node_token.Index)
 			{
-				render_free_renderableobject(this->render, l_entry.renderableobject, l_entry.material, l_entry.shader);
+				l_entry.renderableobject.free(this->render);
 				this->allocated_renderableobjects.erase_at(i);
 				return;
 			}

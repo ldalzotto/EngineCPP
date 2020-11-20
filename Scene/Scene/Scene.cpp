@@ -28,7 +28,10 @@ struct SceneHeap
 		if (!this->component_heap.allocate_element<>(l_allocationsize, &l_memory_allocated))
 		{
 			this->component_heap.realloc((this->component_heap.chunk_total_size * 2) + l_allocationsize);
-			this->component_heap.allocate_element<>(l_allocationsize, &l_memory_allocated);
+			if (!this->component_heap.allocate_element<>(l_allocationsize, &l_memory_allocated))
+			{
+				abort();
+			};
 		}
 
 		SceneNodeComponentHeader* l_header = this->component_heap.map<SceneNodeComponentHeader>(l_memory_allocated);

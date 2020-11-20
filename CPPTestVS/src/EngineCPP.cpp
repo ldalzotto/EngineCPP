@@ -28,9 +28,7 @@ void update(void* p_engine, float p_delta)
 		{
 			auto l_node = l_scenehandle.add_node(l_scenehandle.root(), Math::Transform());
 			MeshRenderer l_mesh_renderer;
-			l_mesh_renderer.vertex_shader = "shader/TriVert.vert";
-			l_mesh_renderer.fragment_shader = "shader/TriFrag.frag";
-			l_mesh_renderer.model = "models/16.09.obj";
+			l_mesh_renderer.initialize("shader/TriVert.vert", "shader/TriFrag.frag", "models/16.09.obj", "textures/16.09_diffuse.jpg");
 			l_scenehandle.add_component<MeshRenderer>(l_node, l_mesh_renderer);
 
 			testContext.center_node = l_node;
@@ -38,9 +36,7 @@ void update(void* p_engine, float p_delta)
 		{
 			auto l_node = l_scenehandle.add_node(testContext.center_node, Math::Transform(vec3f(0.0f, 0.0f, 0.0f), QuatConst::IDENTITY, VecConst<float>::ONE));
 			MeshRenderer l_mesh_renderer;
-			l_mesh_renderer.vertex_shader = "shader/TriVert.vert";
-			l_mesh_renderer.fragment_shader = "shader/TriFrag.frag";
-			l_mesh_renderer.model = "models/16.09.obj";
+			l_mesh_renderer.initialize("shader/TriVert.vert", "shader/TriFrag.frag", "models/16.09.obj", "textures/texture.jpg");
 			l_scenehandle.add_component<MeshRenderer>(l_node, l_mesh_renderer);
 
 			testContext.moving_node = l_node;
@@ -50,11 +46,11 @@ void update(void* p_engine, float p_delta)
 
 	if (testContext.framecount == 200)
 	{
-	//	l_scenehandle.remove_component<MeshRenderer>(testContext.moving_node);
+		l_scenehandle.remove_component<MeshRenderer>(testContext.moving_node);
 	}
 	else if (testContext.framecount == 300)
 	{
-		l_scenehandle.free_node(testContext.center_node);
+	    // l_scenehandle.free_node(testContext.center_node);
 		// l_scenehandle.remove_component<MeshRenderer>(testContext.center_node);
 	}
 	// else if()
@@ -89,12 +85,14 @@ void update(void* p_engine, float p_delta)
 #endif
 	{
 		SceneNode* l_node = l_scenehandle.resolve_node(testContext.moving_node).element;
-		l_node->set_localposition(l_node->get_localposition() + (vec3f(1.0f, 0.0f, 0.0f) * p_delta));
+
+		l_node->set_localposition(l_node->get_localposition() + (vec3f(VecConst<float>::FORWARD) * p_delta));
 		l_node->set_localrotation(mul(l_node->get_localrotation(), rotateAround(vec3f(0.0f, 1.0f, 0.0f), p_delta)));
 	}
 	
 	{
 		SceneNode* l_node = l_scenehandle.resolve_node(testContext.center_node).element;
+		l_node->set_worldposition(l_node->get_worldposition() + (vec3f(VecConst<float>::RIGHT) * p_delta));
 		l_node->set_localrotation(mul(l_node->get_localrotation(), rotateAround(vec3f(0.0f, 1.0f, 0.0f), p_delta)));
 	}
 

@@ -5,7 +5,9 @@
 void RenderableObjectHandle::allocate(const RenderHandle& p_render, const MaterialHandle p_material, const MeshHandle p_meshhandle)
 {
 	Render* l_render = (Render*)p_render;
-	this->handle = l_render->heap.allocate_rendereableObject(p_material.handle, p_meshhandle.handle).Index;
+	this->material = p_material;
+	this->mesh = p_meshhandle;
+	this->handle = l_render->heap.allocate_rendereableObject(this->material.handle, this->mesh.handle).Index;
 };
 
 void RenderableObjectHandle::push_trs(const RenderHandle& p_render, const Math::mat4f& p_trs)
@@ -17,7 +19,9 @@ void RenderableObjectHandle::push_trs(const RenderHandle& p_render, const Math::
 void RenderableObjectHandle::free(const RenderHandle& p_render)
 {
 	Render* l_render = (Render*)p_render;
+	this->mesh.free(p_render);
 	l_render->heap.free_renderableObject(this->handle);
+	this->material.free(p_render);
 	this->reset();
 };
 
@@ -34,16 +38,19 @@ void ShaderHandle::free(const RenderHandle& p_render)
 	this->reset();
 };
 
-void MaterialHandle::allocate(const RenderHandle& p_render, const ShaderHandle& p_shader)
+void MaterialHandle::allocate(const RenderHandle& p_render, const ShaderHandle& p_shader, const TextureHandle& p_texture)
 {
 	Render* l_render = (Render*)p_render;
-	this->handle = l_render->heap.allocate_material(p_shader.handle).Index;
+	this->shader = p_shader;
+	this->texture = p_texture;
+	this->handle = l_render->heap.allocate_material(this->shader.handle, this->texture.handle).Index;
 };
 
 void MaterialHandle::free(const RenderHandle& p_render)
 {
 	Render* l_render = (Render*)p_render;
 	l_render->heap.free_material(this->handle);
+	this->shader.free(p_render);
 	this->reset();
 };
 
