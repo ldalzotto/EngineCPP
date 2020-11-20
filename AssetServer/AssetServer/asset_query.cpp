@@ -146,7 +146,6 @@ struct AssetQuery
 	};
 };
 
-//TODO -> generalize the "from file" feature for insert/update queries to avoid dusplication
 struct GenericAssetQuery
 {
 	AssetQuery exists_query;
@@ -235,32 +234,12 @@ struct GenericAssetQuery
 
 	inline void insert_or_update_fromfile(const std::string& p_path)
 	{
-		size_t l_id = Hash<std::string>::hash(p_path);
+		com::Vector<char> l_file;
+		FileAlgorithm::read_bytes(asset_path->asset_folder_path + p_path, l_file);
+		
+		this->insert_or_update(p_path, l_file);
 
-		struct CountRowFn
-		{
-			size_t count = 0;
-
-			inline void execute(sqlite3_stmt* p_statement)
-			{
-				this->count = sqlite3_column_int64(p_statement, 0);
-			};
-		};
-
-		connection->handleSQLiteError(sqlite3_bind_int64(this->exists_query.statement, 1, l_id));
-
-		CountRowFn l_count;
-		this->exists_query.execute_sync_single(*connection, l_count);
-		this->exists_query.clear(*connection);
-
-		if (l_count.count == 0)
-		{
-			this->insert_fromfile(p_path);
-		}
-		else
-		{
-			this->update_fromfile(p_path);
-		}
+		l_file.free();
 	};
 
 	inline void insert_or_update(const std::string& p_path, const com::Vector<char>& p_data)

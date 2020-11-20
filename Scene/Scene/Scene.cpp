@@ -185,7 +185,6 @@ struct Scene
 		this->remove_component(l_node, p_component_token);
 	};
 
-	//TODO -> adding an error when trying to resolve a node that is already freed ?
 	inline NTreeResolve<SceneNode> resolve_node(const com::PoolToken p_node)
 	{
 		return this->tree.resolve(p_node);

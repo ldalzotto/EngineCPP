@@ -389,7 +389,6 @@ struct CompileAssets : WorkerThread::Task
 				{
 					RenderHeap2::Resource::TextureResourceAllocator::TextureAsset l_texture_resource;
 
-					//TODO -> stb_image
 					l_texture_resource.pixels.Memory = (char*)stbi_load(l_file.path.path.c_str(), &l_texture_resource.size.x, &l_texture_resource.size.y, &l_texture_resource.channel_number, STBI_rgb_alpha);
 					l_texture_resource.channel_number = 4;
 					l_texture_resource.pixels.Size = l_texture_resource.size.x * l_texture_resource.size.y * l_texture_resource.channel_number;

@@ -665,7 +665,21 @@ namespace Math
 			l_right,
 			l_up,
 			l_forward
-		);
+			);
+	};
+
+	template <unsigned N, class TYPE>
+	inline Matrix<N, TYPE> lookAtRotation_viewmatrix(const Vector<3, TYPE>& p_origin, const Vector<3, TYPE>& p_target, const Vector<3, TYPE>& p_up)
+	{
+		Vector<3, TYPE> l_forward = normalize(min(p_target, p_origin));
+		Vector<3, TYPE> l_right = normalize(mul(cross(l_forward, p_up), -One<float>::one) );
+		Vector<3, TYPE> l_up = normalize(mul(cross(l_right, l_forward), -One<float>::one));
+
+		return rotationMatrix<N, TYPE>(
+			l_right,
+			l_up,
+			l_forward
+			);
 	}
 
 	template <class TYPE>
@@ -739,7 +753,7 @@ namespace Math
 		l_target = add(p_world_position, l_target);
 
 		Vector<3, TYPE> l_up = mul(p_up, -1.0f);
-		Matrix<4, TYPE> l_view = TRS(p_world_position, lookAtRotation<3, TYPE>(p_world_position, l_target, l_up), VecConst<TYPE>::ONE);
+		Matrix<4, TYPE> l_view = TRS(p_world_position, lookAtRotation_viewmatrix<3, TYPE>(p_world_position, l_target, l_up), VecConst<TYPE>::ONE);
 		return inv(l_view);
 	}
 	

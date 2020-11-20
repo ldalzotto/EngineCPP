@@ -608,8 +608,8 @@ struct TextureSamplers
 	inline void allocate(Device& p_device)
 	{
 		vk::SamplerCreateInfo l_sampler_create_info;
-		l_sampler_create_info.setMagFilter(vk::Filter::eLinear);
-		l_sampler_create_info.setMinFilter(vk::Filter::eLinear);
+		l_sampler_create_info.setMagFilter(vk::Filter::eNearest);
+		l_sampler_create_info.setMinFilter(vk::Filter::eNearest);
 		l_sampler_create_info.setAddressModeU(vk::SamplerAddressMode::eRepeat);
 		l_sampler_create_info.setAddressModeV(vk::SamplerAddressMode::eRepeat);
 		l_sampler_create_info.setAddressModeW(vk::SamplerAddressMode::eRepeat);
@@ -2166,7 +2166,7 @@ private:
 			vk::PipelineRasterizationStateCreateInfo l_rasterization_state;
 			l_rasterization_state.setPolygonMode(vk::PolygonMode::eFill);
 			l_rasterization_state.setCullMode(vk::CullModeFlagBits::eBack);
-			l_rasterization_state.setFrontFace(vk::FrontFace::eClockwise);
+			l_rasterization_state.setFrontFace(vk::FrontFace::eCounterClockwise);
 			l_rasterization_state.setLineWidth(1.0f);
 			l_rasterization_state.setDepthClampEnable(false);
 			l_rasterization_state.setRasterizerDiscardEnable(false);

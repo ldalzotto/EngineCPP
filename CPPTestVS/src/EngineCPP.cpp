@@ -36,7 +36,7 @@ void update(void* p_engine, float p_delta)
 		{
 			auto l_node = l_scenehandle.add_node(testContext.center_node, Math::Transform(vec3f(0.0f, 0.0f, 0.0f), QuatConst::IDENTITY, VecConst<float>::ONE));
 			MeshRenderer l_mesh_renderer;
-			l_mesh_renderer.initialize("shader/TriVert.vert", "shader/TriFrag.frag", "models/16.09.obj", "textures/texture.jpg");
+			l_mesh_renderer.initialize("shader/TriVert.vert", "shader/TriFrag.frag", "models/16.09.obj", "textures/16.09_diffuse.jpg");
 			l_scenehandle.add_component<MeshRenderer>(l_node, l_mesh_renderer);
 
 			testContext.moving_node = l_node;
