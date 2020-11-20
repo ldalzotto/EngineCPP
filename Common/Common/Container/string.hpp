@@ -38,7 +38,7 @@ inline String<Allocator>& String<Allocator>::append(const char* p_str)
 		this->Memory.insert_at(l_str, this->Memory.Size - 1);
 	}
 	else
-	{	
+	{
 		this->Memory.insert_at(l_str, 0);
 	}
 	return *this;
@@ -114,9 +114,9 @@ inline bool String<Allocator>::find(const String<ParameterAllocator>& p_str, con
 {
 	StringSlice l_slice;
 	l_slice.Memory = p_str.Memory.Memory;
-	l_slice.Begin = 0;
-	l_slice.End = strlen(p_str.Memory.Size) - 1;
-	return this->toSlice().find(l_slice, p_search_begin, p_outfoundIndex);
+	l_slice.Begin = p_search_begin;
+	l_slice.End = p_str.Memory.Size - 1;
+	return this->toSlice().find(l_slice, p_outfoundIndex);
 };
 
 template<class Allocator>
@@ -147,6 +147,17 @@ inline bool String<Allocator>::equals(const StringSlice& p_str)
 	return p_str.equals(this->toSlice());
 };
 
+template<class Allocator>
+void String<Allocator>::remove_chars(const char p_char)
+{
+	for (size_t i = this->Memory.Size; i <= this->Memory.Size; i--)
+	{
+		if (this->Memory[i] == p_char)
+		{
+			this->Memory.erase_at(i);
+		}
+	}
+};
 
 
 inline bool StringSlice::find(const StringSlice& p_other, size_t* p_outfoundIndex)
@@ -177,7 +188,7 @@ inline bool StringSlice::find(const StringSlice& p_other, size_t* p_outfoundInde
 	return false;
 };
 
-inline bool StringSlice::equals(const StringSlice& p_other)
+inline bool StringSlice::equals(const StringSlice& p_other) const
 {
 
 	size_t l_sourceSlice_size = (this->End - this->Begin);

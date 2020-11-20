@@ -13,3 +13,4 @@ add_library(SceneComponents ${SCENECOMPONENTS_HEADER} ${SCENECOMPONENTS_SOURCE})
 target_include_directories(SceneComponents PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 
 target_link_libraries(SceneComponents PUBLIC Scene)
+target_link_libraries(SceneComponents PUBLIC Render)

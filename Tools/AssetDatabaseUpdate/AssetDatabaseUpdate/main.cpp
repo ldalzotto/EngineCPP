@@ -13,6 +13,8 @@
 #include<fstream>
 #include<sstream>
 
+#include <Render/assets.hpp>
+
 #include "../Render/Render/Render.cpp"
 #include "obj_reader.hpp"
 
@@ -398,6 +400,40 @@ struct CompileAssets : WorkerThread::Task
 					l_texture_resource.sertialize_to(l_texture_resource_bytes);
 					this->in.asset_server.insert_or_update_resource(std::string(l_asset_folder_relative.Memory + l_asset_folder_relative.Begin), l_texture_resource_bytes);
 					l_texture_resource_bytes.free();
+				}
+				else if (l_file.extension.find(StringSlice("json"), &tmp))
+				{
+
+
+					com::Vector<char> l_file_bytes;
+					FileAlgorithm::read_bytes(std::string(l_file.path.path.c_str()), l_file_bytes);
+					
+					String<> l_file_binary;
+					l_file_binary.Memory = l_file_bytes;
+					l_file_binary.Memory.Size = l_file_bytes.Size;
+					l_file_binary.Memory.Capacity = l_file_bytes.Capacity;
+					l_file_binary.remove_chars(' ');
+					l_file_binary.remove_chars('\n');
+					l_file_binary.remove_chars('\r');
+					l_file_binary.remove_chars('\t');
+					Serialization::JSON::DeserializeIterator l_json_deserializer;
+					l_json_deserializer.start(l_file_binary);
+					{
+						l_json_deserializer.next_field("type");
+						Serialization::JSON::FieldNode& l_json_type = l_json_deserializer.stack_fields[l_json_deserializer.current_field];
+
+						if (l_json_type.value.equals(StringSlice("material")))
+						{
+							MaterialAsset l_material_asset = MaterialAsset::deserializeJSON(l_file_binary.c_str());
+
+							com::Vector<char> l_material_bytes;
+							l_material_asset.serialize(l_material_bytes);
+							this->in.asset_server.insert_or_update_resource(std::string(l_asset_folder_relative.Memory + l_asset_folder_relative.Begin), l_material_bytes);
+							l_material_bytes.free();
+						}
+					}
+					l_json_deserializer.free();
+					l_file_bytes.free();
 				}
 			}
 			this->out.file_processed += 1;

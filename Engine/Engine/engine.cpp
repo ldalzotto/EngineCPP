@@ -186,3 +186,8 @@ SceneHandle engine_scene(const EngineHandle& p_engine)
 {
 	return ((Engine*)p_engine)->scene;
 };
+
+AssetServerHandle engine_assetserver(const EngineHandle& p_engine)
+{
+	return ((Engine*)p_engine)->asset_server;
+};

@@ -32,10 +32,11 @@ struct RenderMiddleware
 
 	inline void on_elligible(const com::PoolToken p_node_token, const NTreeResolve<SceneNode>& p_node, const MeshRenderer& p_mesh_renderer)
 	{
+
 		ShaderHandle l_shader;
-		l_shader.allocate(this->render, p_mesh_renderer.vertex_shader, p_mesh_renderer.fragment_shader);
+		l_shader.allocate(this->render, p_mesh_renderer.material.shader.vertex, p_mesh_renderer.material.shader.fragment);
 		TextureHandle l_texture;
-		l_texture.allocate(this->render, p_mesh_renderer.texture);
+		l_texture.allocate(this->render, p_mesh_renderer.material.texture);
 		MaterialHandle l_material;
 		l_material.allocate(this->render, l_shader, l_texture);
 		MeshHandle l_mesh;

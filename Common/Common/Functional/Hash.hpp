@@ -1,6 +1,7 @@
 #pragma once
 
 #include <string>
+#include "Common/Container/string_def.hpp"
 
 // http://www.cse.yorku.ca/~oz/hash.html
 inline size_t HashFunctionRaw(const char* p_value, size_t p_size)
@@ -37,6 +38,16 @@ struct Hash<std::string>
 		return HashFunctionRaw(p_key.c_str(), p_key.length());
 	};
 };
+
+template<>
+struct Hash<StringSlice>
+{
+	inline static size_t hash(const StringSlice& p_key)
+	{
+		return HashFunctionRaw(p_key.Memory + p_key.Begin, p_key.End - p_key.Begin);
+	};
+};
+
 
 template<>
 struct Hash<size_t>

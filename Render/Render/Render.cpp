@@ -2967,9 +2967,14 @@ public:
 
 	inline com::PoolToken allocate_shader(const std::string& p_vertex, const std::string& p_fragment)
 	{
+		return this->allocate_shader(Hash<std::string>::hash(p_vertex), Hash<std::string>::hash(p_fragment));
+	};
+
+	inline com::PoolToken allocate_shader(const size_t p_vertex, const size_t p_fragment)
+	{
 		ShaderResourceKey l_key;
-		l_key.vertex_module = Hash<std::string>::hash(p_vertex);
-		l_key.fragment_module = Hash<std::string>::hash(p_fragment);
+		l_key.vertex_module = p_vertex;
+		l_key.fragment_module = p_fragment;
 		return this->allocate_shader_internal(l_key);
 	};
 
@@ -3007,7 +3012,12 @@ public:
 
 	inline com::PoolToken allocate_texture(const std::string& p_path)
 	{
-		return this->resource.texture_resources.allocate_resource(Hash<std::string>::hash(p_path));
+		return this->allocate_texture(Hash<std::string>::hash(p_path));
+	};
+
+	inline com::PoolToken allocate_texture(const size_t p_id)
+	{
+		return this->resource.texture_resources.allocate_resource(p_id);
 	};
 
 	inline void free_texture(const com::PoolToken& p_texture)

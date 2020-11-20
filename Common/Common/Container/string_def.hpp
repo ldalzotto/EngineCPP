@@ -32,7 +32,7 @@ struct StringSlice
 
 	bool find(const StringSlice& p_other, size_t* p_outfoundIndex);
 
-	bool equals(const StringSlice& p_other);
+	bool equals(const StringSlice& p_other) const;
 };
 
 template<class Allocator = HeapAllocator>
@@ -45,7 +45,7 @@ struct String
 	void free();
 	String<Allocator> clone() const;
 
-	inline const char* c_str() const { return this->Memory.Memory; }
+	inline char* c_str() const { return this->Memory.Memory; }
 
 	String<Allocator>& append(const char* p_str);
 	template<class ParameterAllocator>
@@ -63,6 +63,8 @@ struct String
 
 	bool equals(const char* p_str);
 	bool equals(const StringSlice& p_str);
+
+	void remove_chars(const char p_char);
 
 	static char String_CompareRaw(char* p_left, char* p_right, size_t p_size);
 };
