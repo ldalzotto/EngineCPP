@@ -10,6 +10,7 @@
 #include "Common/Container/array_def.hpp"
 #include "Common/Container/resource_map.hpp"
 #include "Common/Container/hashmap.hpp"
+#include "Common/Serialization/binary.hpp"
 #include "Common/Memory/heap.hpp"
 #include <fstream>
 #include <stdlib.h>
@@ -2792,15 +2793,6 @@ struct RenderHeap2
 
 			struct MeshAsset
 			{
-				struct MeshAssetIndex
-				{
-					size_t vertices_offset;
-					size_t vertices_count;
-					size_t indices_offset;
-					size_t indices_count;
-					size_t end;
-				} index;
-
 				com::Vector<Vertex> vertices;
 				com::Vector<uint32_t> indices;
 
@@ -2818,39 +2810,19 @@ struct RenderHeap2
 
 				inline static MeshAsset cast_from(const char* p_data)
 				{
-					const MeshAssetIndex* p_index = (const MeshAssetIndex*)p_data;
-
 					MeshAsset l_resource;
 
-					l_resource.index = *p_index;
-
-					l_resource.vertices.Memory = (Vertex*)(p_data + p_index->vertices_offset);
-					l_resource.vertices.Size = p_index->vertices_count;
-					l_resource.vertices.Capacity = p_index->vertices_count;
-
-					l_resource.indices.Memory = (uint32_t*)(p_data + p_index->indices_offset);
-					l_resource.indices.Size = p_index->indices_count;
-					l_resource.indices.Capacity = p_index->indices_count;
-
+					size_t l_current_pointer = 0;
+					l_resource.vertices = Serialization::Binary::deserialize_vector<Vertex>(l_current_pointer, p_data);
+					l_resource.indices = Serialization::Binary::deserialize_vector<uint32_t>(l_current_pointer, p_data);
 					return l_resource;
 				};
 
 				inline void sertialize_to(com::Vector<char>& out_target)
 				{
 					size_t l_current_pointer = 0;
-					out_target.insert_at(com::MemorySlice<char>(*(char*)&this->index, sizeof(MeshAssetIndex)), l_current_pointer);
-					l_current_pointer += sizeof(MeshAssetIndex);
-					out_target.insert_at(com::MemorySlice<char>(*(char*)this->vertices.Memory, this->vertices.size_in_bytes()), l_current_pointer);
-					l_current_pointer += this->vertices.size_in_bytes();
-					out_target.insert_at(com::MemorySlice<char>(*(char*)this->indices.Memory, this->indices.size_in_bytes()), l_current_pointer);
-
-
-					MeshAssetIndex* l_index = (MeshAssetIndex*)out_target.Memory;
-					l_index->vertices_offset = sizeof(MeshAssetIndex);
-					l_index->vertices_count = this->vertices.Size;
-					l_index->indices_offset = l_index->vertices_offset + this->vertices.size_in_bytes();
-					l_index->indices_count = this->indices.Size;
-					l_index->end = l_index->indices_offset + this->indices.size_in_bytes();
+					Serialization::Binary::serialize_vector(l_current_pointer, this->vertices, out_target);
+					Serialization::Binary::serialize_vector(l_current_pointer, this->indices, out_target);
 				};
 
 
@@ -2890,11 +2862,6 @@ struct RenderHeap2
 
 			struct TextureAsset
 			{
-				struct TextureAssetIndex
-				{
-					size_t pixels_char_count;
-				} index;
-
 				Vector<2, int> size;
 				int channel_number;
 				com::Vector<char> pixels;
@@ -2911,40 +2878,21 @@ struct RenderHeap2
 
 				inline static TextureAsset cast_from(const char* p_data)
 				{
-					size_t l_current_pointer = 0;
-					const TextureAssetIndex* p_index = (const TextureAssetIndex*)p_data;
-
 					TextureAsset l_resource;
 
-					l_resource.index = *p_index;
-
-					l_current_pointer += sizeof(TextureAssetIndex);
-					l_resource.size = *(Vector<2, int>*)(p_data + l_current_pointer);
-					l_current_pointer += sizeof(l_resource.size);
-					l_resource.channel_number = *(int*)(p_data + l_current_pointer);
-					l_current_pointer += sizeof(l_resource.channel_number);
-					l_resource.pixels.Memory = (char*)(p_data + l_current_pointer);
-					l_resource.pixels.Size = p_index->pixels_char_count;
-					l_resource.pixels.Capacity = p_index->pixels_char_count;
-
+					size_t l_current_pointer = 0;
+					l_resource.size = *Serialization::Binary::deserialize_field<Vector<2, int>>(l_current_pointer, p_data);
+					l_resource.channel_number = *Serialization::Binary::deserialize_field<int>(l_current_pointer, p_data);
+					l_resource.pixels = Serialization::Binary::deserialize_vector<char>(l_current_pointer, p_data);
 					return l_resource;
 				};
 
 				inline void sertialize_to(com::Vector<char>& out_target)
 				{
 					size_t l_current_pointer = 0;
-					out_target.insert_at(com::MemorySlice<char>(*(char*)&this->index, sizeof(this->index)), l_current_pointer);
-					l_current_pointer += sizeof(this->index);
-					out_target.insert_at(com::MemorySlice<char>(*(char*)&this->size, sizeof(this->size)), l_current_pointer);
-					l_current_pointer += sizeof(this->size);
-					out_target.insert_at(com::MemorySlice<char>(*(char*)&this->channel_number, sizeof(this->channel_number)), l_current_pointer);
-					l_current_pointer += sizeof(this->channel_number);
-					out_target.insert_at(com::MemorySlice<char>(*(char*)this->pixels.Memory, this->pixels.size_in_bytes()), l_current_pointer);
-					l_current_pointer += this->pixels.size_in_bytes();
-
-
-					TextureAssetIndex* l_index = (TextureAssetIndex*)out_target.Memory;
-					l_index->pixels_char_count = this->pixels.Size;
+					Serialization::Binary::serialize_field<Vector<2, int>>(l_current_pointer, (const char*)this, out_target);
+					Serialization::Binary::serialize_field<int>(l_current_pointer, (const char*)this, out_target);
+					Serialization::Binary::serialize_vector<char>(l_current_pointer, this->pixels, out_target);
 				};
 			};
 

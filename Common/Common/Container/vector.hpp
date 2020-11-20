@@ -67,7 +67,7 @@ namespace com
 	}
 
 	Vector_TemplateHeader
-		inline size_t Vector_ClassName::size_in_bytes()
+		inline size_t Vector_ClassName::size_in_bytes() const
 	{
 		return this->Size * sizeof(TYPE);
 	};

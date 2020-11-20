@@ -28,7 +28,7 @@ namespace com
 		void clear();
 		TYPE& operator[](size_t i);
 		
-		size_t size_in_bytes();
+		size_t size_in_bytes() const;
 		size_t capacity_in_bytes();
 		char resize(const size_t p_newCapacity);
 		char push_back(const TYPE &p_element);
