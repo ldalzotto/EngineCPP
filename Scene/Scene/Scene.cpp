@@ -3,6 +3,7 @@
 #include "Common/Container/vector.hpp"
 #include "Common/Memory/heap.hpp"
 
+
 typedef com::PoolToken SceneNodeComponentToken;
 
 struct SceneHeap
@@ -27,7 +28,7 @@ struct SceneHeap
 		com::PoolToken l_memory_allocated;
 		if (!this->component_heap.allocate_element<>(l_allocationsize, &l_memory_allocated))
 		{
-			this->component_heap.realloc((this->component_heap.chunk_total_size * 2) + l_allocationsize);
+			this->component_heap.realloc((this->component_heap.memory.Size * 2) + l_allocationsize);
 			if (!this->component_heap.allocate_element<>(l_allocationsize, &l_memory_allocated))
 			{
 				abort();
@@ -54,11 +55,14 @@ struct Scene
 	SceneHeap heap;
 	Callback<void, ComponentAddedParameter> component_added_callback;
 	Callback<void, ComponentRemovedParameter> component_removed_callback;
+	Callback<void, ComponentAssetPushParameter> component_asset_push_callback;
 
-	inline void allocate(const Callback<void, ComponentAddedParameter>& p_componentadded_callback, const Callback<void, ComponentRemovedParameter>& p_componentremoved_callback)
+	inline void allocate(const Callback<void, ComponentAddedParameter>& p_componentadded_callback, const Callback<void, ComponentRemovedParameter>& p_componentremoved_callback,
+		const Callback<void, ComponentAssetPushParameter>& p_componentasset_push_callback)
 	{
 		this->component_added_callback = p_componentadded_callback;
 		this->component_removed_callback = p_componentremoved_callback;
+		this->component_asset_push_callback = p_componentasset_push_callback;
 
 		this->tree.allocate(1);
 
@@ -213,12 +217,40 @@ struct Scene
 	{
 		return this->resolve_node(0);
 	};
+
+	inline void feed_with_asset(SceneAsset& p_scene_asset)
+	{
+		for (size_t l_node_index = 0; l_node_index < p_scene_asset.nodes.Size; l_node_index++)
+		{
+			NodeAsset& l_node = p_scene_asset.nodes[l_node_index];
+			
+			com::PoolToken l_node_token = this->add_node(0, Math::Transform(l_node.local_position, l_node.local_rotation, l_node.local_scale));
+
+			for (size_t l_component_index = l_node.components_begin; l_component_index < l_node.components_end; l_component_index++)
+			{
+				ComponentAsset& l_component = p_scene_asset.components[l_component_index];
+				
+				ComponentAssetPushParameter l_component_asset_push;
+				l_component_asset_push.component_asset = &l_component;
+				l_component_asset_push.node = l_node_token;
+				l_component_asset_push.scene = this;
+				l_component_asset_push.component_asset_object = p_scene_asset.component_asset_heap.map<void>(l_component.componentasset_heap_index);
+				this->component_asset_push_callback.call(&l_component_asset_push);
+
+				// this->add_component(l_node_token, SceneNodeComponent_TypeInfo(l_component.id, l_component_heap_chunk.chunk_size), p_scene_asset.component_asset_heap.memory.Memory + l_component_heap_chunk.offset);
+			}
+		}
+	};
 };
 
-void SceneHandle::allocate(const Callback<void, ComponentAddedParameter>& p_componentadded_callback, const Callback<void, ComponentRemovedParameter>& p_componentremoved_callback)
+
+
+
+void SceneHandle::allocate(const Callback<void, ComponentAddedParameter>& p_componentadded_callback, const Callback<void, ComponentRemovedParameter>& p_componentremoved_callback,
+	const Callback<void, ComponentAssetPushParameter>& p_componentasset_push_callback)
 {
 	this->handle = new Scene();
-	((Scene*)this->handle)->allocate(p_componentadded_callback, p_componentremoved_callback);
+	((Scene*)this->handle)->allocate(p_componentadded_callback, p_componentremoved_callback, p_componentasset_push_callback);
 };
 
 void SceneHandle::free()
@@ -282,4 +314,9 @@ com::PoolToken SceneHandle::root()
 void SceneHandle::new_frame()
 {
 	return ((Scene*)this->handle)->new_frame();
+};
+
+void SceneHandle::feed_with_asset(SceneAsset& p_scene_asset)
+{
+	return ((Scene*)this->handle)->feed_with_asset(p_scene_asset);
 };

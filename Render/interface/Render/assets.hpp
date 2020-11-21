@@ -15,34 +15,11 @@ struct MaterialAsset
 
 	size_t texture;
 
-	inline static MaterialAsset deserializeJSON(char* p_file)
-	{
-		MaterialAsset l_asset;
-
-		Serialization::JSON::DeserializeIterator l_json_deserializer;
-		String<> l_file;
-		l_file.from_raw(p_file);
-		l_json_deserializer.start(l_file);
-		{
-			l_json_deserializer.next_field("type");
-			l_json_deserializer.next_field("vertex");
-			l_asset.shader.vertex = Hash<StringSlice>::hash(l_json_deserializer.stack_fields[l_json_deserializer.current_field].value);
-			l_json_deserializer.next_field("fragment");
-			l_asset.shader.fragment = Hash<StringSlice>::hash(l_json_deserializer.stack_fields[l_json_deserializer.current_field].value);
-			l_json_deserializer.next_field("texture");
-			l_asset.texture = Hash<StringSlice>::hash(l_json_deserializer.stack_fields[l_json_deserializer.current_field].value);
-		}
-		l_json_deserializer.free();
-
-		return l_asset;
-	};
-
 	inline void serialize(com::Vector<char>& out_target)
 	{
-		size_t l_current_pointer = 0;
-		Serialization::Binary::serialize_field<size_t>(l_current_pointer, (const char*)this, out_target);
-		Serialization::Binary::serialize_field<size_t>(l_current_pointer, (const char*)this, out_target);
-		Serialization::Binary::serialize_field<size_t>(l_current_pointer, (const char*)this, out_target);
+		Serialization::Binary::serialize_field<size_t>(&this->shader.vertex, out_target);
+		Serialization::Binary::serialize_field<size_t>(&this->shader.fragment, out_target);
+		Serialization::Binary::serialize_field<size_t>(&this->texture, out_target);
 	};
 
 	inline static MaterialAsset deserialize(const char* p_source)
@@ -54,4 +31,25 @@ struct MaterialAsset
 		l_resource.texture = *Serialization::Binary::deserialize_field<size_t>(l_current_pointer, p_source);
 		return l_resource;
 	};
+};
+
+template<>
+struct JSONDeserializer<MaterialAsset>
+{
+	inline static MaterialAsset deserialize(Serialization::JSON::JSONObjectIterator& p_iterator)
+	{
+		MaterialAsset l_asset;
+
+		p_iterator.next_field("type");
+		p_iterator.next_field("vertex");
+		l_asset.shader.vertex = Hash<StringSlice>::hash(p_iterator.get_currentfield().value);
+		p_iterator.next_field("fragment");
+		l_asset.shader.fragment = Hash<StringSlice>::hash(p_iterator.get_currentfield().value);
+		p_iterator.next_field("texture");
+		l_asset.texture = Hash<StringSlice>::hash(p_iterator.get_currentfield().value);
+
+		p_iterator.free();
+
+		return l_asset;
+	}
 };

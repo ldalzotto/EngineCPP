@@ -3,6 +3,8 @@
 #include "component_def.hpp"
 #include "Common/Memory/handle.hpp"
 
+#include "serialization.hpp"
+
 #include "Common/Functional/Callback.hpp"
 #include "Common/Container/tree.hpp"
 #include "Math/transform_def.hpp"
@@ -302,10 +304,21 @@ struct ComponentRemovedParameter
 	};
 };
 
+struct ComponentAssetPushParameter
+{
+	void* scene;
+	com::PoolToken node;
+	ComponentAsset* component_asset;
+	void* component_asset_object;
+
+	ComponentAssetPushParameter() {};
+};
+
 struct SceneHandle
 {
 	void* handle;
-	void allocate(const Callback<void, ComponentAddedParameter>& p_componentadded_callback, const Callback<void, ComponentRemovedParameter>& p_componentremoved_callback);
+	void allocate(const Callback<void, ComponentAddedParameter>& p_componentadded_callback, const Callback<void, ComponentRemovedParameter>& p_componentremoved_callback,
+		const Callback<void, ComponentAssetPushParameter>& p_componentasset_push_callback);
 	void free();
 
 	com::PoolToken allocate_node(const Math::Transform& p_initial_local_transform);
@@ -339,6 +352,8 @@ struct SceneHandle
 	{
 		this->remove_component(p_node, ComponentType::Type);
 	};
+
+	void SceneHandle::feed_with_asset(SceneAsset& p_scene_asset);
 
 	com::PoolToken root();
 	void new_frame();

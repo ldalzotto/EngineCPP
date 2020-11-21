@@ -33,6 +33,8 @@ struct StringSlice
 	bool find(const StringSlice& p_other, size_t* p_outfoundIndex);
 
 	bool equals(const StringSlice& p_other) const;
+
+	inline size_t size() { return this->End - this->Begin; }
 };
 
 template<class Allocator = HeapAllocator>

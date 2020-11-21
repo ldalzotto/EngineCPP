@@ -34,20 +34,17 @@ struct GeneralPurposeHeap
 {
 	static_assert(std::is_base_of<IAllocator, Allocator>::value, "Allocator must implements IAllocator.");
 
-	Allocator allocator;
-	size_t chunk_total_size;
-	char* memory;
+	com::Vector<char, Allocator> memory;
 	com::Pool<GeneralPurposeHeapMemoryChunk> allocated_chunks;
 	com::Vector<GeneralPurposeHeapMemoryChunk> free_chunks;
 
 	inline void allocate(size_t p_size, Allocator& p_allocator = HeapAllocator())
 	{
-		this->chunk_total_size = p_size;
-		this->allocator = p_allocator;
-		this->memory = (char*)this->allocator.malloc(this->chunk_total_size);
+		this->memory.allocate(p_size, p_allocator);
+		this->memory.Size = this->memory.Capacity;
 
 		GeneralPurposeHeapMemoryChunk l_whole_chunk;
-		l_whole_chunk.chunk_size = this->chunk_total_size;
+		l_whole_chunk.chunk_size = this->memory.Size;
 		l_whole_chunk.offset = 0;
 
 		this->allocated_chunks.allocate(0);
@@ -58,23 +55,20 @@ struct GeneralPurposeHeap
 
 	inline void realloc(size_t p_newsize, Allocator& p_allocator = HeapAllocator())
 	{
-		if (this->chunk_total_size < p_newsize)
+		size_t l_old_size = this->memory.Size;
+		if (this->memory.resize(p_newsize))
 		{
-			char* l_realloced_memory = (char*)p_allocator.realloc((void*)this->memory, p_newsize);
-			if (l_realloced_memory)
-			{
-				this->memory = l_realloced_memory;
-				GeneralPurposeHeapMemoryChunk l_new_free_block;
-				l_new_free_block.chunk_size = p_newsize - this->chunk_total_size;
-				l_new_free_block.offset = this->chunk_total_size;
-				this->free_chunks.push_back(l_new_free_block);
-			}
+			this->memory.Size = this->memory.Capacity;
+			GeneralPurposeHeapMemoryChunk l_new_free_block;
+			l_new_free_block.chunk_size = p_newsize - l_old_size;
+			l_new_free_block.offset = l_old_size;
+			this->free_chunks.push_back(l_new_free_block);
 		}
 	}
 
 	inline void dispose()
 	{
-		this->allocator.free(this->memory);
+		this->memory.free();
 		this->allocated_chunks.free();
 		this->free_chunks.free();
 	};
@@ -82,7 +76,7 @@ struct GeneralPurposeHeap
 	template<class ElementType>
 	inline ElementType* map(com::PoolToken p_memory)
 	{
-		return (ElementType*)(this->memory + this->allocated_chunks[p_memory].offset);
+		return (ElementType*)(this->memory.Memory + this->allocated_chunks[p_memory].offset);
 	};
 
 	inline GeneralPurposeHeapMemoryChunk& resolve_allocated_chunk(const com::PoolToken p_memory)

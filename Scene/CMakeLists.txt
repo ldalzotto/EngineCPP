@@ -28,3 +28,4 @@ target_include_directories(SceneTest PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/interfac
 target_link_libraries(SceneTest PUBLIC Math)
 target_link_libraries(SceneTest PUBLIC Common)
 target_link_libraries(SceneTest PUBLIC Optick)
+target_link_libraries(SceneTest PUBLIC SceneComponents)

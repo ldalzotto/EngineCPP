@@ -8,6 +8,8 @@
 #include <Common/File/file.hpp>
 #include <Common/Container/tree.hpp>
 #include <AssetServer/asset_server.hpp>
+#include <Scene/serialization.hpp>
+#include <SceneComponents/serialization.hpp>
 
 #include<iostream>
 #include<fstream>
@@ -407,7 +409,7 @@ struct CompileAssets : WorkerThread::Task
 
 					com::Vector<char> l_file_bytes;
 					FileAlgorithm::read_bytes(std::string(l_file.path.path.c_str()), l_file_bytes);
-					
+
 					String<> l_file_binary;
 					l_file_binary.Memory = l_file_bytes;
 					l_file_binary.Memory.Size = l_file_bytes.Size;
@@ -416,20 +418,31 @@ struct CompileAssets : WorkerThread::Task
 					l_file_binary.remove_chars('\n');
 					l_file_binary.remove_chars('\r');
 					l_file_binary.remove_chars('\t');
-					Serialization::JSON::DeserializeIterator l_json_deserializer;
-					l_json_deserializer.start(l_file_binary);
+
+					Serialization::JSON::JSONObjectIterator l_json_deserializer = Serialization::JSON::StartDeserialization(l_file_binary);
 					{
 						l_json_deserializer.next_field("type");
 						Serialization::JSON::FieldNode& l_json_type = l_json_deserializer.stack_fields[l_json_deserializer.current_field];
+						
+						com::Vector<char> l_asset_bytes;
 
 						if (l_json_type.value.equals(StringSlice("material")))
 						{
-							MaterialAsset l_material_asset = MaterialAsset::deserializeJSON(l_file_binary.c_str());
+							l_json_deserializer.free();
+							MaterialAsset l_material_asset = JSONDeserializer<MaterialAsset>::deserialize(l_json_deserializer);
+							l_material_asset.serialize(l_asset_bytes);
+						}
+						else if (l_json_type.value.equals(StringSlice("scene")))
+						{
+							l_json_deserializer.free();
+							SceneAsset l_scene_asset = JSONDeserializer<SceneAsset>::deserialize<ComponentAssetSerializer>(l_json_deserializer);
+							l_scene_asset.serialize(l_asset_bytes);
+						}
 
-							com::Vector<char> l_material_bytes;
-							l_material_asset.serialize(l_material_bytes);
-							this->in.asset_server.insert_or_update_resource(std::string(l_asset_folder_relative.Memory + l_asset_folder_relative.Begin), l_material_bytes);
-							l_material_bytes.free();
+						if (l_asset_bytes.Memory != nullptr)
+						{
+							this->in.asset_server.insert_or_update_resource(std::string(l_asset_folder_relative.Memory + l_asset_folder_relative.Begin), l_asset_bytes);
+							l_asset_bytes.free();
 						}
 					}
 					l_json_deserializer.free();

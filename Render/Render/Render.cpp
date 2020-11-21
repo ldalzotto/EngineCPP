@@ -143,8 +143,8 @@ struct PageGPUMemory2
 	inline bool allocate_element(size_t p_size, size_t p_alignmenent_constaint, GPUMemoryWithOffset* out_chunk)
 	{
 		out_chunk->pagedbuffer_index = this->page_index;
-		out_chunk->original_memory = this->heap.allocator.root_memory;
-		out_chunk->original_mapped_memory = this->heap.memory;
+		out_chunk->original_memory = this->heap.memory.allocator.root_memory;
+		out_chunk->original_mapped_memory = this->heap.memory.Memory;
 
 		return this->heap.allocate_element(p_size, AllocationAlignementConstraint(p_alignmenent_constaint), &out_chunk->allocated_chunk_token);
 	}
@@ -2820,9 +2820,8 @@ struct RenderHeap2
 
 				inline void sertialize_to(com::Vector<char>& out_target)
 				{
-					size_t l_current_pointer = 0;
-					Serialization::Binary::serialize_vector(l_current_pointer, this->vertices, out_target);
-					Serialization::Binary::serialize_vector(l_current_pointer, this->indices, out_target);
+					Serialization::Binary::serialize_vector(this->vertices, out_target);
+					Serialization::Binary::serialize_vector(this->indices, out_target);
 				};
 
 
@@ -2889,10 +2888,9 @@ struct RenderHeap2
 
 				inline void sertialize_to(com::Vector<char>& out_target)
 				{
-					size_t l_current_pointer = 0;
-					Serialization::Binary::serialize_field<Vector<2, int>>(l_current_pointer, (const char*)this, out_target);
-					Serialization::Binary::serialize_field<int>(l_current_pointer, (const char*)this, out_target);
-					Serialization::Binary::serialize_vector<char>(l_current_pointer, this->pixels, out_target);
+					Serialization::Binary::serialize_field<Vector<2, int>>(&this->size, out_target);
+					Serialization::Binary::serialize_field<int>(&this->channel_number, out_target);
+					Serialization::Binary::serialize_vector<char>(this->pixels, out_target);
 				};
 			};
 
@@ -3002,8 +3000,14 @@ public:
 
 	inline com::PoolToken allocate_mesh(const std::string& p_path)
 	{
-		return this->resource.mesh_resources.allocate_resource(Hash<std::string>::hash(p_path));
+		return this->allocate_mesh(Hash<std::string>::hash(p_path));
 	};
+
+	inline com::PoolToken allocate_mesh(const size_t& p_id)
+	{
+		return this->resource.mesh_resources.allocate_resource(p_id);
+	};
+
 
 	inline void free_mesh(const com::PoolToken& p_mesh)
 	{

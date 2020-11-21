@@ -66,6 +66,12 @@ void MeshHandle::allocate(const RenderHandle& p_render, const std::string& p_mes
 	this->handle = l_render->heap.allocate_mesh(p_mesh).Index;
 };
 
+void MeshHandle::allocate(const RenderHandle& p_render, const size_t p_mesh)
+{
+	Render* l_render = (Render*)p_render;
+	this->handle = l_render->heap.allocate_mesh(p_mesh).Index;
+};
+
 void MeshHandle::free(const RenderHandle& p_render)
 {
 	Render* l_render = (Render*)p_render;

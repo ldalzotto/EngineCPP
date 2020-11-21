@@ -88,25 +88,23 @@ namespace com
 			{
 				this->Memory = l_newMemory;
 				this->Capacity = p_newCapacity;
-				return 0;
-			}
-			else
-			{
 				return 1;
 			}
+			return 0;
 		}
-		return 0;
+
+		return 1;
 	}
 
 	Vector_TemplateHeader inline char Vector_ClassName::push_back(const TYPE &p_element)
 	{
 		if (this->Size >= this->Capacity)
 		{
-			if (this->resize(this->Capacity == 0 ? 1 : (this->Capacity * 2)))
+			if (!this->resize(this->Capacity == 0 ? 1 : (this->Capacity * 2)))
 			{
-				return 1;
+				return 0;
 			};
-			this->push_back(p_element);
+			return this->push_back(p_element);
 		}
 		else
 		{
@@ -115,7 +113,7 @@ namespace com
 			this->Size += 1;
 		}
 
-		return 0;
+		return 1;
 	}
 
 	Vector_TemplateHeader
@@ -140,7 +138,7 @@ namespace com
 				void* l_targetElement = (char*)this->Memory + getElementOffset<TYPE>(p_index + p_elements.count());
 				memmove(l_targetElement, l_initialElement, sizeof(TYPE) * (this->Size - p_index));
 			}
-			memcpy(l_initialElement, p_elements.Memory, p_elements.byte_count());
+			memcpy(l_initialElement, p_elements.Memory + p_elements.Begin, p_elements.byte_count());
 			this->Size += p_elements.count();
 		}
 
