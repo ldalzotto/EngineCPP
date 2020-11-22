@@ -311,6 +311,7 @@ struct Device
 
 	inline void destroy()
 	{
+		this->devicememory_allocator.free(this->device);
 		this->device.destroy();
 	}
 
@@ -582,6 +583,7 @@ struct CommandBuffer
 
 	inline void dispose(const Device& p_device, vk::CommandPool& p_command_pool)
 	{
+		this->queue->waitIdle();
 		p_device.device.freeCommandBuffers(p_command_pool, 1, &this->command_buffer);
 		this->command_buffer = nullptr;
 	}
@@ -1976,7 +1978,7 @@ private:
 	{
 		for (int i = 0; i < this->draw_commandbuffers.Size; i++)
 		{
-			this->draw_commandbuffers[i].flush_sync();
+			this->draw_commandbuffers[i].dispose(this->device, this->command_pool);
 		}
 		this->draw_commandbuffers.free();
 	}

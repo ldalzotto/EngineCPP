@@ -65,9 +65,9 @@ inline Engine::Engine(const std::string& p_executeable_path, const ExternalHooks
 
 inline void Engine::dispose()
 {
+	this->scene.free();
 	this->render_middleware.free();
 	destroy_render(this->render);
-	this->scene.free();
 	this->asset_server.free();
 }
 

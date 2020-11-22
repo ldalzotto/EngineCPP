@@ -74,21 +74,9 @@ struct Scene
 
 	inline void free()
 	{
+		this->free_node(com::PoolToken(0));
+
 		this->heap.free();
-
-		if (this->tree.Memory.size() > 0)
-		{
-			struct NodeDispoeForeach : public NTree<SceneNode>::INTreeForEach<SceneNode>
-			{
-				inline void foreach(NTreeResolve<SceneNode>& p_resolve)
-				{
-					p_resolve.element->free();
-				};
-			};
-			this->tree.traverse(com::PoolToken(0), NodeDispoeForeach());
-		}
-
-
 		this->tree.free();
 	}
 
