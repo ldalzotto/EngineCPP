@@ -133,18 +133,53 @@ struct AssetDatabaseUpdate
 		this->asset_server.free();
 	};
 
+
+	inline void compile_all_assets()
+	{
+		std::string l_asset_base_path = this->asset_server.get_asset_basepath();
+		size_t l_execution_time = clock_currenttime_mics();
+
+		FileTree l_assetfile_tree;
+		File<> l_root_file;
+
+		l_root_file.allocate(FileType::FOLDER, FilePath<FilePathMemoryLayout::SLICE>(l_asset_base_path.c_str()));
+		l_assetfile_tree.allocate(l_root_file);
+
+		struct ForeachFile
+		{
+			AssetDatabaseUpdate* asset_database_update;
+			size_t execution_time;
+
+			inline ForeachFile() {};
+			inline ForeachFile(AssetDatabaseUpdate* p_asset_database_update, size_t p_execution_time) {
+				this->asset_database_update = p_asset_database_update;
+				this->execution_time = p_execution_time;
+			};
+
+			inline void foreach(NTreeResolve<File<FilePathMemoryLayout::STRING>>& p_file)
+			{
+				this->asset_database_update->compile_file(*p_file.element, this->execution_time);
+			};
+		};
+
+		l_assetfile_tree.traverse(com::PoolToken(0), ForeachFile(this, l_execution_time));
+		// l_asset_database_update.asset_tool_database.set_last_executiontime(l_execution_time);
+		l_assetfile_tree.free();
+	}
+
+private:
 	inline void compile_file(FileStr& p_file, size_t p_execution_time)
 	{
-		
-		
+
+
 		std::string l_folder_path = this->asset_server.get_asset_basepath();
 		StringSlice l_root_asset_folder_absolute = StringSlice(l_folder_path.c_str());
 		StringSlice l_asset_folder_relative = StringSlice(p_file.path.path.c_str(), l_root_asset_folder_absolute.End, strlen(p_file.path.path.c_str()));
-		
+
 		if (p_file.type == FileType::CONTENT)
 		{
-		
-			size_t l_asset_file_relative_hash =  Hash<std::string>::hash(std::string(l_asset_folder_relative.Memory + l_asset_folder_relative.Begin));
+
+			size_t l_asset_file_relative_hash = Hash<std::string>::hash(std::string(l_asset_folder_relative.Memory + l_asset_folder_relative.Begin));
 
 			AssetMeta l_asset_meta;
 			if (this->asset_tool_database.get_assetmeta(l_asset_file_relative_hash, &l_asset_meta))
@@ -156,7 +191,7 @@ struct AssetDatabaseUpdate
 					return;
 				}
 			}
-			
+
 			bool l_file_compiled = false;
 
 			size_t tmp;
@@ -279,14 +314,14 @@ struct AssetDatabaseUpdate
 				l_json_deserializer.free();
 				l_file_bytes.free();
 			}
-			
+
 			if (l_file_compiled)
 			{
 				l_asset_meta.last_compiled_ts = p_execution_time;
 				l_asset_meta.path_hash = l_asset_file_relative_hash;
 				this->asset_tool_database.set_assetmeta(l_asset_meta);
 
-
+				printf("File compiled : ");
 				printf(p_file.path.path.c_str());
 				printf("\n");
 			}
@@ -302,45 +337,23 @@ int main(int argc, char** argv)
 
 	std::string l_asset_base_path = l_asset_database_update.asset_server.get_asset_basepath();
 
-	while (true)
+	if (argc > 1 && StringSlice(argv[1]).equals("daemon"))
 	{
-		size_t l_execution_time = clock_currenttime_mics();
-
-		FileTree l_assetfile_tree;
-		File<> l_root_file;
-
-		l_root_file.allocate(FileType::FOLDER, FilePath<FilePathMemoryLayout::SLICE>(l_asset_base_path.c_str()));
-		l_assetfile_tree.allocate(l_root_file);
-
-		struct ForeachFile
+		while (true)
 		{
-			AssetDatabaseUpdate* asset_database_update;
-			size_t execution_time;
-
-			inline ForeachFile() {};
-			inline ForeachFile(AssetDatabaseUpdate* p_asset_database_update, size_t p_execution_time) {
-				this->asset_database_update = p_asset_database_update;
-				this->execution_time = p_execution_time;
-			};
-
-			inline void foreach(NTreeResolve<File<FilePathMemoryLayout::STRING>>& p_file)
+			HANDLE dwChangeHandles = FindFirstChangeNotification(l_asset_base_path.c_str(), FALSE, FILE_NOTIFY_CHANGE_FILE_NAME | FILE_NOTIFY_CHANGE_DIR_NAME | FILE_NOTIFY_CHANGE_LAST_WRITE);
+			switch (WaitForMultipleObjects(1, &dwChangeHandles, TRUE, INFINITE))
 			{
-				this->asset_database_update->compile_file(*p_file.element, this->execution_time);
-			};
-		};
-
-		l_assetfile_tree.traverse(com::PoolToken(0), ForeachFile(&l_asset_database_update, l_execution_time));
-		// l_asset_database_update.asset_tool_database.set_last_executiontime(l_execution_time);
-		l_assetfile_tree.free();
-
-		if (argc > 1 && StringSlice(argv[1]).equals("daemon"))
-		{
-			Sleep(5000);
-		}
-		else
-		{
+			case WAIT_OBJECT_0:
+			{
+				l_asset_database_update.compile_all_assets();
+			}
 			break;
+			}
 		}
-
+	}
+	else
+	{
+		l_asset_database_update.compile_all_assets();
 	}
 }
