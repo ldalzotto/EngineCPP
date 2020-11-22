@@ -208,26 +208,37 @@ struct Scene
 
 	inline void feed_with_asset(SceneAsset& p_scene_asset)
 	{
-		for (size_t l_node_index = 0; l_node_index < p_scene_asset.nodes.Size; l_node_index++)
+		com::Vector<com::PoolToken> l_insertednodes_token;
 		{
-			NodeAsset& l_node = p_scene_asset.nodes[l_node_index];
-			
-			com::PoolToken l_node_token = this->add_node(0, Math::Transform(l_node.local_position, l_node.local_rotation, l_node.local_scale));
-
-			for (size_t l_component_index = l_node.components_begin; l_component_index < l_node.components_end; l_component_index++)
+			for (size_t l_node_index = 0; l_node_index < p_scene_asset.nodes.Size; l_node_index++)
 			{
-				ComponentAsset& l_component = p_scene_asset.components[l_component_index];
-				
-				ComponentAssetPushParameter l_component_asset_push;
-				l_component_asset_push.component_asset = &l_component;
-				l_component_asset_push.node = l_node_token;
-				l_component_asset_push.scene = this;
-				l_component_asset_push.component_asset_object = p_scene_asset.component_asset_heap.map<void>(l_component.componentasset_heap_index);
-				this->component_asset_push_callback.call(&l_component_asset_push);
+				NodeAsset& l_node = p_scene_asset.nodes[l_node_index];
 
-				// this->add_component(l_node_token, SceneNodeComponent_TypeInfo(l_component.id, l_component_heap_chunk.chunk_size), p_scene_asset.component_asset_heap.memory.Memory + l_component_heap_chunk.offset);
+				com::PoolToken l_parent_node = com::PoolToken(0);
+				if (l_node.parent != -1)
+				{
+					l_parent_node = l_insertednodes_token[l_node.parent];
+				}
+
+				com::PoolToken l_node_token = this->add_node(l_parent_node, Math::Transform(l_node.local_position, l_node.local_rotation, l_node.local_scale));
+				l_insertednodes_token.push_back(l_node_token);
+
+				for (size_t l_component_index = l_node.components_begin; l_component_index < l_node.components_end; l_component_index++)
+				{
+					ComponentAsset& l_component = p_scene_asset.components[l_component_index];
+
+					ComponentAssetPushParameter l_component_asset_push;
+					l_component_asset_push.component_asset = &l_component;
+					l_component_asset_push.node = l_node_token;
+					l_component_asset_push.scene = this;
+					l_component_asset_push.component_asset_object = p_scene_asset.component_asset_heap.map<void>(l_component.componentasset_heap_index);
+					this->component_asset_push_callback.call(&l_component_asset_push);
+
+					// this->add_component(l_node_token, SceneNodeComponent_TypeInfo(l_component.id, l_component_heap_chunk.chunk_size), p_scene_asset.component_asset_heap.memory.Memory + l_component_heap_chunk.offset);
+				}
 			}
 		}
+		l_insertednodes_token.free();
 	};
 };
 
