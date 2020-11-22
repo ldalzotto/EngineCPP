@@ -21,7 +21,25 @@ struct JSONDeserializer<MeshRendererAsset>
 		l_material_str.free();
 
 		return l_asset;
-	}
+	};
 };
 
+
+template<>
+struct JSONDeserializer<CameraAsset>
+{
+	static CameraAsset deserialize(Serialization::JSON::JSONObjectIterator& p_iterator)
+	{
+		CameraAsset l_asset;
+		p_iterator.next_field("fov");
+		l_asset.fov = JSONDeserializer<float>::deserialize(p_iterator);
+		p_iterator.next_field("near");
+		l_asset.near_ = JSONDeserializer<float>::deserialize(p_iterator);
+		p_iterator.next_field("far");
+		l_asset.far_ = JSONDeserializer<float>::deserialize(p_iterator);
+
+		p_iterator.free();
+		return l_asset;
+	};
+};
 

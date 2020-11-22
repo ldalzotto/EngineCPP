@@ -28,6 +28,7 @@ target_link_libraries(AssetDatabaseUpdate Render)
 target_link_libraries(AssetDatabaseUpdate AssetServer)
 target_link_libraries(AssetDatabaseUpdate Scene)
 target_link_libraries(AssetDatabaseUpdate SceneComponents)
+target_link_libraries(AssetDatabaseUpdate Middleware)
 target_link_libraries(AssetDatabaseUpdate Qt5::Widgets Qt5::Core Qt5::Gui)
 target_link_libraries(AssetDatabaseUpdate StbImage)
 

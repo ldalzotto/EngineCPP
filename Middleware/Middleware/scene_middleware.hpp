@@ -20,6 +20,16 @@ struct ComponentAssetSerializer
 
 			return true;
 		}
+		else if (p_component_type.equals("Camera"))
+		{
+			out_component_asset->id = Camera::Id;
+			allocate_component_asset<CameraAsset>(p_compoent_asset_heap, &out_component_asset->componentasset_heap_index);
+
+			CameraAsset* l_camera_asset = p_compoent_asset_heap.map<CameraAsset>(out_component_asset->componentasset_heap_index);
+			*l_camera_asset = JSONDeserializer<CameraAsset>::deserialize(p_component_object_iterator);
+
+			return true;
+		}
 
 		return false;
 	};
@@ -59,6 +69,11 @@ struct SceneComponentCallbacks
 			p_component_middlewares->render_middleware->on_elligible(p_parameter->node_token, p_parameter->node, *p_parameter->component->cast<MeshRenderer>());
 		}
 		break;
+		case Camera::Id:
+		{
+			p_component_middlewares->render_middleware->push_camera(p_parameter->node_token, p_parameter->node, *p_parameter->component->cast<Camera>());
+		}
+		break;
 		}
 	};
 
@@ -69,6 +84,10 @@ struct SceneComponentCallbacks
 		case MeshRenderer::Id:
 		{
 			p_component_middlewares->render_middleware->on_not_elligible(p_paramter->node_token);
+		}
+		break;
+		case Camera::Id:
+		{
 		}
 		break;
 		}
@@ -87,6 +106,15 @@ struct SceneComponentCallbacks
 			SceneHandle l_scene_handle;
 			l_scene_handle.handle = p_parameter->scene;
 			l_scene_handle.add_component<MeshRenderer>(p_parameter->node, l_mesh_renderer);
+		}
+		break;
+		case Camera::Id:
+		{
+			CameraAsset* l_asset = (CameraAsset*)p_parameter->component_asset_object;
+
+			SceneHandle l_scene_handle;
+			l_scene_handle.handle = p_parameter->scene;
+			l_scene_handle.add_component<Camera>(p_parameter->node, Camera(*l_asset));
 		}
 		break;
 		}

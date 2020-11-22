@@ -14,11 +14,19 @@ struct RenderableObjectEntry
 	RenderableObjectEntry() {}
 };
 
+struct CameraEntry
+{
+	com::PoolToken node;
+
+	CameraEntry(){}
+};
+
 struct RenderMiddleware
 {
 	RenderHandle render;
 	AssetServerHandle asset_server;
 
+	CameraEntry allocated_camera;
 	com::Vector<RenderableObjectEntry> allocated_renderableobjects;
 
 	inline void allocate(RenderHandle p_render, AssetServerHandle p_asset_server)
@@ -30,6 +38,11 @@ struct RenderMiddleware
 	inline void free()
 	{
 		this->allocated_renderableobjects.free();
+	};
+
+	inline void push_camera(const com::PoolToken p_node_token, const NTreeResolve<SceneNode>& p_node, const Camera& p_camera)
+	{
+		this->allocated_camera.node = p_node_token;
 	};
 
 	inline void on_elligible(const com::PoolToken p_node_token, const NTreeResolve<SceneNode>& p_node, const MeshRenderer& p_mesh_renderer)
@@ -49,7 +62,7 @@ struct RenderMiddleware
 		RenderableObjectHandle l_renderable_object;
 		l_renderable_object.allocate(this->render, l_material, l_mesh);
 
-		l_renderable_object.push_trs(this->render, p_node.element->get_localtoworld());
+		// l_renderable_object.push_trs(this->render, p_node.element->get_localtoworld());
 
 		RenderableObjectEntry l_entry;
 		l_entry.node = p_node_token;
@@ -75,6 +88,17 @@ struct RenderMiddleware
 	inline void pre_render(SceneHandle p_scene)
 	{
 		OPTICK_EVENT();
+
+		{
+			NTreeResolve<SceneNode> l_camera_scene_node = p_scene.resolve_node(this->allocated_camera.node);
+			if (l_camera_scene_node.element->state.haschanged_thisframe)
+			{
+				Camera* l_camera = p_scene.get_component<Camera>(this->allocated_camera.node);
+				Math::mat4f& l_localtoworld = l_camera_scene_node.element->get_localtoworld();
+				render_push_camera_buffer(this->render, l_camera->fov, l_camera->near_, l_camera->far_, l_camera_scene_node.element->get_worldposition(), l_localtoworld.Forward.Vec3, l_localtoworld.Up.Vec3);
+			}
+		}
+		
 
 		for (size_t i = 0; i < this->allocated_renderableobjects.Size; i++)
 		{

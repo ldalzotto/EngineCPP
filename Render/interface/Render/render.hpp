@@ -63,3 +63,4 @@ void destroy_render(const RenderHandle& p_render);
 bool render_window_should_close(const RenderHandle& p_render);
 void render_window_pool_event(const RenderHandle& p_render);
 void render_draw(const RenderHandle& p_render);
+void render_push_camera_buffer(const RenderHandle& p_render, const float p_fov, const float p_near, const float p_far, const Math::vec3f& p_world_position, const Math::vec3f& p_world_forward, const Math::vec3f& p_world_up);

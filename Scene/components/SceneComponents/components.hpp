@@ -34,4 +34,30 @@ struct MeshRendererAsset
 	size_t material;
 };
 
+struct CameraAsset
+{
+	float fov = 0.0f;
+	float near_ = 0.0f;
+	float far_ = 0.0f;
+};
+
+
+struct Camera
+{
+	inline static const size_t Id = (MeshRenderer::Id + 1);
+	static const SceneNodeComponent_TypeInfo Type;
+
+	float fov = 0.0f;
+	float near_ = 0.0f;
+	float far_ = 0.0f;
+
+	inline Camera(const CameraAsset& p_asset)
+	{
+		this->fov = p_asset.fov;
+		this->near_ = p_asset.near_;
+		this->far_ = p_asset.far_;
+	};
+};
+
+inline const SceneNodeComponent_TypeInfo Camera::Type = SceneNodeComponent_TypeInfo(Camera::Id, sizeof(Camera));
 

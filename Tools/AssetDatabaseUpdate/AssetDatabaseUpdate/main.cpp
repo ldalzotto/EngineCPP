@@ -10,6 +10,7 @@
 #include <AssetServer/asset_server.hpp>
 #include <Scene/serialization.hpp>
 #include <SceneComponents/serialization.hpp>
+#include <Middleware/scene_middleware.hpp>
 
 #include<iostream>
 #include<fstream>

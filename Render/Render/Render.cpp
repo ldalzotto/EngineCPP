@@ -3188,16 +3188,19 @@ struct Render
 		this->renderApi.device.device.waitForFences(1, &this->renderApi.synchronization.draw_command_fences[l_render_image_index], true, UINT64_MAX);
 	}
 
+	inline void push_camera_buffer(const float p_fov, const float p_near, const float p_far, const vec3f& p_world_position, const vec3f& p_world_forward, const vec3f& p_world_up)
+	{
+		CameraMatrices l_cam_mat;
+		l_cam_mat.view = view(p_world_position, p_world_forward, p_world_up);
+		l_cam_mat.projection = perspective<float>(p_fov * DEG_TO_RAD, (float)this->renderApi.swap_chain.extend.width / (float)this->renderApi.swap_chain.extend.height, p_near, p_far);
+		this->camera_matrices_globalbuffer.pushbuffer(&l_cam_mat, this->renderApi.device);
+	};
+
 private:
 
 	inline void create_global_buffers()
 	{
-		CameraMatrices l_cam_mat;
-		l_cam_mat.view = view(vec3f(9.0f, 9.0f, 9.0f), vec3f(-0.572061539f, -0.587785244f, -0.572061360f), vec3f(-0.415627033f, 0.809017003f, -0.415626884f));
-		l_cam_mat.projection = perspective<float>(45.0f * DEG_TO_RAD, (float)this->renderApi.swap_chain.extend.width / (float)this->renderApi.swap_chain.extend.height, 0.1f, 50.0f);
-
 		this->camera_matrices_globalbuffer.create(vk::ShaderStageFlagBits::eVertex, 0, 0, this->renderApi.device, this->renderApi.descriptor_pool);
-		this->camera_matrices_globalbuffer.pushbuffer(&l_cam_mat, this->renderApi.device);
 		this->camera_matrices_globalbuffer.bind(this->renderApi.device);
 	}
 
@@ -3235,4 +3238,11 @@ void render_draw(const RenderHandle& p_render)
 {
 	Render* l_render = (Render*)p_render;
 	l_render->draw();
+};
+
+void render_push_camera_buffer(const RenderHandle& p_render, const float p_fov, const float p_near, const float p_far, 
+	const Math::vec3f& p_world_position, const Math::vec3f& p_world_forward, const Math::vec3f& p_world_up)
+{
+	Render* l_render = (Render*)p_render;
+	l_render->push_camera_buffer(p_fov, p_near, p_far, p_world_position, p_world_forward, p_world_up);
 };
