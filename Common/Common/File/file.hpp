@@ -73,6 +73,11 @@ struct FilePath<FilePathMemoryLayout::STRING>
 	};
 
 	String<> path;
+
+	inline String<> get_as_string()
+	{
+		return this->path.clone();
+	};
 };
 
 template<>
@@ -99,6 +104,15 @@ struct FilePath<FilePathMemoryLayout::SLICE>
 	};
 
 	StringSlice path;
+
+	/*
+	inline String<> get_as_string()
+	{
+		String<> l_path; l_path.allocate(this->path.size());
+		l_path.append(this->path);
+		return l_path;
+	};
+	*/
 };
 
 enum FileType
@@ -115,12 +129,18 @@ struct File
 
 	FileType type = FileType::UNDEFINED;
 	StringSlice extension;
+	size_t last_modfied_time;
+	size_t creation_time;
+	size_t last_access_time;
 
-	inline void allocate(const FileType p_type, const FilePath<FilePathMemoryLayoutType>& p_path)
+	inline void allocate(const FileType p_type, const FilePath<FilePathMemoryLayoutType>& p_path, const size_t p_last_modified_time = 0, const size_t p_creation_time = 0, const size_t p_last_access_time = 0)
 	{
 		this->path = p_path;
 		this->type = p_type;
 		this->extension = this->path.get_extension();
+		this->last_modfied_time = p_last_modified_time;
+		this->creation_time = p_creation_time;
+		this->last_access_time = p_last_access_time;
 	};
 
 	inline void free()
@@ -135,12 +155,40 @@ struct File
 		l_target.type = this->type;
 		l_target.extension = this->extension;
 		l_target.extension.Memory = l_target.path.path.c_str();
+		l_target.last_modfied_time = this->last_modfied_time;
+		l_target.last_access_time = this->last_access_time;
+		l_target.creation_time = this->creation_time;
 		return l_target;
 	};
 
 	struct ForEachFileDefault
 	{
 		inline void foreach(const File<FilePathMemoryLayout::STRING>& p_file, size_t p_depth) {};
+	};
+
+	/*
+	inline bool exists()
+	{
+		String<> l_path = this->path.get_as_string();
+		bool l_found = false;
+		{
+			HANDLE l_file = FindFirstFile(l_path.c_str(), &l_find_data);
+			if (l_file != INVALID_HANDLE_VALUE)
+			{
+				l_found = true;
+				FindClose(l_file);
+			}
+		}
+		l_path.free();
+		return l_found;
+	};
+	*/
+
+	inline void create()
+	{
+		String<> l_path = this->path.get_as_string();
+		CreateFile(l_path.c_str(), GENERIC_READ | GENERIC_WRITE, FILE_SHARE_DELETE | FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, CREATE_NEW, FILE_ATTRIBUTE_NORMAL, NULL);
+		l_path.free();
 	};
 
 	template<class ForEachFile = ForEachFileDefault>
@@ -166,6 +214,7 @@ struct File
 					if (!StringSlice(".").equals(StringSlice(l_find_data.cFileName)) &&
 						!StringSlice("..").equals(StringSlice(l_find_data.cFileName)))
 					{
+						//l_find_data.
 						FilePath<FilePathMemoryLayout::STRING> l_new_path;
 						l_new_path.allocate(0);
 						l_new_path.path.append(this->path.path);
@@ -173,7 +222,10 @@ struct File
 						l_new_path.path.append("/");
 
 						File<FilePathMemoryLayout::STRING> l_new_file;
-						l_new_file.allocate(FileType::FOLDER, l_new_path);
+						l_new_file.allocate(FileType::FOLDER, l_new_path,
+							FILETIME_to_mics(l_find_data.ftLastWriteTime),
+							FILETIME_to_mics(l_find_data.ftCreationTime),
+							FILETIME_to_mics(l_find_data.ftLastAccessTime));
 						{
 							p_foreach_file.foreach(l_new_file, p_depth);
 							l_new_file.walk<ForEachFile>(p_recursive, p_foreach_file, p_depth + 1);
@@ -191,7 +243,11 @@ struct File
 				l_file_path.path.append(l_find_data.cFileName);
 
 				File<FilePathMemoryLayout::STRING> l_new_file;
-				l_new_file.allocate(FileType::CONTENT, l_file_path);
+				ULARGE_INTEGER l_last_write_time = *(ULARGE_INTEGER*)&l_find_data.ftLastWriteTime;
+				l_new_file.allocate(FileType::CONTENT, l_file_path,
+					FILETIME_to_mics(l_find_data.ftLastWriteTime),
+					FILETIME_to_mics(l_find_data.ftCreationTime),
+					FILETIME_to_mics(l_find_data.ftLastAccessTime));
 				{
 					p_foreach_file.foreach(l_new_file, p_depth);
 				}
@@ -314,8 +370,8 @@ struct FileTree : public NTree<File<FilePathMemoryLayout::STRING>>
 					{
 						this->node_levels.erase_at(this->node_levels.Size - 1);
 					}
-					
-					auto l_token = this->tree->push_value(this->node_levels[p_depth-1], p_file.clone());
+
+					auto l_token = this->tree->push_value(this->node_levels[p_depth - 1], p_file.clone());
 					this->last_pushed_token = l_token.Index;
 					// this->node_levels.push_back(com::PoolToken<NTreeNode>(l_token.Index));
 
@@ -345,7 +401,7 @@ struct FileTree : public NTree<File<FilePathMemoryLayout::STRING>>
 
 			this->traverse(com::PoolToken(0), FreeForeach());
 		}
-		
+
 		NTree<File<FilePathMemoryLayout::STRING>>::free();
 	};
 

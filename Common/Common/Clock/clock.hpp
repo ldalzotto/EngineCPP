@@ -28,12 +28,7 @@ inline TimeClockPrecision clock_currenttime_mics()
 {
 	FILETIME l_currentTime;
 	GetSystemTimeAsFileTime(&l_currentTime);
-	ULARGE_INTEGER ul;
-	ul.LowPart = l_currentTime.dwLowDateTime;
-	ul.HighPart = l_currentTime.dwHighDateTime;
-	TimeClockPrecision l_time = ul.QuadPart;
-	l_time /= 10;
-	return l_time;
+	return FILETIME_to_mics(l_currentTime);
 };
 
 #endif // _WIN32

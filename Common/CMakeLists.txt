@@ -12,4 +12,5 @@ add_library(Common ${COMMON_HEADER} ${COMMON_SOURCE})
 
 target_include_directories(Common PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 
+target_link_libraries(Common PUBLIC SQLite)
 #target_link_libraries(MyRender PUBLIC ZLib)

@@ -1,2 +1,3 @@
 
-add_subdirectory(AssetDatabaseUpdate)
+add_subdirectory(ThirdParty)
+add_subdirectory(AssetDatabaseUpdateV2)
