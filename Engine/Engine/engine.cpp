@@ -8,6 +8,7 @@
 
 #include "SceneComponents/components.hpp"
 #include "Middleware/RenderMiddleware.hpp"
+#include "Middleware/scene_middleware.hpp"
 
 struct Engine;
 
@@ -32,6 +33,8 @@ struct EngineCallbacks
 	void endofframe_callback();
 };
 
+
+
 struct Engine
 {
 	Clock clock;
@@ -41,28 +44,23 @@ struct Engine
 	RenderHandle render;
 
 	RenderMiddleware render_middleware;
+	ComponentMiddlewares all_middlewares;
 
 	Engine(const std::string& p_executeable_path, const ExternalHooks& p_hooks);
 	void dispose();
 	void mainloop();
 };
 
-struct SceneCallbacks
-{
-	static void on_component_added(Engine* p_engine, ComponentAddedParameter* p_parameter);
-	static void on_component_removed(Engine* p_engine, ComponentRemovedParameter* p_parameter);
-	static void push_componentasset(Engine* p_engine, ComponentAssetPushParameter* p_parameter);
-};
-
 inline Engine::Engine(const std::string& p_executeable_path, const ExternalHooks& p_hooks)
 {
 	this->asset_server.allocate(p_executeable_path);
 	this->loop = EngineLoop<EngineCallbacks>(EngineCallbacks(this, p_hooks), 16000);
-	this->scene.allocate(*(Callback<void, ComponentAddedParameter>*) & Callback<Engine, ComponentAddedParameter>(this, SceneCallbacks::on_component_added),
-		*(Callback<void, ComponentRemovedParameter>*) & Callback<Engine, ComponentRemovedParameter>(this, SceneCallbacks::on_component_removed),
-		*(Callback<void, ComponentAssetPushParameter>*) & Callback<Engine, ComponentAssetPushParameter>(this, SceneCallbacks::push_componentasset));
+	this->scene.allocate(*(Callback<void, ComponentAddedParameter>*) & Callback<ComponentMiddlewares, ComponentAddedParameter>(&this->all_middlewares, SceneComponentCallbacks::on_component_added),
+		*(Callback<void, ComponentRemovedParameter>*) & Callback<ComponentMiddlewares, ComponentRemovedParameter>(&this->all_middlewares, SceneComponentCallbacks::on_component_removed),
+		*(Callback<void, ComponentAssetPushParameter>*) & Callback<void, ComponentAssetPushParameter>(nullptr, SceneComponentCallbacks::push_componentasset));
 	this->render = create_render(this->asset_server);
-	this->render_middleware.allocate(this->render);
+	this->render_middleware.allocate(this->render, this->asset_server);
+	this->all_middlewares.render_middleware = &this->render_middleware;
 }
 
 inline void Engine::dispose()
@@ -123,50 +121,6 @@ inline void EngineCallbacks::endofframe_callback()
 }
 
 
-inline void SceneCallbacks::on_component_added(Engine* p_engine, ComponentAddedParameter* p_parameter)
-{
-	// if MeshRenderer, the push to render middleware
-	switch (p_parameter->component->id)
-	{
-	case MeshRenderer::Id:
-	{
-		p_engine->render_middleware.on_elligible(p_parameter->node_token, p_parameter->node, *p_parameter->component->cast<MeshRenderer>());
-	}
-	break;
-	}
-};
-
-inline void SceneCallbacks::on_component_removed(Engine* p_engine, ComponentRemovedParameter* p_paramter)
-{
-	switch (p_paramter->component->id)
-	{
-	case MeshRenderer::Id:
-	{
-		p_engine->render_middleware.on_not_elligible(p_paramter->node_token);
-	}
-	break;
-	}
-};
-
-inline void SceneCallbacks::push_componentasset(Engine* p_engine, ComponentAssetPushParameter* p_parameter)
-{
-	switch (p_parameter->component_asset->id)
-	{
-	case MeshRenderer::Id:
-	{
-		MeshRendererAsset* l_asset = (MeshRendererAsset*)p_parameter->component_asset_object;
-		
-		com::Vector<char> l_material_asset_binary = p_engine->asset_server.get_resource(l_asset->material);
-		MaterialAsset l_material_asset = MaterialAsset::deserialize(l_material_asset_binary.Memory);
-		l_material_asset_binary.free();
-		
-		MeshRenderer l_mesh_renderer;
-		l_mesh_renderer.initialize(l_material_asset, l_asset->mesh);
-		p_engine->scene.add_component<MeshRenderer>(p_parameter->node, l_mesh_renderer);
-	}
-	break;
-	}
-};
 
 
 void engine_destroy(const EngineHandle& p_engine)

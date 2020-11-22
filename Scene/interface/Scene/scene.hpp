@@ -317,6 +317,7 @@ struct ComponentAssetPushParameter
 struct SceneHandle
 {
 	void* handle;
+
 	void allocate(const Callback<void, ComponentAddedParameter>& p_componentadded_callback, const Callback<void, ComponentRemovedParameter>& p_componentremoved_callback,
 		const Callback<void, ComponentAssetPushParameter>& p_componentasset_push_callback);
 	void free();

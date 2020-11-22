@@ -24,7 +24,7 @@ void update(void* p_engine, float p_delta)
 	EngineHandle* l_engine = (EngineHandle*)p_engine;
 	SceneHandle l_scenehandle = engine_scene(*l_engine);
 
-#if 0
+#if 1
 	if (testContext.framecount == 0)
 	{
 		com::Vector<char> l_scene_binary = engine_assetserver(*l_engine).get_resource("scenes/test_scene.json");
@@ -34,19 +34,14 @@ void update(void* p_engine, float p_delta)
 	}
 #endif
 
-#if 1
+#if 0
 	if (testContext.framecount == 0)
 	{
 		{
 			auto l_node = l_scenehandle.add_node(l_scenehandle.root(), Math::Transform());
 
-			MaterialAsset l_material_asset;
-			com::Vector<char> l_material_binary = engine_assetserver(*l_engine).get_resource("materials/test.json");
-			l_material_asset = MaterialAsset::deserialize(l_material_binary.Memory);
-			l_material_binary.free();
-
 			MeshRenderer l_mesh_renderer;
-			l_mesh_renderer.initialize(l_material_asset, "models/16.09.obj");
+			l_mesh_renderer.initialize("materials/test.json", "models/16.09.obj");
 			l_scenehandle.add_component<MeshRenderer>(l_node, l_mesh_renderer);
 
 			testContext.center_node = l_node;
@@ -54,14 +49,8 @@ void update(void* p_engine, float p_delta)
 		{
 			auto l_node = l_scenehandle.add_node(testContext.center_node, Math::Transform(vec3f(0.0f, 0.0f, 0.0f), QuatConst::IDENTITY, VecConst<float>::ONE));
 
-
-			MaterialAsset l_material_asset;
-			l_material_asset.shader.vertex = Hash<std::string>::hash("shader/TriVert.vert");
-			l_material_asset.shader.fragment = Hash<std::string>::hash("shader/TriFrag.frag");
-			l_material_asset.texture = Hash<std::string>::hash("textures/16.09_diffuse.jpg");
-
 			MeshRenderer l_mesh_renderer;
-			l_mesh_renderer.initialize(l_material_asset, "models/16.09.obj");
+			l_mesh_renderer.initialize("materials/test.json", "models/16.09.obj");
 			l_scenehandle.add_component<MeshRenderer>(l_node, l_mesh_renderer);
 
 			testContext.moving_node = l_node;

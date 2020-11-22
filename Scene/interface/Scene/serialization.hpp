@@ -57,7 +57,7 @@ struct JSONDeserializer<NodeAsset>
 			l_component_iterator.next_object("object", &l_component_object_iterator);
 
 			ComponentAsset l_component_asset;
-			if (ComponentAssetSerializer::deserialize(l_component_type, l_component_object_iterator, p_component_assets, p_compoent_asset_heap, &l_component_asset))
+			if (ComponentAssetSerializer::deserializeJSON(l_component_type, l_component_object_iterator, p_component_assets, p_compoent_asset_heap, &l_component_asset))
 			{
 				p_component_assets.push_back(l_component_asset);
 				l_componentasset_count += 1;
@@ -140,13 +140,13 @@ struct JSONDeserializer<SceneAsset>
 
 struct SceneSerializer
 {
-	template<class ComponentAssetAllocator>
+	template<class ComponentAssetSerializer>
 	inline static com::Vector<char> serialize_from_json_to_binary(const com::Vector<char>& p_json_scene)
 	{
 		String<> p_json_scene_as_string;
 		p_json_scene_as_string.Memory = p_json_scene;
 		Serialization::JSON::JSONObjectIterator l_scene_root_json = Serialization::JSON::StartDeserialization(p_json_scene_as_string);
-		SceneAsset l_scene_asset = JSONDeserializer<SceneAsset>::deserialize<ComponentAssetAllocator>(l_scene_root_json);
+		SceneAsset l_scene_asset = JSONDeserializer<SceneAsset>::deserialize<ComponentAssetSerializer>(l_scene_root_json);
 
 		com::Vector<char> l_binary_scene;
 		l_scene_asset.serialize(l_binary_scene);

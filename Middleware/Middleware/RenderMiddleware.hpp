@@ -17,12 +17,14 @@ struct RenderableObjectEntry
 struct RenderMiddleware
 {
 	RenderHandle render;
+	AssetServerHandle asset_server;
 
 	com::Vector<RenderableObjectEntry> allocated_renderableobjects;
 
-	inline void allocate(RenderHandle p_render)
+	inline void allocate(RenderHandle p_render, AssetServerHandle p_asset_server)
 	{
 		this->render = p_render;
+		this->asset_server = p_asset_server;
 	};
 
 	inline void free()
@@ -32,11 +34,14 @@ struct RenderMiddleware
 
 	inline void on_elligible(const com::PoolToken p_node_token, const NTreeResolve<SceneNode>& p_node, const MeshRenderer& p_mesh_renderer)
 	{
+		com::Vector<char> l_material_binary = this->asset_server.get_resource(p_mesh_renderer.material);
+		MaterialAsset l_material_asset = MaterialAsset::deserialize(l_material_binary.Memory); 
+		l_material_binary.free();
 
 		ShaderHandle l_shader;
-		l_shader.allocate(this->render, p_mesh_renderer.material.shader.vertex, p_mesh_renderer.material.shader.fragment);
+		l_shader.allocate(this->render, l_material_asset.shader.vertex, l_material_asset.shader.fragment);
 		TextureHandle l_texture;
-		l_texture.allocate(this->render, p_mesh_renderer.material.texture);
+		l_texture.allocate(this->render, l_material_asset.texture);
 		MaterialHandle l_material;
 		l_material.allocate(this->render, l_shader, l_texture);
 		MeshHandle l_mesh;
