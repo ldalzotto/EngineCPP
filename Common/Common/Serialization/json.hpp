@@ -39,7 +39,7 @@ namespace Serialization
 				this->current_field = -1;
 			};
 
-			inline void next_field(const char* p_field_name)
+			inline bool next_field(const char* p_field_name)
 			{
 				bool l_field_found = false;
 				size_t l_lastfieldname_index = this->get_current_pointer();
@@ -76,11 +76,10 @@ namespace Serialization
 					l_field_name_json.free();
 				}
 
-
-				// return l_field_found;
+				return l_field_found;
 			};
 
-			inline void next_object(const char* p_field_name, JSONObjectIterator* out_object_iterator)
+			inline bool next_object(const char* p_field_name, JSONObjectIterator* out_object_iterator)
 			{
 				bool l_field_found = false;
 				size_t l_lastfieldname_index = this->get_current_pointer();
@@ -134,7 +133,7 @@ namespace Serialization
 					l_field_name_json.free();
 				}
 
-				// return l_field_found;
+				return l_field_found;
 			};
 
 			inline bool next_array_object(JSONObjectIterator* out_object_iterator)

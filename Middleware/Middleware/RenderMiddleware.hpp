@@ -55,8 +55,12 @@ struct RenderMiddleware
 		l_shader.allocate(this->render, l_material_asset.shader.vertex, l_material_asset.shader.fragment);
 		TextureHandle l_texture;
 		l_texture.allocate(this->render, l_material_asset.texture);
+
 		MaterialHandle l_material;
-		l_material.allocate(this->render, l_shader, l_texture);
+		l_material.allocate(this->render, l_shader);
+		l_material.add_image_parameter(this->render, l_texture);
+		l_material.add_uniform_parameter(this->render, GPtr::fromType(&l_material_asset.color));
+
 		MeshHandle l_mesh;
 		l_mesh.allocate(this->render, p_mesh_renderer.model);
 		RenderableObjectHandle l_renderable_object;

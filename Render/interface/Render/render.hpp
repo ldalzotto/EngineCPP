@@ -5,6 +5,7 @@
 #include <AssetServer/asset_server.hpp>
 #include "Common/Memory/handle.hpp"
 #include "Common/Container/vector_def.hpp"
+#include "Common/Container/gptr.hpp"
 #include "Math/matrix_def.hpp"
 #include "Math/vector_def.hpp"
 
@@ -40,9 +41,10 @@ struct ShaderHandle : public Handle
 struct MaterialHandle : public Handle
 {
 	ShaderHandle shader;
-	TextureHandle texture;
 
-	void allocate(const RenderHandle& p_render, const ShaderHandle& p_shader, const TextureHandle& p_texture);
+	void allocate(const RenderHandle& p_render, const ShaderHandle& p_shader);
+	void add_image_parameter(const RenderHandle& p_render, const TextureHandle& p_texture);
+	void add_uniform_parameter(const RenderHandle& p_render, const GPtr& p_initial_value);
 	void free(const RenderHandle& p_render);
 };
 

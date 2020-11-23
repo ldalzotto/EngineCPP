@@ -10,6 +10,7 @@
 #include "Common/Container/array_def.hpp"
 #include "Common/Container/resource_map.hpp"
 #include "Common/Container/hashmap.hpp"
+#include "Common/Container/gptr.hpp"
 #include "Common/Serialization/binary.hpp"
 #include "Common/Memory/heap.hpp"
 #include <fstream>
@@ -633,20 +634,19 @@ struct TextureSamplers
 	};
 };
 
-template<class ElementType>
 struct MappedMemory2
 {
-	ElementType* mapped_data = nullptr;
-	size_t size_count = -1;
+	char* mapped_data = nullptr;
+	size_t element_count = -1;
 
-	inline void map(Device& p_device, const GPUMemoryWithOffset& p_memory, const size_t p_size_count)
+	inline void map(Device& p_device, const GPUMemoryWithOffset& p_memory, const size_t p_element_count)
 	{
 		if (!this->isMapped())
 		{
 			GeneralPurposeHeapMemoryChunk* l_chunk;
 			p_device.devicememory_allocator.resolve_allocated_chunk(p_memory, &l_chunk);
-			this->mapped_data = (ElementType*)(p_memory.original_mapped_memory + l_chunk->offset);
-			this->size_count = p_size_count;
+			this->mapped_data = p_memory.original_mapped_memory + l_chunk->offset;
+			this->element_count = p_element_count;
 		}
 	};
 
@@ -655,18 +655,13 @@ struct MappedMemory2
 		if (this->isMapped())
 		{
 			this->mapped_data = nullptr;
-			this->size_count = -1;
+			this->element_count = -1;
 		}
 	}
 
-	inline void copyFrom(const GPUMemoryWithOffset& p_memory, const ElementType* p_from)
+	inline void copyFrom(const GPUMemoryWithOffset& p_memory, const GPtr& p_from)
 	{
-		this->copyFrom_internal(p_memory, (const char*)p_from, sizeof(ElementType));
-	};
-
-	inline void copyFrom_internal(const GPUMemoryWithOffset& p_memory, const char* p_from, const size_t p_element_size)
-	{
-		memcpy((void*)this->mapped_data, (const void*)p_from, (this->size_count * p_element_size));
+		memcpy((void*)this->mapped_data, (const void*)p_from.ptr, (this->element_count * p_from.element_size));
 	};
 
 	inline bool isMapped()
@@ -675,21 +670,20 @@ struct MappedMemory2
 	};
 };
 
-template<class ElementType>
 struct GPUBufferMemoryHost2
 {
 	GPUMemoryWithOffset memory;
 	vk::Buffer buffer;
-	MappedMemory2<ElementType> mapped_memory;
+	MappedMemory2 mapped_memory;
 	size_t capacity;
 
-	inline void allocate(Device& p_device, size_t p_element_number, vk::BufferUsageFlags p_usageflags)
+	inline void allocate(Device& p_device, size_t p_element_count, size_t p_element_size, vk::BufferUsageFlags p_usageflags)
 	{
-		this->capacity = p_element_number;
+		this->capacity = p_element_count;
 
 		vk::BufferCreateInfo l_buffercreate_info;
 		l_buffercreate_info.setUsage(vk::BufferUsageFlags(p_usageflags | vk::BufferUsageFlagBits::eTransferSrc));
-		l_buffercreate_info.setSize(p_element_number * sizeof(ElementType));
+		l_buffercreate_info.setSize(p_element_count * p_element_size);
 
 		this->buffer = p_device.device.createBuffer(l_buffercreate_info);
 
@@ -698,7 +692,7 @@ struct GPUBufferMemoryHost2
 		p_device.devicememory_allocator.allocate_element(l_requirements.size, l_requirements.alignment, p_device.getMemoryTypeIndex(l_requirements.memoryTypeBits, vk::MemoryPropertyFlagBits::eHostCoherent),
 			p_device.device, &this->memory);
 
-		this->map(p_device, p_element_number);
+		this->map(p_device, p_element_count);
 		this->bind(p_device);
 	};
 
@@ -732,7 +726,7 @@ struct GPUBufferMemoryHost2
 		this->mapped_memory.unmap(p_device, this->memory.original_memory);
 	};
 
-	inline void push(const ElementType* p_from)
+	inline void push(const GPtr& p_from)
 	{
 		this->mapped_memory.copyFrom(this->memory, p_from);
 	};
@@ -899,18 +893,29 @@ struct IndexMemory : public GPUBufferMemoryGPU2<ElementType>
 	};
 };
 
+struct UniformMemory_HostWrite : public GPUBufferMemoryHost2
+{
+	inline void allocate(size_t p_element_number, size_t p_element_size, Device& p_device)
+	{
+		GPUBufferMemoryHost2::allocate(p_device, p_element_number, p_element_size, vk::BufferUsageFlags(vk::BufferUsageFlagBits::eUniformBuffer));
+	};
+};
+
 template<class ElementType>
-struct UniformMemory_HostWrite : public GPUBufferMemoryHost2<ElementType>
+struct TUniformMemory_HostWrite : public UniformMemory_HostWrite
 {
 	inline void allocate(size_t p_element_number, Device& p_device)
 	{
-		GPUBufferMemoryHost2<ElementType>::allocate(p_device, p_element_number, vk::BufferUsageFlags(vk::BufferUsageFlagBits::eUniformBuffer));
+		UniformMemory_HostWrite::allocate(p_element_number, sizeof(ElementType), p_device);
+	};
+
+	inline void push(const ElementType* p_from)
+	{
+		UniformMemory_HostWrite::push(GPtr::fromType(p_from));
 	};
 };
 
 struct GPUOnlyImageMemory : public GPUImageMemoryGPU2<char> {};
-
-
 
 
 namespace RenderEnums
@@ -932,7 +937,7 @@ struct StagedBufferWriteCommand
 	vk::Buffer buffer;
 	size_t buffer_size;
 	bool isAborted = false;
-	GPUBufferMemoryHost2<char> staging_memory;
+	GPUBufferMemoryHost2 staging_memory;
 
 	com::PoolToken completion_token;
 
@@ -1002,7 +1007,7 @@ struct StagedImageWriteCommand
 	Image image;
 
 	bool isAborted = false;
-	GPUBufferMemoryHost2<char> staging_memory;
+	GPUBufferMemoryHost2 staging_memory;
 
 	com::PoolToken completion_token;
 
@@ -1184,8 +1189,8 @@ struct DeferredCommandBufferExecution
 		StagedBufferWriteCommand l_command;
 		l_command.buffer = p_buffer;
 		l_command.buffer_size = p_buffer_element_count * sizeof(ElementType);
-		l_command.staging_memory.allocate(p_device, p_buffer_element_count * sizeof(ElementType), vk::BufferUsageFlags());
-		l_command.staging_memory.push((const char*)p_source);
+		l_command.staging_memory.allocate(p_device, p_buffer_element_count, sizeof(ElementType), vk::BufferUsageFlags());
+		l_command.staging_memory.push(GPtr::fromType(p_source));
 		l_command.completion_token = p_completion_token;
 
 		this->commands_completion.resolve(p_completion_token) = false;
@@ -1204,8 +1209,8 @@ struct DeferredCommandBufferExecution
 		l_command.image.ImageSubresource = p_image_subresource;
 		l_command.image.ImageSubresourceRange = p_image_subresource_range;
 
-		l_command.staging_memory.allocate(p_device, (p_image_size.x * p_image_size.y) * p_pixel_size, vk::BufferUsageFlags());
-		l_command.staging_memory.push((const char*)p_source);
+		l_command.staging_memory.allocate(p_device, (p_image_size.x * p_image_size.y * p_pixel_size), 1, vk::BufferUsageFlags());
+		l_command.staging_memory.push(GPtr::fromType(p_source));
 
 		l_command.completion_token = p_completion_token;
 
@@ -2445,6 +2450,10 @@ private:
 };
 
 
+
+
+
+
 template<class ElementType>
 struct GlobalUniformBuffer
 {
@@ -2454,7 +2463,7 @@ struct GlobalUniformBuffer
 	vk::DescriptorSetLayout descriptorset_layout;
 	vk::PipelineLayout pipeline_layout;
 	vk::DescriptorSet descriptor_set;
-	UniformMemory_HostWrite<ElementType> memory;
+	TUniformMemory_HostWrite<ElementType> memory;
 
 	inline void create(vk::ShaderStageFlags p_shader_stage, const uint32_t p_descriptorset_index, const uint32_t p_binding_idnex, Device& p_device, const vk::DescriptorPool p_descriptorpool)
 	{
@@ -2531,13 +2540,12 @@ struct GlobalUniformBuffer
 	}
 };
 
-template<class ElementType>
 struct ShaderUniformBufferParameter
 {
 	vk::DescriptorSet descriptor_set;
-	UniformMemory_HostWrite<ElementType> memory;
+	UniformMemory_HostWrite memory;
 
-	inline void create(RenderAPI& p_renderapi, vk::DescriptorSetLayout& p_descriptorset_layout)
+	inline void create(RenderAPI& p_renderapi, size_t p_element_size, vk::DescriptorSetLayout& p_descriptorset_layout)
 	{
 		vk::DescriptorSetAllocateInfo l_allocate_info;
 		l_allocate_info.setDescriptorPool(p_renderapi.descriptor_pool);
@@ -2545,7 +2553,7 @@ struct ShaderUniformBufferParameter
 		l_allocate_info.setPSetLayouts(&p_descriptorset_layout);
 		this->descriptor_set = p_renderapi.device.device.allocateDescriptorSets(l_allocate_info)[0];
 
-		this->memory.allocate(1, p_renderapi.device);
+		this->memory.allocate(1, p_element_size, p_renderapi.device);
 	}
 
 	inline void dispose(Device& p_device, const vk::DescriptorPool p_descriptorpool)
@@ -2555,22 +2563,22 @@ struct ShaderUniformBufferParameter
 		this->memory.dispose(p_device);
 	}
 	
-	inline ElementType* get_buffer_ptr()
+	inline char* get_buffer_ptr()
 	{
 		return this->memory.mapped_memory.mapped_data;
 	};
 
-	inline void pushbuffer(const ElementType* p_source, const Device& p_device)
+	inline void pushbuffer(const GPtr& p_source, const Device& p_device)
 	{
 		this->memory.push(p_source);
 	}
 
-	inline void bind(const uint32_t p_dst_binding, const Device& p_device)
+	inline void bind(const uint32_t p_dst_binding, const size_t p_element_size, const Device& p_device)
 	{
 		vk::DescriptorBufferInfo l_descriptor_buffer_info;
 		l_descriptor_buffer_info.setBuffer(this->memory.buffer);
 		l_descriptor_buffer_info.setOffset(0);
-		l_descriptor_buffer_info.setRange(this->memory.capacity * sizeof(ElementType));
+		l_descriptor_buffer_info.setRange(this->memory.capacity * p_element_size);
 
 		vk::WriteDescriptorSet l_write_descriptor_set;
 		l_write_descriptor_set.setDstSet(this->descriptor_set);
@@ -2587,10 +2595,29 @@ struct ShaderUniformBufferParameter
 		p_commandbuffer.command_buffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, p_pipeline_layout,
 			p_set_index, 1, &this->descriptor_set, 0, nullptr);
 	}
+};
 
-	inline ShaderUniformBufferParameter<char>* castTo_internal()
+template<class ElementType>
+struct TShaderUniformBufferParameter : public ShaderUniformBufferParameter
+{
+	inline void create(RenderAPI& p_renderapi, vk::DescriptorSetLayout& p_descriptorset_layout)
 	{
-		return (ShaderUniformBufferParameter<char>*)this;
+		ShaderUniformBufferParameter::create(p_renderapi, sizeof(ElementType), p_descriptorset_layout);
+	};
+
+	inline ElementType* get_buffer_ptr()
+	{
+		return ShaderUniformBufferParameter::get_buffer_ptr();
+	};
+
+	inline void pushbuffer(const ElementType* p_source, const Device& p_device)
+	{
+		ShaderUniformBufferParameter::pushbuffer(GPtr::fromType(p_source), p_device);
+	};
+
+	inline void bind(const uint32_t p_dst_binding, const Device& p_device)
+	{
+		ShaderUniformBufferParameter::bind(p_dst_binding, sizeof(ElementType), p_device);
 	}
 };
 
@@ -2642,8 +2669,6 @@ struct ShaderCombinedImageSamplerParameter
 	}
 };
 
-//TODO -> how to handle different materials ?
-
 struct ShaderParameter
 {
 	enum Type
@@ -2672,23 +2697,18 @@ struct Material
 
 	Material() {};
 
-	inline void allocate(const com::PoolToken& p_texture, com::Pool<Texture>& p_texutre_heap, com::Pool<ShaderUniformBufferParameter<char>>& p_shader_uniformparameter_heap, 
-		com::Pool<ShaderCombinedImageSamplerParameter>& p_shader_texturesample_heap, RenderAPI& p_renderapi)
-	{
-		ShaderCombinedImageSamplerParameter l_diffuse_texture;
-		l_diffuse_texture.create(p_texture, p_renderapi);
-		l_diffuse_texture.bind(0, p_renderapi.device, p_renderapi.image_samplers, p_texutre_heap);
-		this->parameters.push_back(ShaderParameter(ShaderParameter::Type::TEXTURE, p_shader_texturesample_heap.alloc_element(l_diffuse_texture)));
 
-		ShaderUniformBufferParameter<vec3f> l_diffuse_color;
-		l_diffuse_color.create(p_renderapi, p_renderapi.shaderparameter_layouts.uniformbuffer_layout);
-		l_diffuse_color.bind(0, p_renderapi.device);
-		vec3f l_default_diffuse_color = vec3f(1.0f, 1.0f, 1.0f);
-		l_diffuse_color.pushbuffer(&l_default_diffuse_color, p_renderapi.device);
-		this->parameters.push_back(ShaderParameter(ShaderParameter::Type::UNIFORM, p_shader_uniformparameter_heap.alloc_element(*l_diffuse_color.castTo_internal())));		
+	inline void add_image_parameter(const com::PoolToken& p_parameter)
+	{
+		this->parameters.push_back(ShaderParameter(ShaderParameter::Type::TEXTURE, p_parameter));
 	};
 
-	inline void free(RenderAPI& p_renderapi, com::Pool<ShaderUniformBufferParameter<char>>& p_shader_uniformparameter_heap, com::Pool<ShaderCombinedImageSamplerParameter>& p_shader_texturesample_heap)
+	inline void add_uniform_parameter(const com::PoolToken& p_parameter)
+	{
+		this->parameters.push_back(ShaderParameter(ShaderParameter::Type::UNIFORM, p_parameter));
+	};
+
+	inline void free(RenderAPI& p_renderapi, com::Pool<ShaderUniformBufferParameter>& p_shader_uniformparameter_heap, com::Pool<ShaderCombinedImageSamplerParameter>& p_shader_texturesample_heap)
 	{
 		
 		for (size_t i = 0; i < this->parameters.Size; i++)
@@ -2714,7 +2734,7 @@ struct Material
 		this->parameters.free();
 	};
 
-	inline void bind_command(CommandBuffer& p_command_buffer, size_t p_set_index, com::Pool<ShaderUniformBufferParameter<char>>& p_shader_uniformparameter_heap,
+	inline void bind_command(CommandBuffer& p_command_buffer, size_t p_set_index, com::Pool<ShaderUniformBufferParameter>& p_shader_uniformparameter_heap,
 		com::Pool<ShaderCombinedImageSamplerParameter>& p_shader_texturesample_heap, vk::PipelineLayout& p_pipeline_layout)
 	{
 		for (size_t i = 0; i < this->parameters.Size; i++)
@@ -2738,10 +2758,11 @@ struct Material
 	};
 };
 
+
 struct RenderableObject
 {
 	com::PoolToken mesh;
-	ShaderUniformBufferParameter<mat4f> model_matrix_buffer;
+	TShaderUniformBufferParameter<mat4f> model_matrix_buffer;
 
 	RenderableObject() {}
 
@@ -2794,7 +2815,7 @@ struct RenderHeap2
 	com::Pool<Mesh> meshes;
 	com::Pool<Texture> textures;
 
-	com::Pool<ShaderUniformBufferParameter<char>> shader_uniform_parameters;
+	com::Pool<ShaderUniformBufferParameter> shader_uniform_parameters;
 	com::Pool<ShaderCombinedImageSamplerParameter> shader_imagesample_parameters;
 
 	struct Resource
@@ -3094,14 +3115,29 @@ public:
 		this->resource.shader_resources.free_resource(this->shaders[p_shader].value.key);
 	};
 
-	inline com::PoolToken allocate_material(const com::PoolToken& p_shader, const com::PoolToken& p_texture)
+	inline com::PoolToken allocate_material(const com::PoolToken& p_shader)
 	{
-		Material l_material;
-		l_material.allocate(p_texture, this->textures, this->shader_uniform_parameters, this->shader_imagesample_parameters, *this->render_api);
-		com::PoolToken l_material_handle = this->materials.alloc_element(l_material);
+		com::PoolToken l_material_handle = this->materials.alloc_element(Material());
 		this->material_to_renderableobjects.alloc_element(com::Vector<com::PoolToken>());
 		this->shaders_to_materials[p_shader.Index].push_back(l_material_handle);
 		return l_material_handle;
+	};
+
+	inline void material_add_image_parameter(const com::PoolToken& p_material, const com::PoolToken& p_texture)
+	{
+		ShaderCombinedImageSamplerParameter l_diffuse_texture;
+		l_diffuse_texture.create(p_texture, *this->render_api);
+		l_diffuse_texture.bind(0, this->render_api->device, this->render_api->image_samplers, this->textures);
+		this->materials[p_material].value.add_image_parameter(this->shader_imagesample_parameters.alloc_element(l_diffuse_texture));
+	};
+
+	inline void material_add_uniform_parameter(const com::PoolToken& p_material, const GPtr& p_initial_value)
+	{
+		ShaderUniformBufferParameter l_diffuse_color;
+		l_diffuse_color.create(*this->render_api, p_initial_value.element_size, this->render_api->shaderparameter_layouts.uniformbuffer_layout);
+		l_diffuse_color.bind(0, p_initial_value.element_size, this->render_api->device);
+		l_diffuse_color.pushbuffer(p_initial_value, this->render_api->device);
+		this->materials[p_material].value.add_uniform_parameter(this->shader_uniform_parameters.alloc_element(l_diffuse_color));
 	};
 
 	inline void free_material(const com::PoolToken& p_material)

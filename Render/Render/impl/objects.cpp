@@ -44,12 +44,23 @@ void ShaderHandle::free(const RenderHandle& p_render)
 	this->reset();
 };
 
-void MaterialHandle::allocate(const RenderHandle& p_render, const ShaderHandle& p_shader, const TextureHandle& p_texture)
+void MaterialHandle::allocate(const RenderHandle& p_render, const ShaderHandle& p_shader)
 {
 	Render* l_render = (Render*)p_render;
 	this->shader = p_shader;
-	this->texture = p_texture;
-	this->handle = l_render->heap.allocate_material(this->shader.handle, this->texture.handle).Index;
+	this->handle = l_render->heap.allocate_material(this->shader.handle).Index;
+};
+
+void MaterialHandle::add_image_parameter(const RenderHandle& p_render, const TextureHandle& p_texture)
+{
+	Render* l_render = (Render*)p_render;
+	l_render->heap.material_add_image_parameter(this->handle, p_texture.handle);
+};
+
+void MaterialHandle::add_uniform_parameter(const RenderHandle& p_render, const GPtr& p_initial_value)
+{
+	Render* l_render = (Render*)p_render;
+	l_render->heap.material_add_uniform_parameter(this->handle, p_initial_value);
 };
 
 void MaterialHandle::free(const RenderHandle& p_render)
