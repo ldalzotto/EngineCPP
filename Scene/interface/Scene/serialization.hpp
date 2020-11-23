@@ -73,13 +73,14 @@ struct JSONDeserializer<NodeAsset>
 		p_node_assets.push_back(l_asset);
 		size_t l_node_insert_index = p_node_assets.Size - 1;
 
-		p_iterator.next_array("childs", &l_object_iterator);
-		Serialization::JSON::JSONObjectIterator l_childs_iterator;
-		while (l_object_iterator.next_array_object(&l_childs_iterator))
+		if (p_iterator.next_array("childs", &l_object_iterator))
 		{
-			deserialize<ComponentAssetSerializer>(l_childs_iterator, l_node_insert_index, p_node_assets, p_component_assets, p_compoent_asset_heap);
+			Serialization::JSON::JSONObjectIterator l_childs_iterator;
+			while (l_object_iterator.next_array_object(&l_childs_iterator))
+			{
+				deserialize<ComponentAssetSerializer>(l_childs_iterator, l_node_insert_index, p_node_assets, p_component_assets, p_compoent_asset_heap);
+			}
 		}
-		
 		p_iterator.free();
 	};
 };

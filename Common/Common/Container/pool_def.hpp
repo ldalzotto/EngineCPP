@@ -12,6 +12,8 @@ namespace com
 
 		inline PoolToken() : Index{(size_t)-1} {};
 		inline PoolToken(size_t p_index) : Index{p_index} {};
+
+		inline void reset() { this->Index = -1; };
 	};
 
 	template<class TYPE, class Allocator = HeapAllocator>

@@ -20,8 +20,8 @@ void RenderableObjectHandle::free(const RenderHandle& p_render)
 {
 	Render* l_render = (Render*)p_render;
 	this->mesh.free(p_render);
-	l_render->heap.free_renderableObject(this->handle);
 	this->material.free(p_render);
+	l_render->heap.free_renderableObject(this->handle);
 	this->reset();
 };
 
