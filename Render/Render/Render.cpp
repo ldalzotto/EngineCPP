@@ -1,6 +1,7 @@
 #pragma once
 
 #include <Render/render.hpp>
+#include <Render/assets.hpp>
 #include <Render/rdwindow.hpp>
 #include <optick.h>
 #include <AssetServer/asset_server.hpp>
@@ -2102,22 +2103,9 @@ struct ShaderModule
 	vk::ShaderModule shader_module;
 };
 
-struct ShaderResourceKey
-{
-	size_t vertex_module;
-	size_t fragment_module;
-};
-
-template<>
-size_t Hash<ShaderResourceKey>::hash(const ShaderResourceKey& p_key)
-{
-	return HashFunctionRaw((char*)&p_key, sizeof(ShaderResourceKey));
-};
-
 struct Shader
 {
-
-	ShaderResourceKey key;
+	size_t key;
 
 	struct Step
 	{
@@ -2134,11 +2122,12 @@ struct Shader
 
 	}
 
-	Shader(const ShaderResourceKey& p_key, const ShaderModule& p_vertex_shader, const ShaderModule& p_fragment_shader, const RenderPass& p_render_pass, const RenderAPI& p_render_api)
+	Shader(const size_t p_key, const ShaderModule& p_vertex_shader, const ShaderModule& p_fragment_shader, 
+		const ShaderCompareOp::Type p_compare_op, const RenderPass& p_render_pass, const RenderAPI& p_render_api)
 	{
 		this->key = p_key;
 		this->createPipelineLayout(p_render_api);
-		this->createPipeline(p_render_api.device, p_render_pass, p_vertex_shader, p_fragment_shader);
+		this->createPipeline(p_render_api.device, p_render_pass, p_vertex_shader, p_fragment_shader, p_compare_op);
 	}
 
 	inline void dispose(const Device& p_device)
@@ -2173,7 +2162,7 @@ private:
 	}
 
 	inline void createPipeline(const Device& p_device, const RenderPass& p_renderPass,
-		const ShaderModule& p_vertex_shader, const ShaderModule& p_fragment_shader)
+		const ShaderModule& p_vertex_shader, const ShaderModule& p_fragment_shader, const ShaderCompareOp::Type p_compare_op)
 	{
 		com::Vector<vk::DynamicState> l_dynamicstates_enabled;
 		l_dynamicstates_enabled.allocate(2);
@@ -2226,7 +2215,7 @@ private:
 			vk::PipelineDepthStencilStateCreateInfo l_depthstencil_state;
 			l_depthstencil_state.setDepthTestEnable(true);
 			l_depthstencil_state.setDepthWriteEnable(true);
-			l_depthstencil_state.setDepthCompareOp(vk::CompareOp::eLessOrEqual);
+			l_depthstencil_state.setDepthCompareOp((vk::CompareOp)p_compare_op);
 			l_depthstencil_state.setDepthBoundsTestEnable(false);
 			vk::StencilOpState l_back;
 			l_back.setCompareOp(vk::CompareOp::eAlways);
@@ -2448,10 +2437,6 @@ private:
 		return l_token;
 	};
 };
-
-
-
-
 
 
 template<class ElementType>
@@ -2887,13 +2872,18 @@ struct RenderHeap2
 				this->render_heap = &p_render_heap;
 			};
 
-			inline com::PoolToken allocate(const ShaderResourceKey& p_key)
+			inline com::PoolToken allocate(const size_t& p_key)
 			{
-				auto l_vertex_module = this->render_heap->allocate_shadermodule_internal(p_key.vertex_module);
-				auto l_fragment_module = this->render_heap->allocate_shadermodule_internal(p_key.fragment_module);
+				com::Vector<char> l_shader_resource_binary = this->asset_server.get_resource(p_key);
+				ShaderAsset l_shader_asset = ShaderAsset::deserialize(l_shader_resource_binary.Memory);
+				l_shader_resource_binary.free();
+
+				auto l_vertex_module = this->render_heap->allocate_shadermodule_internal(l_shader_asset.vertex);
+				auto l_fragment_module = this->render_heap->allocate_shadermodule_internal(l_shader_asset.fragment);
 				Shader l_shader = Shader(p_key,
 					this->render_heap->shadermodules[l_vertex_module],
 					this->render_heap->shadermodules[l_fragment_module],
+					l_shader_asset.compare_op,
 					this->render_heap->render_api->swap_chain.renderpass,
 					*(this->render_heap->render_api)
 				);
@@ -3052,7 +3042,7 @@ struct RenderHeap2
 		};
 
 		ResourceMap<size_t, com::PoolToken, ShaderModuleResourceAllocator> shader_module_resources;
-		ResourceMap<ShaderResourceKey, com::PoolToken, ShaderResourceAllocator> shader_resources;
+		ResourceMap<size_t, com::PoolToken, ShaderResourceAllocator> shader_resources;
 		ResourceMap<size_t, com::PoolToken, MeshResourceAllocator> mesh_resources;
 		ResourceMap<size_t, com::PoolToken, TextureResourceAllocator> texture_resources;
 
@@ -3097,17 +3087,15 @@ public:
 		this->resource.shader_module_resources.free_resource(this->shadermodules[p_shader_module].key);
 	};
 
-	inline com::PoolToken allocate_shader(const std::string& p_vertex, const std::string& p_fragment)
+
+	inline com::PoolToken allocate_shader(const std::string& p_key)
 	{
-		return this->allocate_shader(Hash<std::string>::hash(p_vertex), Hash<std::string>::hash(p_fragment));
+		return this->allocate_shader(Hash<std::string>::hash(p_key));
 	};
 
-	inline com::PoolToken allocate_shader(const size_t p_vertex, const size_t p_fragment)
+	inline com::PoolToken allocate_shader(const size_t p_key)
 	{
-		ShaderResourceKey l_key;
-		l_key.vertex_module = p_vertex;
-		l_key.fragment_module = p_fragment;
-		return this->allocate_shader_internal(l_key);
+		return this->resource.shader_resources.allocate_resource(p_key);
 	};
 
 	inline void free_shader(const com::PoolToken& p_shader)
@@ -3202,10 +3190,6 @@ private:
 		return this->resource.shader_module_resources.allocate_resource(p_key);
 	};
 
-	inline com::PoolToken allocate_shader_internal(const ShaderResourceKey& p_key)
-	{
-		return this->resource.shader_resources.allocate_resource(p_key);
-	};
 };
 
 struct Render

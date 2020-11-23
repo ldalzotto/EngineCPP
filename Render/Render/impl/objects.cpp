@@ -25,16 +25,16 @@ void RenderableObjectHandle::free(const RenderHandle& p_render)
 	this->reset();
 };
 
-void ShaderHandle::allocate(const RenderHandle& p_render, const std::string& p_vertex_shader, const std::string& p_fragment_shader)
+void ShaderHandle::allocate(const RenderHandle& p_render, const std::string& p_sahder_path)
 {
 	Render* l_render = (Render*)p_render;
-	this->handle = l_render->heap.allocate_shader(p_vertex_shader, p_fragment_shader).Index;
+	this->handle = l_render->heap.allocate_shader(p_sahder_path).Index;
 };
 
-void ShaderHandle::allocate(const RenderHandle& p_render, const size_t p_vertex_shader, const size_t p_fragment_shader)
+void ShaderHandle::allocate(const RenderHandle& p_render, const size_t p_shader_path)
 {
 	Render* l_render = (Render*)p_render;
-	this->handle = l_render->heap.allocate_shader(p_vertex_shader, p_fragment_shader).Index;
+	this->handle = l_render->heap.allocate_shader(p_shader_path).Index;
 };
 
 void ShaderHandle::free(const RenderHandle& p_render)

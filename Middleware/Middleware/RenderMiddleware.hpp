@@ -52,7 +52,7 @@ struct RenderMiddleware
 		l_material_binary.free();
 
 		ShaderHandle l_shader;
-		l_shader.allocate(this->render, l_material_asset.shader.vertex, l_material_asset.shader.fragment);
+		l_shader.allocate(this->render, l_material_asset.shader);
 		TextureHandle l_texture;
 		l_texture.allocate(this->render, l_material_asset.texture);
 

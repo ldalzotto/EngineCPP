@@ -33,8 +33,9 @@ struct TextureHandle : public Handle
 
 struct ShaderHandle : public Handle
 {
-	void allocate(const RenderHandle& p_render, const std::string& p_vertex_shader, const std::string& p_fragment_shader);
-	void allocate(const RenderHandle& p_render, const size_t p_vertex_shader, const size_t p_fragment_shader);
+
+	void allocate(const RenderHandle& p_render, const std::string& p_sahder_path);
+	void allocate(const RenderHandle& p_render, const size_t p_shader_path);
 	void free(const RenderHandle& p_render);
 };
 

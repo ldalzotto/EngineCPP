@@ -303,6 +303,12 @@ private:
 						SceneAsset l_scene_asset = JSONDeserializer<SceneAsset>::deserialize<ComponentAssetSerializer>(l_json_deserializer);
 						l_scene_asset.serialize(l_asset_bytes);
 					}
+					else if (l_json_type.value.equals(StringSlice("shader")))
+					{
+						l_json_deserializer.free();
+						ShaderAsset l_shader_asset = JSONDeserializer<ShaderAsset>::deserialize(l_json_deserializer);
+						l_shader_asset.serialize(l_asset_bytes);
+					}
 
 					if (l_asset_bytes.Memory != nullptr)
 					{
@@ -337,6 +343,8 @@ int main(int argc, char** argv)
 
 	std::string l_asset_base_path = l_asset_database_update.asset_server.get_asset_basepath();
 
+	l_asset_database_update.compile_all_assets();
+
 	if (argc > 1 && StringSlice(argv[1]).equals("daemon"))
 	{
 		while (true)
@@ -351,9 +359,5 @@ int main(int argc, char** argv)
 			break;
 			}
 		}
-	}
-	else
-	{
-		l_asset_database_update.compile_all_assets();
 	}
 }
