@@ -190,6 +190,7 @@ namespace Serialization
 
 			inline bool next_array(const char* p_field_name, JSONObjectIterator* out_object_iterator)
 			{
+				out_object_iterator->free();
 
 				bool l_field_found = false;
 				size_t l_lastfieldname_index = this->get_current_pointer();
@@ -207,8 +208,36 @@ namespace Serialization
 
 						if (is_value_an_array(l_currentfieldvalue_index))
 						{
+
+							size_t l_openedbrace_count = 1;
+							size_t l_object_string_iterator = l_currentfieldvalue_index + 1;
+							while (l_openedbrace_count != 0)
+							{
+								if (this->source.Memory[l_object_string_iterator] == '[')
+								{
+									l_openedbrace_count += 1;
+								}
+								else if (this->source.Memory[l_object_string_iterator] == ']')
+								{
+									l_openedbrace_count -= 1;
+								}
+
+								l_object_string_iterator += 1;
+							}
+
+							FieldNode l_field_node;
+
+							size_t l_fieldvalue_start = l_currentfieldvalue_index + 1;
+							l_field_node.value = StringSlice(this->source.Memory.Memory, l_fieldvalue_start, l_object_string_iterator - 1);
+							l_field_node.whole_field = StringSlice(this->source.Memory.Memory, l_lastfieldname_index, l_object_string_iterator);
+
+
 							out_object_iterator->source = this->source;
 							out_object_iterator->object.start_index = l_currentfieldvalue_index + 1;
+
+							this->stack_fields.push_back(l_field_node);
+							this->current_field = this->stack_fields.Size - 1;
+
 							l_field_found = true;
 						}
 					}

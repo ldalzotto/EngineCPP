@@ -3,7 +3,6 @@
 #include "Common/Container/vector.hpp"
 #include "Common/Memory/heap.hpp"
 
-
 typedef com::PoolToken SceneNodeComponentToken;
 
 struct SceneHeap
@@ -49,10 +48,26 @@ struct SceneHeap
 	}
 };
 
+struct SceneNodeByTag
+{
+	size_t tag;
+	com::Vector<com::PoolToken> nodes;
+
+	inline void allocate(const size_t p_tag)
+	{
+		this->tag = p_tag;
+		this->nodes.allocate(0);
+	};
+	inline void free() { this->nodes.free(); }
+};
+
 struct Scene
 {
 	NTree<SceneNode> tree;
 	SceneHeap heap;
+
+	com::Vector<SceneNodeByTag> nodes_by_tag;
+
 	Callback<void, ComponentAddedParameter> component_added_callback;
 	Callback<void, ComponentRemovedParameter> component_removed_callback;
 	Callback<void, ComponentAssetPushParameter> component_asset_push_callback;
@@ -67,6 +82,7 @@ struct Scene
 		this->tree.allocate(1);
 
 		this->heap.allocate();
+		this->nodes_by_tag.allocate(0);
 
 		auto l_root = this->tree.push_root_value(SceneNode());
 		*(this->resolve_node(l_root).element) = SceneNode(Math::Transform(), &this->tree, l_root.Index);
@@ -78,6 +94,11 @@ struct Scene
 
 		this->heap.free();
 		this->tree.free();
+
+		for (size_t i = 0; i < this->nodes_by_tag.Size; i++)
+		{
+			this->nodes_by_tag[i].free();
+		}
 	}
 
 	inline void new_frame()
@@ -201,6 +222,37 @@ struct Scene
 		return nullptr;
 	};
 
+	inline com::Vector<NTreeResolve<SceneNode>> get_nodes_with_component(const SceneNodeComponent_TypeInfo& p_component_type_info)
+	{
+		struct GetNodesWithComponentForeach
+		{
+			com::Vector<NTreeResolve<SceneNode>> nodes;
+			Scene* scene;
+			const SceneNodeComponent_TypeInfo* component_type;
+			inline GetNodesWithComponentForeach() {};
+			inline GetNodesWithComponentForeach(Scene* p_scene, const SceneNodeComponent_TypeInfo* p_component_type) {
+				this->scene = p_scene;
+				this->component_type = p_component_type;
+			};
+			inline void foreach(NTreeResolve<SceneNode>& p_node)
+			{
+				com::Vector<SceneNodeComponentToken>& l_node_components = p_node.element->get_components();
+				for (size_t i = 0; i < l_node_components.Size; i++)
+				{
+					if (this->scene->resolve_component(l_node_components[i])->id == this->component_type->id)
+					{
+						this->nodes.push_back(p_node);
+						break;
+					}
+				}
+			};
+		};
+
+		GetNodesWithComponentForeach l_foreach = GetNodesWithComponentForeach(this, &p_component_type_info);
+		this->tree.traverse(com::PoolToken(0), l_foreach);
+		return l_foreach.nodes;
+	};
+
 	inline NTreeResolve<SceneNode> root()
 	{
 		return this->resolve_node(0);
@@ -318,4 +370,9 @@ void SceneHandle::new_frame()
 void SceneHandle::feed_with_asset(SceneAsset& p_scene_asset)
 {
 	return ((Scene*)this->handle)->feed_with_asset(p_scene_asset);
+};
+
+com::Vector<NTreeResolve<SceneNode>> SceneHandle::get_nodes_with_component(const SceneNodeComponent_TypeInfo& p_component_type_info)
+{
+	return ((Scene*)this->handle)->get_nodes_with_component(p_component_type_info);
 };

@@ -43,10 +43,6 @@ private:
 	/** This matrix will always be relative to the root Node (a Node without parent). */
 	Math::mat4f localtoworld;
 
-
-	
-
-
 	//Childs
 	com::PoolToken scenetree_entry;
 
@@ -354,6 +350,13 @@ struct SceneHandle
 		this->remove_component(p_node, ComponentType::Type);
 	};
 
+
+	template<class ComponentType>
+	inline com::Vector<NTreeResolve<SceneNode>> get_nodes_with_component()
+	{
+		return this->get_nodes_with_component(ComponentType::Type);
+	};
+
 	void SceneHandle::feed_with_asset(SceneAsset& p_scene_asset);
 
 	com::PoolToken root();
@@ -364,4 +367,5 @@ private:
 	SceneNodeComponentHeader* get_component(const com::PoolToken p_node, const SceneNodeComponent_TypeInfo& p_component_type_info);
 	void remove_component(const com::PoolToken p_node, SceneNodeComponentHandle& p_component);
 	void remove_component(const com::PoolToken p_node, const SceneNodeComponent_TypeInfo& p_component_type_info);
+	com::Vector<NTreeResolve<SceneNode>> get_nodes_with_component(const SceneNodeComponent_TypeInfo& p_component_type_info);
 };

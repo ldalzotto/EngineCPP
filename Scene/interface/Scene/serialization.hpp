@@ -28,14 +28,14 @@ template<>
 struct JSONDeserializer<NodeAsset>
 {
 	template<class ComponentAssetSerializer>
-	static NodeAsset deserialize(Serialization::JSON::JSONObjectIterator& p_iterator, com::Vector<ComponentAsset>& p_component_assets, GeneralPurposeHeap<>& p_compoent_asset_heap)
+	static void deserialize(Serialization::JSON::JSONObjectIterator& p_iterator, size_t p_parent_nodeasset_index, com::Vector<NodeAsset>& p_node_assets,
+			com::Vector<ComponentAsset>& p_component_assets, GeneralPurposeHeap<>& p_compoent_asset_heap)
 	{
 		NodeAsset l_asset;
+		l_asset.parent = p_parent_nodeasset_index;
 
 		Serialization::JSON::JSONObjectIterator l_object_iterator;
-		p_iterator.next_field("parent");
-		l_asset.parent = JSONDeserializer<int>::deserialize(p_iterator);
-
+	
 		p_iterator.next_object("local_position", &l_object_iterator);
 		l_asset.local_position = JSONDeserializer<Math::vec3f>::deserialize(l_object_iterator);
 
@@ -69,10 +69,18 @@ struct JSONDeserializer<NodeAsset>
 		l_asset.components_begin = p_component_assets.Size - l_componentasset_count;
 		l_asset.components_end = p_component_assets.Size;
 
-		l_component_iterator.free();
-		p_iterator.free();
+		//childs
+		p_node_assets.push_back(l_asset);
+		size_t l_node_insert_index = p_node_assets.Size - 1;
 
-		return l_asset;
+		p_iterator.next_array("childs", &l_object_iterator);
+		Serialization::JSON::JSONObjectIterator l_childs_iterator;
+		while (l_object_iterator.next_array_object(&l_childs_iterator))
+		{
+			deserialize<ComponentAssetSerializer>(l_childs_iterator, l_node_insert_index, p_node_assets, p_component_assets, p_compoent_asset_heap);
+		}
+		
+		p_iterator.free();
 	};
 };
 
@@ -127,8 +135,8 @@ struct JSONDeserializer<SceneAsset>
 		p_iterator.next_array("nodes", &l_node_array_iterator);
 		while (l_node_array_iterator.next_array_object(&l_node_iterator))
 		{
-			NodeAsset l_node = JSONDeserializer<NodeAsset>::deserialize<ComponentAssetSerializer>(l_node_iterator, l_asset.components, l_asset.component_asset_heap);
-			l_asset.nodes.push_back(l_node);
+			JSONDeserializer<NodeAsset>::deserialize<ComponentAssetSerializer>(l_node_iterator, -1, l_asset.nodes, l_asset.components, l_asset.component_asset_heap);
+			// l_asset.nodes.push_back(l_node);
 		}
 
 		p_iterator.free();

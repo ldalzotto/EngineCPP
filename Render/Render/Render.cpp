@@ -856,6 +856,7 @@ struct GPUImageMemoryGPU2
 	inline void push(const ElementType* p_source, vk::ImageSubresource& p_image_subresource, vk::ImageSubresourceRange& p_image_subresource_range,
 		Vector<2, int>& p_image_size, size_t p_pixel_size, Device& p_device, ImageBufferWriteCommandAllocator& p_imagewrite_allocator)
 	{
+        
 		this->image_writing.execution_index = p_imagewrite_allocator.allocate_stagedimagewritecommand(this->buffer, p_image_subresource, p_image_subresource_range,
 			p_image_size, (const char*)p_source, p_pixel_size, this->image_writing.completion_token, p_device);
 	};
