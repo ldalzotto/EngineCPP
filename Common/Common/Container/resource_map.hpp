@@ -9,6 +9,19 @@ struct CountedResource
 	size_t usage = 0;
 };
 
+struct ResourceMapEnum
+{
+	enum Step
+	{
+		UNDEFINED = 0,
+		RESOURCE_ALLOCATED = 1,
+		RESOURCE_INCREMENTED = 2,
+		RESOURCE_DEALLOCATED = 3,
+		RESOURCE_DECREMENTED = 4
+	};
+};
+
+
 template<class Key, class Value, class ResourceAllocation, class Allocator = HeapAllocator>
 struct ResourceMap
 {
@@ -35,12 +48,20 @@ struct ResourceMap
 		this->map.free();
 	};
 
-	inline Value allocate_resource(const Key& p_key)
+	struct DefaultResourceCallback
+	{
+		inline void execute() {};
+	};
+
+	template<class OnResourceAllocatedFn = DefaultResourceCallback, class OnResourceIncrementedFn = DefaultResourceCallback>
+	inline Value Tallocate_resource(const Key& p_key, OnResourceAllocatedFn& p_on_resource_allocated_fn = DefaultResourceCallback(),
+		OnResourceIncrementedFn& p_on_resource_incremented_fn = DefaultResourceCallback())
 	{
 		CountedResource<Value>* l_existing_resourece;
 		if (this->map.get(p_key, &l_existing_resourece))
 		{
 			l_existing_resourece->usage += 1;
+			p_on_resource_incremented_fn.execute();
 			return l_existing_resourece->value;
 		}
 		else
@@ -49,11 +70,38 @@ struct ResourceMap
 			l_counted_resource.value = this->resource_allocation.allocate(p_key);
 			l_counted_resource.usage = 1;
 			this->map.push_entry(HashMap<Key, CountedResource<Value>>::Entry(p_key, l_counted_resource));
+			p_on_resource_allocated_fn.execute();
 			return l_counted_resource.value;
 		}
+	}
+	
+	inline Value allocate_resource(const Key& p_key)
+	{
+		return this->Tallocate_resource(p_key);
+	};
+
+	inline ResourceMapEnum::Step allocate_resource(const Key& p_key, Value* out_value)
+	{
+		
+		struct OnResourceAllocated { 
+			ResourceMapEnum::Step* step;
+			inline OnResourceAllocated(ResourceMapEnum::Step* p_step) { this->step = p_step; }
+			inline void execute() { *this->step = ResourceMapEnum::Step::RESOURCE_ALLOCATED; };
+		};
+		struct OnResourceIncremented { 
+			ResourceMapEnum::Step* step;
+			inline OnResourceIncremented(ResourceMapEnum::Step* p_step) { this->step = p_step; }
+			inline void execute() { *this->step = ResourceMapEnum::Step::RESOURCE_INCREMENTED; };
+		};
+
+		ResourceMapEnum::Step l_execution_step = ResourceMapEnum::Step::UNDEFINED;
+		*out_value = this->Tallocate_resource(p_key, OnResourceAllocated(&l_execution_step), OnResourceIncremented(&l_execution_step));
+		return l_execution_step;
 	};
 	
-	void free_resource(const Key& p_key)
+	template<class OnResourceDeallocatedFn = DefaultResourceCallback, class OnResourceDecrementedFn = DefaultResourceCallback>
+	inline void Tfree_resource(const Key& p_key, OnResourceDeallocatedFn& p_on_resource_deallocated_fn = DefaultResourceCallback(), 
+				OnResourceDecrementedFn& p_on_resource_decremented_fn = DefaultResourceCallback())
 	{
 		CountedResource<Value>* l_existing_resourece;
 		if (this->map.get(p_key, &l_existing_resourece))
@@ -63,7 +111,35 @@ struct ResourceMap
 			{
 				this->resource_allocation.free(this->map[p_key].value);
 				this->map.remove(p_key);
+				p_on_resource_deallocated_fn.execute();
+			}
+			else
+			{
+				p_on_resource_decremented_fn.execute();
 			}
 		}
+	};
+
+	inline void free_resource(const Key& p_key)
+	{
+		this->Tfree_resource(p_key);
+	};
+
+	inline ResourceMapEnum::Step free_resource_step(const Key& p_key)
+	{
+		struct OnResourceDeAllocated {
+			ResourceMapEnum::Step* step;
+			inline OnResourceDeAllocated(ResourceMapEnum::Step* p_step) { this->step = p_step; }
+			inline void execute() { *this->step = ResourceMapEnum::Step::RESOURCE_DEALLOCATED; };
+		};
+		struct OnResourceDecremented {
+			ResourceMapEnum::Step* step;
+			inline OnResourceDecremented(ResourceMapEnum::Step* p_step) { this->step = p_step; }
+			inline void execute() { *this->step = ResourceMapEnum::Step::RESOURCE_DECREMENTED; };
+		};
+
+		ResourceMapEnum::Step l_step = ResourceMapEnum::Step::UNDEFINED;
+		this->Tfree_resource(p_key, OnResourceDeAllocated(&l_step), OnResourceDecremented(&l_step));
+		return l_step;
 	};
 };

@@ -32,8 +32,14 @@ void update(void* p_engine, float p_delta)
 		l_scenehandle.feed_with_asset(l_scene_asset);
 		l_scene_binary.free();
 	}
-	else
+	else if ((testContext.framecount % 101) == 0)
 	{
+		com::Vector<NTreeResolve<SceneNode>> l_nodes = l_scenehandle.get_nodes_with_component<MeshRenderer>();
+		if (l_nodes.Size > 0)
+		{
+			l_scenehandle.remove_component<MeshRenderer>(l_nodes[0].node->index);
+		}
+		l_nodes.free();
 	}
 #endif
 
@@ -67,7 +73,7 @@ void update(void* p_engine, float p_delta)
 	}
 	else if (testContext.framecount == 300)
 	{
-	    // l_scenehandle.free_node(testContext.center_node);
+		// l_scenehandle.free_node(testContext.center_node);
 		// l_scenehandle.remove_component<MeshRenderer>(testContext.center_node);
 	}
 	// else if()
@@ -77,7 +83,7 @@ void update(void* p_engine, float p_delta)
 		l_node->set_localposition(l_node->get_localposition() + (vec3f(VecConst<float>::FORWARD) * p_delta));
 		l_node->set_localrotation(mul(l_node->get_localrotation(), rotateAround(vec3f(0.0f, 1.0f, 0.0f), p_delta)));
 	}
-	
+
 	{
 		SceneNode* l_node = l_scenehandle.resolve_node(testContext.center_node).element;
 		l_node->set_worldposition(l_node->get_worldposition() + (vec3f(VecConst<float>::RIGHT) * p_delta));

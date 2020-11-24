@@ -13,7 +13,7 @@ void RenderableObjectHandle::allocate(const RenderHandle& p_render, const Materi
 void RenderableObjectHandle::push_trs(const RenderHandle& p_render, const Math::mat4f& p_trs)
 {
 	Render* l_render = (Render*)p_render;
-	l_render->heap.renderableobjects[this->handle].value.pushModelMatrix(p_trs, l_render->renderApi.device);
+	l_render->heap.renderableobjects[this->handle].pushModelMatrix(p_trs, l_render->renderApi.device);
 };
 
 void RenderableObjectHandle::free(const RenderHandle& p_render)
@@ -66,7 +66,7 @@ void MaterialHandle::add_uniform_parameter(const RenderHandle& p_render, const G
 void MaterialHandle::free(const RenderHandle& p_render)
 {
 	Render* l_render = (Render*)p_render;
-	l_render->heap.free_material(this->handle);
+	l_render->heap.free_material(this->handle, this->shader.handle);
 	this->shader.free(p_render);
 	this->reset();
 };

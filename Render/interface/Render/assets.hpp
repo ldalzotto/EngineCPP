@@ -50,12 +50,14 @@ struct ShaderCompareOp
 
 struct ShaderAsset
 {
+	short execution_order;
 	size_t vertex;
 	size_t fragment;
 	ShaderCompareOp::Type compare_op;
 
 	inline void serialize(com::Vector<char>& out_target)
 	{
+		Serialization::Binary::serialize_field<short>(&this->execution_order, out_target);
 		Serialization::Binary::serialize_field<size_t>(&this->vertex, out_target);
 		Serialization::Binary::serialize_field<size_t>(&this->fragment, out_target);
 		Serialization::Binary::serialize_field<ShaderCompareOp::Type>(&this->compare_op, out_target);
@@ -65,6 +67,7 @@ struct ShaderAsset
 	{
 		ShaderAsset l_resource;
 		size_t l_current_pointer = 0;
+		l_resource.execution_order = *Serialization::Binary::deserialize_field<short>(l_current_pointer, p_source);
 		l_resource.vertex = *Serialization::Binary::deserialize_field<size_t>(l_current_pointer, p_source);
 		l_resource.fragment = *Serialization::Binary::deserialize_field<size_t>(l_current_pointer, p_source);
 		l_resource.compare_op = *Serialization::Binary::deserialize_field<ShaderCompareOp::Type>(l_current_pointer, p_source);
@@ -81,10 +84,9 @@ struct JSONDeserializer<ShaderAsset>
 		ShaderAsset l_asset;
 
 		p_iterator.next_field("type");
-		p_iterator.next_field("vertex");
-		l_asset.vertex = Hash<StringSlice>::hash(p_iterator.get_currentfield().value);
-		p_iterator.next_field("fragment");
-		l_asset.fragment = Hash<StringSlice>::hash(p_iterator.get_currentfield().value);
+		p_iterator.next_field("execution_order"); l_asset.execution_order = JSONDeserializer<short>::deserialize(p_iterator);
+		p_iterator.next_field("vertex"); l_asset.vertex = Hash<StringSlice>::hash(p_iterator.get_currentfield().value);
+		p_iterator.next_field("fragment"); l_asset.fragment = Hash<StringSlice>::hash(p_iterator.get_currentfield().value);
 		if (p_iterator.next_field("compareOp"))
 		{
 			l_asset.compare_op = ShaderCompareOp::from_string(p_iterator.get_currentfield().value);

@@ -331,6 +331,19 @@ struct JSONDeserializer<int>
 };
 
 template<>
+struct JSONDeserializer<short>
+{
+	static short deserialize(Serialization::JSON::JSONObjectIterator& p_iterator)
+	{
+		String<> l_str; l_str.allocate(30);
+		l_str.append(p_iterator.get_currentfield().value);
+		short l_return = (short)atoi(l_str.c_str());
+		l_str.free();
+		return l_return;
+	};
+};
+
+template<>
 struct JSONDeserializer<float>
 {
 	static float deserialize(Serialization::JSON::JSONObjectIterator& p_iterator)

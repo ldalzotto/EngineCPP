@@ -66,8 +66,6 @@ struct RenderMiddleware
 		RenderableObjectHandle l_renderable_object;
 		l_renderable_object.allocate(this->render, l_material, l_mesh);
 
-		// l_renderable_object.push_trs(this->render, p_node.element->get_localtoworld());
-
 		RenderableObjectEntry l_entry;
 		l_entry.node = p_node_token;
 		l_entry.renderableobject = l_renderable_object;
