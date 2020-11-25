@@ -16,6 +16,7 @@ struct TestContext
 {
 	com::PoolToken center_node;
 	com::PoolToken moving_node;
+	com::Vector<com::PoolToken> moving_nodes;
 	size_t framecount = 0;
 } testContext;
 
@@ -31,7 +32,22 @@ void update(void* p_engine, float p_delta)
 		SceneAsset l_scene_asset = SceneSerializer::deserialize_from_binary(l_scene_binary);
 		l_scenehandle.feed_with_asset(l_scene_asset);
 		l_scene_binary.free();
+
+		com::Vector<NTreeResolve<SceneNode>> l_nodes = l_scenehandle.get_nodes_with_component<MeshRenderer>();
+		for (size_t i = 0; i < l_nodes.Size; i++)
+		{
+			testContext.moving_nodes.push_back(com::PoolToken(l_nodes[i].node->index));
+		}
 	}
+
+	for (size_t i = 0; i < testContext.moving_nodes.Size; i++)
+	{
+		SceneNode* l_node = l_scenehandle.resolve_node(testContext.moving_nodes[i]).element;
+
+		l_node->set_localrotation(mul(l_node->get_localrotation(), rotateAround(vec3f(0.0f, 1.0f, 0.0f), p_delta)));
+	}
+
+	/*
 	else if ((testContext.framecount % 101) == 0)
 	{
 		com::Vector<NTreeResolve<SceneNode>> l_nodes = l_scenehandle.get_nodes_with_component<MeshRenderer>();
@@ -41,6 +57,7 @@ void update(void* p_engine, float p_delta)
 		}
 		l_nodes.free();
 	}
+	*/
 #endif
 
 #if 0
@@ -82,7 +99,7 @@ void update(void* p_engine, float p_delta)
 
 		l_node->set_localposition(l_node->get_localposition() + (vec3f(VecConst<float>::FORWARD) * p_delta));
 		l_node->set_localrotation(mul(l_node->get_localrotation(), rotateAround(vec3f(0.0f, 1.0f, 0.0f), p_delta)));
-	}
+}
 
 	{
 		SceneNode* l_node = l_scenehandle.resolve_node(testContext.center_node).element;
