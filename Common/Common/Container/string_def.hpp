@@ -54,6 +54,9 @@ struct String
 	String<Allocator>& append(const String<ParameterAllocator>& p_str);
 	String<Allocator>& append(const StringSlice& p_slice);
 
+	template<class ElementType>
+	String<Allocator>& append(const ElementType& p_element);
+
 	void clear();
 
 	StringSlice toSlice() const;
@@ -62,6 +65,8 @@ struct String
 	template<class ParameterAllocator>
 	bool find(const String<ParameterAllocator>& p_str, const size_t p_search_begin, size_t* p_outfoundIndex) const;
 	bool find(const StringSlice& p_str, const size_t p_search_begin, size_t* p_outfoundIndex) const;
+
+	com::Vector<StringSlice> split(const char* p_char);
 
 	bool equals(const char* p_str);
 	bool equals(const StringSlice& p_str);

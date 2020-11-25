@@ -126,7 +126,7 @@ template<unsigned FilePathMemoryLayoutType = FilePathMemoryLayout::SLICE>
 struct File
 {
 	FilePath<FilePathMemoryLayoutType> path = FilePath<FilePathMemoryLayoutType>();
-
+	HANDLE file = NULL;
 	FileType type = FileType::UNDEFINED;
 	StringSlice extension;
 	size_t last_modfied_time;
@@ -146,6 +146,10 @@ struct File
 	inline void free()
 	{
 		this->path.free();
+		if (this->file != NULL)
+		{
+			CloseHandle(this->file);
+		}
 	};
 
 	inline File<FilePathMemoryLayoutType> clone() const
@@ -187,8 +191,44 @@ struct File
 	inline void create()
 	{
 		String<> l_path = this->path.get_as_string();
-		CreateFile(l_path.c_str(), GENERIC_READ | GENERIC_WRITE, FILE_SHARE_DELETE | FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, CREATE_NEW, FILE_ATTRIBUTE_NORMAL, NULL);
+		this->file = CreateFile(l_path.c_str(), GENERIC_READ | GENERIC_WRITE, FILE_SHARE_DELETE | FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, CREATE_NEW, FILE_ATTRIBUTE_NORMAL, NULL);
 		l_path.free();
+	};
+
+	inline void open()
+	{
+		String<> l_path = this->path.get_as_string();
+		this->file = CreateFile(l_path.c_str(), GENERIC_READ | GENERIC_WRITE, FILE_SHARE_DELETE | FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+		l_path.free();
+	};
+
+	inline void create_or_open()
+	{
+		this->create();
+		if (this->file == INVALID_HANDLE_VALUE)
+		{
+			this->open();
+		}
+	};
+
+	inline void append(StringSlice& p_str)
+	{
+		SetFilePointer(this->file, 0, NULL, FILE_END);
+		WriteFile(this->file, (p_str.Memory + p_str.Begin), (DWORD)p_str.size(), NULL, NULL);
+	};
+
+	inline void read(size_t p_begin, size_t p_nb, String<>& out_buffer)
+	{
+		SetFilePointer(this->file, (LONG)p_begin, NULL, FILE_BEGIN);
+
+		size_t l_read_buffer_count = p_nb;
+		if (l_read_buffer_count > (out_buffer.Memory.Capacity - 1))
+		{
+			l_read_buffer_count = out_buffer.Memory.Capacity - 1;
+		};
+		unsigned long l_char_read;
+		ReadFile(this->file, out_buffer.Memory.Memory, (DWORD)l_read_buffer_count, &l_char_read, NULL);
+		out_buffer.Memory.Size = l_char_read;
 	};
 
 	template<class ForEachFile = ForEachFileDefault>
@@ -427,6 +467,18 @@ struct FileAlgorithm
 				l_stream.close();
 			}
 		}
+	};
+
+	inline static size_t get_char_nb(const std::string& p_path)
+	{
+		size_t l_size = 0;
+		std::ifstream l_stream(p_path, std::ios::binary | std::ios::in | std::ios::ate);
+		if (l_stream.is_open())
+		{
+			l_size = l_stream.tellg();
+			l_stream.close();
+		}
+		return l_size;
 	};
 
 };

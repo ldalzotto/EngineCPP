@@ -1,6 +1,7 @@
 #pragma once
 
 #include "string_def.hpp"
+#include "Common/Functional/ToString.hpp"
 
 template<class Allocator>
 inline void String<Allocator>::allocate(size_t p_initialSize, const Allocator& p_allocator)
@@ -12,7 +13,7 @@ template<class Allocator>
 inline void String<Allocator>::from_raw(char* p_str)
 {
 	this->Memory.Memory = p_str;
-	this->Memory.Size = strlen(p_str);
+	this->Memory.Size = strlen(p_str) + 1;
 };
 
 template<class Allocator>
@@ -82,6 +83,16 @@ inline String<Allocator>& String<Allocator>::append(const StringSlice& p_slice)
 }
 
 template<class Allocator>
+template<class ElementType>
+inline String<Allocator>& String<Allocator>::append(const ElementType& p_element)
+{
+	String<> l_tmp_str = ToString<ElementType>::to_str(p_element);
+	String<Allocator>&  l_return = this->append(StringSlice(l_tmp_str.c_str()));
+	l_tmp_str.free();
+	return l_return;
+};
+
+template<class Allocator>
 inline void String<Allocator>::clear()
 {
 	this->Memory.Size = 0;
@@ -136,6 +147,24 @@ inline bool String<Allocator>::find(const StringSlice& p_compared_str, const siz
 }
 
 template<class Allocator>
+inline com::Vector<StringSlice> String<Allocator>::split(const char* p_char)
+{
+	com::Vector<StringSlice> l_match;
+
+	size_t l_last_index = 0;
+	size_t l_index = 0;
+	while (this->find(p_char, l_index, &l_index))
+	{
+		l_match.push_back(StringSlice(this->Memory.Memory, l_last_index, l_index));
+		l_index += 1;
+		l_last_index = l_index;
+	}
+	l_match.push_back(StringSlice(this->Memory.Memory, l_last_index, this->Memory.Size - 1));
+
+	return l_match;
+};
+
+template<class Allocator>
 inline bool String<Allocator>::equals(const char* p_str)
 {
 	return StringSlice(p_str).equals(this->toSlice());
@@ -158,7 +187,6 @@ void String<Allocator>::remove_chars(const char p_char)
 		}
 	}
 };
-
 
 inline bool StringSlice::find(const StringSlice& p_other, size_t* p_outfoundIndex)
 {

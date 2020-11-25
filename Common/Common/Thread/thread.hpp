@@ -149,3 +149,43 @@ private:
 		}
 	}
 };
+
+struct Thread
+{
+	HANDLE handle;
+
+	enum State
+	{
+		RUNNING = 0,
+		WAITING = 1
+	} state;
+
+	template<class MainFn, class MainParam>
+	inline void allocate(MainParam* p_param)
+	{
+		this->handle = CreateThread(NULL, 0, &MainFn::main, p_param, 0, (LPDWORD)this);
+	}
+
+	inline void free()
+	{
+		CloseHandle(this->handle);
+	}
+
+	inline void awake()
+	{
+		if (this->state != State::RUNNING)
+		{
+			this->state = State::RUNNING;
+			ResumeThread(this->handle);
+		}
+	}
+
+	inline void sleep()
+	{
+		if (this->state != State::WAITING)
+		{
+			this->state = State::WAITING;
+			SuspendThread(this->handle);
+		}
+	}
+};

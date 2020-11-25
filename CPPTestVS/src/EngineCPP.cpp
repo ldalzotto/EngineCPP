@@ -107,6 +107,6 @@ int main(int argc, char** argv)
 	l_external_hooks.closure = &l_engine;
 	l_engine = engine_create(argv[0], l_external_hooks);
 	engine_mainloop(l_engine);
-	engine_destroy(l_engine);
+	engine_exit(l_engine);
 
 }

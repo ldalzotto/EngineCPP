@@ -1,3 +1,4 @@
 
 add_subdirectory(ThirdParty)
 add_subdirectory(AssetDatabaseUpdateV2)
+add_subdirectory(MainTool)

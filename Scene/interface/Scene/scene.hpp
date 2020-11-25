@@ -360,7 +360,7 @@ struct SceneHandle
 	void SceneHandle::feed_with_asset(SceneAsset& p_scene_asset);
 
 	com::PoolToken root();
-	void new_frame();
+	void end_of_frame();
 
 private:
 	SceneNodeComponentHandle add_component(const com::PoolToken p_node, const SceneNodeComponent_TypeInfo& p_component_type_info, void* p_initial_value);

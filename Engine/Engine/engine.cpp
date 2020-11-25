@@ -48,7 +48,11 @@ struct Engine
 
 	Engine(const std::string& p_executeable_path, const ExternalHooks& p_hooks);
 	void dispose();
+	bool should_close();
 	void mainloop();
+	void poll_events();
+	void singleframe();
+	void singleframe(float p_delta);
 };
 
 inline Engine::Engine(const std::string& p_executeable_path, const ExternalHooks& p_hooks)
@@ -73,12 +77,33 @@ inline void Engine::dispose()
 
 inline void Engine::mainloop()
 {
-	while (!render_window_should_close(this->render))
+	while (!this->should_close())
 	{
-		render_window_pool_event(this->render);
-		this->loop.update();
+		this->singleframe();
 	}
 }
+
+inline bool Engine::should_close()
+{
+	return render_window_should_close(this->render);
+}
+
+inline void Engine::poll_events()
+{
+	render_window_pool_event(this->render);
+}
+
+inline void Engine::singleframe()
+{
+	render_window_pool_event(this->render);
+	this->loop.update();
+}
+
+inline void Engine::singleframe(float p_delta)
+{
+	render_window_pool_event(this->render);
+	this->loop.update_forced_delta(p_delta);
+};
 
 EngineHandle engine_create(const std::string& p_executeable_path, const ExternalHooks& p_hooks)
 {
@@ -92,12 +117,30 @@ void engine_mainloop(const EngineHandle& p_engine)
 	((Engine*)p_engine)->mainloop();
 }
 
+bool engine_should_close(const EngineHandle& p_engine)
+{
+	return ((Engine*)p_engine)->should_close();
+};
+
+void engine_poll_events(const EngineHandle& p_engine)
+{
+	return ((Engine*)p_engine)->poll_events();
+};
+
+void engine_singleframe(const EngineHandle& p_engine)
+{
+	((Engine*)p_engine)->singleframe();
+};
+
+void engine_singleframe(const EngineHandle& p_engine, float p_delta)
+{
+	((Engine*)p_engine)->singleframe(p_delta);
+};
 
 inline void EngineCallbacks::newframe_callback()
 {
 	OPTICK_FRAME("MainThread");
 	this->closure->clock.newframe();
-	this->closure->scene.new_frame();
 }
 
 inline void EngineCallbacks::update_callback(float p_delta)
@@ -118,6 +161,7 @@ inline void EngineCallbacks::render_callback()
 
 inline void EngineCallbacks::endofframe_callback()
 {
+	this->closure->scene.end_of_frame();
 }
 
 
@@ -127,8 +171,13 @@ void engine_destroy(const EngineHandle& p_engine)
 {
 	((Engine*)p_engine)->dispose();
 	delete ((Engine*)p_engine);
-	glfwTerminate();
 };
+
+void engine_exit(const EngineHandle& p_engine)
+{
+	engine_destroy(p_engine);
+	glfwTerminate();
+}
 
 SceneHandle engine_scene(const EngineHandle& p_engine)
 {

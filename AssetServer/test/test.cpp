@@ -5,6 +5,7 @@
 
 void main(int argc, char** argv)
 {
+
 #if 0
 	AssetServer l_server;
 	l_server.allocate(std::string(argv[0]));

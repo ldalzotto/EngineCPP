@@ -88,6 +88,7 @@ struct SceneComponentCallbacks
 		break;
 		case Camera::Id:
 		{
+			p_component_middlewares->render_middleware->remove_camera();
 		}
 		break;
 		}

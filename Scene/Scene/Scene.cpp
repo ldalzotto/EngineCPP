@@ -101,7 +101,7 @@ struct Scene
 		}
 	}
 
-	inline void new_frame()
+	inline void end_of_frame()
 	{
 		for (size_t i = 0; i < this->tree.Memory.Memory.Size; i++)
 		{
@@ -362,9 +362,9 @@ com::PoolToken SceneHandle::root()
 	return 0;
 };
 
-void SceneHandle::new_frame()
+void SceneHandle::end_of_frame()
 {
-	return ((Scene*)this->handle)->new_frame();
+	return ((Scene*)this->handle)->end_of_frame();
 };
 
 void SceneHandle::feed_with_asset(SceneAsset& p_scene_asset)
