@@ -3387,6 +3387,11 @@ void destroy_render(const RenderHandle& p_render)
 	delete (Render*)p_render;
 };
 
+WindowHandle render_window(const RenderHandle& p_render)
+{
+	return ((Render*)p_render)->window.Handle;
+};
+
 bool render_window_should_close(const RenderHandle& p_render)
 {
 	Render* l_render = (Render*)p_render;

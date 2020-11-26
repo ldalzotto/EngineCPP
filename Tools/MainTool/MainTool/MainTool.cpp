@@ -6,7 +6,10 @@
 #include "Engine/engine.hpp"
 #include "Common/Functional/ToString.hpp"
 #include "Scene/../../Scene/Scene/scene.cpp"
-
+#include "Input/input.hpp"
+#include "Common/Clock/clock.hpp"
+#include "Math/math.hpp"
+#include "Math/contants.hpp"
 
 struct InterpretorFile
 {
@@ -102,11 +105,11 @@ struct InterpretorFile
 	}
 };
 
-
 struct EngineRunningModule
 {
 	ExternalHooks engine_hooks;
 	EngineHandle running_engine = nullptr;
+	bool frame_executed = false;
 
 	inline void start()
 	{
@@ -130,11 +133,18 @@ struct EngineRunningModule
 
 	inline void update()
 	{
+		this->frame_executed = false;
 		if (this->running_engine)
 		{
 			if (!engine_should_close(this->running_engine))
 			{
+				Clock* l_clock = engine_clock(this->running_engine);
+				size_t l_frame_before = l_clock->framecount;
 				engine_singleframe(this->running_engine);
+				if (l_clock->framecount != l_frame_before)
+				{
+					this->frame_executed = true;
+				}
 			}
 			else
 			{
@@ -142,16 +152,22 @@ struct EngineRunningModule
 				this->running_engine = nullptr;
 			}
 		}
-
 	};
 
 	inline void update(float p_delta)
 	{
+		this->frame_executed = false;
 		if (this->running_engine)
 		{
 			if (!engine_should_close(this->running_engine))
 			{
+				Clock* l_clock = engine_clock(this->running_engine);
+				size_t l_frame_before = l_clock->framecount;
 				engine_singleframe(this->running_engine, p_delta);
+				if (l_clock->framecount != l_frame_before)
+				{
+					this->frame_executed = true;
+				}
 			}
 			else
 			{
@@ -164,8 +180,10 @@ struct EngineRunningModule
 
 	inline static void update(void* p_thiz, float p_delta)
 	{
-		EngineRunningModule* thiz = (EngineRunningModule*)p_thiz;
 	};
+
+private:
+
 };
 
 struct EngineRunner
@@ -196,11 +214,177 @@ struct EngineRunner
 	}
 };
 
+struct NodeMovement
+{
+	enum class State
+	{
+		UNDEFINED = 0,
+		POSITION_LOCAL = 1,
+		ROTATION_LOCAL = 2,
+		SCALE_LOCAL = 3
+		
+	} state = State::UNDEFINED;
+
+	enum class Direction
+	{
+		UNDEFINED = 0,
+		X = 1, Y = 2, Z = 3
+	} direction = Direction::UNDEFINED;
+
+	com::PoolToken selected_node;
+	float movement_step = 1.0f;
+	float rotation_step_deg = 5.0f;
+	float scale_step = 0.1f;
+
+	inline void perform_node_movement(EngineHandle p_engine)
+	{
+		if (this->selected_node.Index != -1)
+		{
+			InputHandle l_input = engine_input(p_engine);
+
+			/*
+			if (l_input.get_state(InputKey::InputKey_L, KeyState::KeyStateFlag_PRESSED_THIS_FRAME))
+			{
+
+			}
+			*/
+
+			if (l_input.get_state(InputKey::InputKey_T, KeyState::KeyStateFlag_PRESSED_THIS_FRAME))
+			{
+				this->state = NodeMovement::State::POSITION_LOCAL;
+				printf("NodeMovement : Position mode enabled\n");
+			}
+			else if (l_input.get_state(InputKey::InputKey_R, KeyState::KeyStateFlag_PRESSED_THIS_FRAME))
+			{
+				this->state = NodeMovement::State::ROTATION_LOCAL;
+				printf("NodeMovement : Rotation mode enabled\n");
+			}
+			else if (l_input.get_state(InputKey::InputKey_S, KeyState::KeyStateFlag_PRESSED_THIS_FRAME))
+			{
+				this->state = NodeMovement::State::SCALE_LOCAL;
+				printf("NodeMovement : Scale mode enabled\n");
+			}
+			
+			if (l_input.get_state(InputKey::InputKey_X, KeyState::KeyStateFlag_PRESSED_THIS_FRAME))
+			{
+				this->direction = NodeMovement::Direction::X;
+				printf("NodeMovement : X axis \n");
+			}
+			else if (l_input.get_state(InputKey::InputKey_Y, KeyState::KeyStateFlag_PRESSED_THIS_FRAME))
+			{
+				this->direction = NodeMovement::Direction::Y;
+				printf("NodeMovement : Y axis \n");
+			}
+			else if (l_input.get_state(InputKey::InputKey_Z, KeyState::KeyStateFlag_PRESSED_THIS_FRAME))
+			{
+				this->direction = NodeMovement::Direction::Z;
+				printf("NodeMovement : Z axis \n");
+			}
+
+
+			if (this->direction != NodeMovement::Direction::UNDEFINED &&
+				this->state != NodeMovement::State::UNDEFINED)
+			{
+				
+				Scene* p_scene = (Scene*)engine_scene(p_engine).handle;
+				NTreeResolve<SceneNode> l_node = p_scene->resolve_node(this->selected_node);
+
+				switch (this->state)
+				{
+				case NodeMovement::State::POSITION_LOCAL:
+				{
+
+					float l_value = 0.0f;
+
+					if (l_input.get_state(InputKey::InputKey_UP, KeyState::KeyStateFlag_PRESSED_THIS_FRAME))
+					{
+						l_value = this->movement_step;
+					}
+					else if (l_input.get_state(InputKey::InputKey_DOWN, KeyState::KeyStateFlag_PRESSED_THIS_FRAME))
+					{
+						l_value = -this->movement_step;
+					}
+
+
+					Math::vec4f l_delta = Math::vec4f(0.0f, 0.0f, 0.0f, 0.0f);
+
+					switch (this->direction)
+					{
+					case NodeMovement::Direction::X:
+					{
+						l_delta.x = l_value;
+					}
+					break;
+					case NodeMovement::Direction::Y:
+					{
+						l_delta.y = l_value;
+					}
+					break;
+					case NodeMovement::Direction::Z:
+					{
+						l_delta.z = l_value;
+					}
+					break;
+					}
+
+					l_delta = mul(l_node.element->get_worldtolocal(), l_delta);
+
+
+
+					l_node.element->set_localposition(l_node.element->get_localposition() + l_delta.Vec3);
+				}
+				break;
+				case NodeMovement::State::ROTATION_LOCAL:
+				{
+					
+					float l_value = 0.0f;
+
+					if (l_input.get_state(InputKey::InputKey_UP, KeyState::KeyStateFlag_PRESSED_THIS_FRAME))
+					{
+						l_value = this->rotation_step_deg * DEG_TO_RAD;
+					}
+					else if (l_input.get_state(InputKey::InputKey_DOWN, KeyState::KeyStateFlag_PRESSED_THIS_FRAME))
+					{
+						l_value = -this->rotation_step_deg * DEG_TO_RAD;
+					}
+
+
+					Math::vec3f l_axis = Math::vec3f(0.0f, 0.0f, 0.0f);
+					switch (this->direction)
+					{
+					case NodeMovement::Direction::X:
+					{
+						l_axis.x = 1.0f;
+					}
+					break;
+					case NodeMovement::Direction::Y:
+					{
+						l_axis.y = 1.0f;
+					}
+					break;
+					case NodeMovement::Direction::Z:
+					{
+						l_axis.z = 1.0f;
+					}
+					break;
+					}
+
+					l_node.element->set_localrotation(mul(l_node.element->get_localrotation(), Math::rotateAround(l_axis, l_value)));
+				}
+				break;
+				}
+
+			}
+		}
+		
+	};
+};
+
 struct ToolState
 {
 	com::PoolToken selectged_engine;
 	EngineRunner engine_runner;
-	com::PoolToken selected_node;
+	NodeMovement node_movement;
 };
 
 struct CommandHandler
@@ -214,6 +398,7 @@ struct CommandHandler
 	inline static const StringSlice engine_slice = StringSlice("engine");
 	inline static const StringSlice scene_slice = StringSlice("scene");
 	inline static const StringSlice node_slice = StringSlice("node");
+	// inline static const StringSlice movement_slice = StringSlice("movement");
 	inline static const StringSlice set_local_position_slice = StringSlice("set_local_position");
 
 	inline static void handle_engine_commands(InterpretorFile& p_command_file, ToolState& p_tool_state, com::Vector<StringSlice>& p_command_stack, size_t p_depth)
@@ -223,7 +408,8 @@ struct CommandHandler
 			EngineRunningModule l_engine;
 			l_engine.start();
 			l_engine.update(0);
-			p_tool_state.engine_runner.engines.alloc_element(l_engine);
+			com::PoolToken l_allocated_engine = p_tool_state.engine_runner.engines.alloc_element(l_engine);
+			p_tool_state.selectged_engine = l_allocated_engine.Index;
 		}
 		else if (p_command_stack[p_depth].equals(CommandHandler::stop_slice))
 		{
@@ -279,7 +465,7 @@ struct CommandHandler
 				struct ScenePrintForeach
 				{
 					String<>* message;
-					
+
 					inline ScenePrintForeach(String<>* p_message) {
 						this->message = p_message;
 					};
@@ -292,7 +478,7 @@ struct CommandHandler
 				};
 
 				String<> l_message; l_message.allocate(0);
-				
+
 				ScenePrintForeach l_f = ScenePrintForeach(&l_message);
 				p_scene->tree.traverse(com::PoolToken(0), l_f);
 
@@ -303,29 +489,14 @@ struct CommandHandler
 		}
 	}
 
-
 	inline static void handle_node_commands(InterpretorFile& p_command_file, ToolState& p_tool_state, com::Vector<StringSlice>& p_command_stack, size_t p_depth)
 	{
 		if (p_command_stack[p_depth].equals(CommandHandler::select_slice))
 		{
-			p_tool_state.selected_node = FromString<size_t>::from_str(StringSlice(p_command_stack[p_depth + 1]));
+			p_tool_state.node_movement.selected_node = FromString<size_t>::from_str(StringSlice(p_command_stack[p_depth + 1]));
 		}
-		else if (p_command_stack[p_depth].equals(CommandHandler::set_local_position_slice))
-		{
-			if (p_tool_state.engine_runner.engines[p_tool_state.selectged_engine].hasValue)
-			{
-				Scene* p_scene = (Scene*)engine_scene(p_tool_state.engine_runner.engines[p_tool_state.selectged_engine].value.running_engine).handle;
+	};
 
-				NTreeResolve<SceneNode> l_node = p_scene->resolve_node(p_tool_state.selected_node);
-
-				String<> tmp; tmp.allocate(0);
-				tmp.append(p_command_stack[p_depth + 1]);
-				Serialization::JSON::JSONObjectIterator l_it = Serialization::JSON::StartDeserialization(tmp);
-				l_node.element->set_localposition(JSONDeserializer<Math::vec3f>::deserialize(l_it));
-				tmp.free();
-			}
-		}
-	}
 };
 
 int main()
@@ -364,17 +535,6 @@ int main()
 				{
 					CommandHandler::handle_node_commands(l_interop, tool_state, l_words, 1);
 				}
-				/*
-				else if (l_words[0].equals("n"))
-				{
-					l_engine_module.update();
-
-					if (l_words.Size > 0)
-					{
-						//TODO Do frame count
-					}
-				};
-				*/
 			}
 
 			l_words.free();
@@ -382,6 +542,20 @@ int main()
 			l_str.free();
 
 			l_interop.machine_end();
+		}
+
+		if (tool_state.selectged_engine.Index != -1)
+		{
+			if (tool_state.engine_runner.engines[tool_state.selectged_engine].hasValue)
+			{
+				EngineRunningModule& l_engine_module = tool_state.engine_runner.engines[tool_state.selectged_engine].value;
+				if (l_engine_module.frame_executed)
+				{
+					tool_state.node_movement.perform_node_movement(l_engine_module.running_engine);
+				}
+				
+			};
+			
 		}
 
 	}

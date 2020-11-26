@@ -5,6 +5,7 @@
 #include <Scene/scene.hpp>
 #include <AssetServer/asset_server.hpp>
 #include "engine_loop.hpp"
+#include "Input/input.hpp"
 
 #include "SceneComponents/components.hpp"
 #include "Middleware/RenderMiddleware.hpp"
@@ -42,6 +43,7 @@ struct Engine
 	EngineLoop<EngineCallbacks> loop;
 	SceneHandle scene;
 	RenderHandle render;
+	InputHandle input;
 
 	RenderMiddleware render_middleware;
 	ComponentMiddlewares all_middlewares;
@@ -63,6 +65,7 @@ inline Engine::Engine(const std::string& p_executeable_path, const ExternalHooks
 		*(Callback<void, ComponentRemovedParameter>*) & Callback<ComponentMiddlewares, ComponentRemovedParameter>(&this->all_middlewares, SceneComponentCallbacks::on_component_removed),
 		*(Callback<void, ComponentAssetPushParameter>*) & Callback<void, ComponentAssetPushParameter>(nullptr, SceneComponentCallbacks::push_componentasset));
 	this->render = create_render(this->asset_server);
+	this->input.allocate(render_window(this->render));
 	this->render_middleware.allocate(this->render, this->asset_server);
 	this->all_middlewares.render_middleware = &this->render_middleware;
 }
@@ -71,6 +74,7 @@ inline void Engine::dispose()
 {
 	this->scene.free();
 	this->render_middleware.free();
+	this->input.free();
 	destroy_render(this->render);
 	this->asset_server.free();
 }
@@ -141,6 +145,7 @@ inline void EngineCallbacks::newframe_callback()
 {
 	OPTICK_FRAME("MainThread");
 	this->closure->clock.newframe();
+	this->closure->input.new_frame();
 }
 
 inline void EngineCallbacks::update_callback(float p_delta)
@@ -187,4 +192,19 @@ SceneHandle engine_scene(const EngineHandle& p_engine)
 AssetServerHandle engine_assetserver(const EngineHandle& p_engine)
 {
 	return ((Engine*)p_engine)->asset_server;
+};
+
+WindowHandle engine_window(const EngineHandle& p_engine)
+{
+	return render_window(((Engine*)p_engine)->render);
+};
+
+InputHandle engine_input(const EngineHandle& p_engine)
+{
+	return ((Engine*)p_engine)->input;
+};
+
+Clock* engine_clock(const EngineHandle& p_engine)
+{
+	return &((Engine*)p_engine)->clock;
 };

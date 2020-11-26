@@ -8,6 +8,7 @@
 #include "Common/Container/gptr.hpp"
 #include "Math/matrix_def.hpp"
 #include "Math/vector_def.hpp"
+#include "Render/rdwindow.hpp"
 
 typedef void* RenderHandle;
 
@@ -63,6 +64,7 @@ struct RenderableObjectHandle : public Handle
 
 RenderHandle create_render(const AssetServerHandle p_assetserver_handle);
 void destroy_render(const RenderHandle& p_render);
+WindowHandle render_window(const RenderHandle& p_render);
 bool render_window_should_close(const RenderHandle& p_render);
 void render_window_pool_event(const RenderHandle& p_render);
 void render_draw(const RenderHandle& p_render);

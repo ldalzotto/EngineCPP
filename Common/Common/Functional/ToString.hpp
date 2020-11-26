@@ -41,3 +41,15 @@ struct FromString<size_t>
 	};
 };
 
+template<>
+struct FromString<float>
+{
+	inline static float from_str(const StringSlice& p_pstr)
+	{
+		String<> l_str; l_str.allocate(30);
+		l_str.append(p_pstr);
+		float l_return = (float)atof(l_str.c_str());
+		l_str.free();
+		return l_return;
+	};
+};
