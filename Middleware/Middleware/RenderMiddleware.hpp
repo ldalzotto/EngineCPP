@@ -1,10 +1,32 @@
 #pragma once
 
-#include "Common/Container/vector.hpp"
+#include "Common/Container/pool.hpp"
 #include "SceneComponents/components.hpp"
 #include "Scene/scene.hpp"
 #include "Render/render.hpp"
 #include <optick.h>
+
+struct MaterialBuilder
+{
+	inline static MaterialHandle build(size_t p_material, AssetServerHandle& p_asset_server, RenderHandle& p_render)
+	{
+		com::Vector<char> l_material_binary = p_asset_server.get_resource(p_material);
+		MaterialAsset l_material_asset = MaterialAsset::deserialize(l_material_binary.Memory);
+		l_material_binary.free();
+
+		ShaderHandle l_shader;
+		l_shader.allocate(p_render, l_material_asset.shader);
+		TextureHandle l_texture;
+		l_texture.allocate(p_render, l_material_asset.texture);
+
+		MaterialHandle l_material;
+		l_material.allocate(p_render, l_shader);
+		l_material.add_image_parameter(p_render, l_texture);
+		l_material.add_uniform_parameter(p_render, GPtr::fromType(&l_material_asset.color));
+
+		return l_material;
+	};
+};
 
 struct RenderableObjectEntry
 {
@@ -14,25 +36,36 @@ struct RenderableObjectEntry
 	// this boolean is used to push data to render when the MeshRenderer component is added after the node is created. Because in this case,
 	// the haschanged_thisframe will be false.
 	bool force_update = false;
-	RenderableObjectEntry() {}
+	RenderableObjectEntry() {};
+
+	inline void set_material(MeshRenderer* p_mesh_renderer, size_t p_new_material, AssetServerHandle& p_asset_server, RenderHandle& p_render)
+	{
+		MaterialHandle l_new_material = MaterialBuilder::build(p_new_material, p_asset_server, p_render);
+		MaterialHandle l_old_material = this->renderableobject.material;
+		this->renderableobject.set_material(p_render, l_new_material);
+		if (l_old_material.handle != -1) 
+		{
+			l_old_material.free(p_render);
+		}
+
+		p_mesh_renderer->material = p_new_material;
+	};
 };
 
 struct CameraEntry
 {
 	com::PoolToken node;
 
-	CameraEntry(){}
+	CameraEntry() {}
 };
 
-//TODO -> adding a way to retreave the RenderableObjectEntry entry from the MeshRenderer.
-//        this can be done by using an OpiontalPool to store the allocated_renderableobjects then store the token back to the MeshRenderer.
 struct RenderMiddleware
 {
 	RenderHandle render;
 	AssetServerHandle asset_server;
 
 	CameraEntry allocated_camera;
-	com::Vector<RenderableObjectEntry> allocated_renderableobjects;
+	com::OptionalPool<RenderableObjectEntry> allocated_renderableobjects;
 
 	inline void allocate(RenderHandle p_render, AssetServerHandle p_asset_server)
 	{
@@ -55,21 +88,19 @@ struct RenderMiddleware
 		this->allocated_camera.node = com::PoolToken();
 	};
 
-	inline void on_elligible(const com::PoolToken p_node_token, const NTreeResolve<SceneNode>& p_node, const MeshRenderer& p_mesh_renderer)
+	inline RenderableObjectEntry* get_renderable_object(const com::PoolToken& p_renderable_object)
 	{
-		com::Vector<char> l_material_binary = this->asset_server.get_resource(p_mesh_renderer.material);
-		MaterialAsset l_material_asset = MaterialAsset::deserialize(l_material_binary.Memory); 
-		l_material_binary.free();
+		Optional<RenderableObjectEntry>& l_entry = this->allocated_renderableobjects[p_renderable_object];
+		if (l_entry.hasValue)
+		{
+			return &l_entry.value;
+		}
+		return nullptr;
+	};
 
-		ShaderHandle l_shader;
-		l_shader.allocate(this->render, l_material_asset.shader);
-		TextureHandle l_texture;
-		l_texture.allocate(this->render, l_material_asset.texture);
-
-		MaterialHandle l_material;
-		l_material.allocate(this->render, l_shader);
-		l_material.add_image_parameter(this->render, l_texture);
-		l_material.add_uniform_parameter(this->render, GPtr::fromType(&l_material_asset.color));
+	inline void on_elligible(const com::PoolToken p_node_token, const NTreeResolve<SceneNode>& p_node, MeshRenderer& p_mesh_renderer)
+	{
+		MaterialHandle l_material = MaterialBuilder::build(p_mesh_renderer.material, this->asset_server, this->render);
 
 		MeshHandle l_mesh;
 		l_mesh.allocate(this->render, p_mesh_renderer.model);
@@ -81,20 +112,25 @@ struct RenderMiddleware
 		l_entry.renderableobject = l_renderable_object;
 		l_entry.force_update = true;
 
-		this->allocated_renderableobjects.push_back(l_entry);
+		com::PoolToken l_allocated_entry = this->allocated_renderableobjects.alloc_element(l_entry);
+		p_mesh_renderer.rendererable_object = l_allocated_entry;
 	};
 
 	inline void on_not_elligible(const com::PoolToken p_node_token)
 	{
-		for (size_t i = 0; i < this->allocated_renderableobjects.Size; i++)
+		for (size_t i = 0; i < this->allocated_renderableobjects.size(); i++)
 		{
-			RenderableObjectEntry& l_entry = this->allocated_renderableobjects[i];
-			if (l_entry.node.Index == p_node_token.Index)
+			Optional<RenderableObjectEntry>& l_entry = this->allocated_renderableobjects[i];
+			if (l_entry.hasValue)
 			{
-				l_entry.renderableobject.free(this->render);
-				this->allocated_renderableobjects.erase_at(i);
-				return;
+				if (l_entry.value.node.Index == p_node_token.Index)
+				{
+					l_entry.value.renderableobject.free(this->render);
+					this->allocated_renderableobjects.release_element(i);
+					return;
+				}
 			}
+
 		}
 	};
 
@@ -114,17 +150,27 @@ struct RenderMiddleware
 				}
 			}
 		}
-		
 
-		for (size_t i = 0; i < this->allocated_renderableobjects.Size; i++)
+
+		for (size_t i = 0; i < this->allocated_renderableobjects.size(); i++)
 		{
-			RenderableObjectEntry& l_entry = this->allocated_renderableobjects[i];
-			NTreeResolve<SceneNode> l_scenenode = p_scene.resolve_node(l_entry.node);
-			if (l_scenenode.element->state.haschanged_thisframe || l_entry.force_update)
+			Optional<RenderableObjectEntry>& l_entry = this->allocated_renderableobjects[i];
+			if (l_entry.hasValue)
 			{
-				l_entry.renderableobject.push_trs(this->render, l_scenenode.element->get_localtoworld());
-				l_entry.force_update = false;
+				NTreeResolve<SceneNode> l_scenenode = p_scene.resolve_node(l_entry.value.node);
+				if (l_scenenode.element->state.haschanged_thisframe || l_entry.value.force_update)
+				{
+					l_entry.value.renderableobject.push_trs(this->render, l_scenenode.element->get_localtoworld());
+					l_entry.value.force_update = false;
+				}
 			}
 		}
 	};
+
+	inline void set_material(MeshRenderer* p_mesh_renderer, size_t p_new_material)
+	{
+		this->get_renderable_object(p_mesh_renderer->rendererable_object)->set_material(p_mesh_renderer, p_new_material, this->asset_server, this->render);
+	};
 };
+
+typedef RenderMiddleware* RenderMiddlewareHandle;

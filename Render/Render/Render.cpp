@@ -2786,9 +2786,6 @@ struct RenderableObject
 	}
 };
 
-//TODO -> adding a way to switch Material from a renderable object.
-//        this can be done by allocating a new material from it's size_t, updating the link between Material <-> RenderableObject.
-//        disposing the old material.
 struct RenderHeap2
 {
 	RenderAPI* render_api;
@@ -3224,6 +3221,23 @@ public:
 		RenderableObject& l_renderableobject = this->renderableobjects[p_renderableObject];
 		l_renderableobject.dispose(this->render_api->device, this->render_api->descriptor_pool);
 		this->renderableobjects.release_element(p_renderableObject);
+	};
+
+	inline void set_material(com::PoolToken p_renderable_object, com::PoolToken p_old_marterial, com::PoolToken p_material)
+	{
+		//Remove old link
+		com::Vector<com::PoolToken>& l_material_to_renderableobject_link = this->material_to_renderableobjects[p_old_marterial.Index];
+		for (size_t i = 0; i < l_material_to_renderableobject_link.Size; i++)
+		{
+			if (l_material_to_renderableobject_link[i].Index == p_renderable_object.Index)
+			{
+				l_material_to_renderableobject_link.erase_at(i);
+				break;
+			}
+		}
+
+		//Create new link
+		this->material_to_renderableobjects[p_material.Index].push_back(p_renderable_object);
 	};
 
 private:

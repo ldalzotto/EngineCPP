@@ -112,7 +112,6 @@ struct JSONDeserializer<NodeAsset>
 			{
 				ComponentAsset l_component_asset;
 				l_component_asset.type = 0;
-				//TODO -> use MeshRenderer::Id
 				//Hash<StringSlice>::hash(l_component_type);
 
 				while (!p_compoent_asset_heap.allocate_element(sizeof(MeshRendererAsset), &l_component_asset.componentasset_heap_index))

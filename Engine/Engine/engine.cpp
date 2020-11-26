@@ -204,6 +204,12 @@ InputHandle engine_input(const EngineHandle& p_engine)
 	return ((Engine*)p_engine)->input;
 };
 
+RenderMiddlewareHandle engine_render_middleware(const EngineHandle& p_engine)
+{
+	return &((Engine*)p_engine)->render_middleware;
+};
+
+
 Clock* engine_clock(const EngineHandle& p_engine)
 {
 	return &((Engine*)p_engine)->clock;

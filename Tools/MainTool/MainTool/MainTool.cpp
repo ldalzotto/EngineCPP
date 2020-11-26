@@ -11,6 +11,7 @@
 #include "Math/math.hpp"
 #include "Math/contants.hpp"
 #include "SceneComponents/components.hpp"
+#include "Middleware/RenderMiddleware.hpp"
 
 struct InterpretorFile
 {
@@ -242,12 +243,11 @@ private:
 	struct SelectedNodeRenderer
 	{
 		com::PoolToken node;
-		MeshRenderer original_meshrenderer;
+		size_t original_material;
 
-		inline void set_original_meshrenderer(SceneHandle& p_scene)
+		inline void set_original_meshrenderer(SceneHandle& p_scene, RenderMiddlewareHandle p_render_middleware)
 		{
-			p_scene.remove_component<MeshRenderer>(this->node);
-			p_scene.add_component<MeshRenderer>(this->node, this->original_meshrenderer);
+			p_render_middleware->set_material(p_scene.get_component<MeshRenderer>(this->node), this->original_material);
 		};
 	};
 
@@ -257,11 +257,11 @@ private:
 
 public:
 
-	inline void set_selected_node(SceneHandle& p_scene, com::PoolToken& p_node)
+	inline void set_selected_node(SceneHandle& p_scene, com::PoolToken& p_node, RenderMiddlewareHandle p_render_middleware)
 	{
 		for (size_t i = 0; i < this->selected_nodes_renderer.Size; i++)
 		{
-			this->selected_nodes_renderer[i].set_original_meshrenderer(this->selected_node_scene);
+			this->selected_nodes_renderer[i].set_original_meshrenderer(this->selected_node_scene, p_render_middleware);
 		}
 		this->selected_nodes_renderer.clear();
 
@@ -270,7 +270,7 @@ public:
 
 		if (p_node.Index == -1)
 		{
-			this->exit();
+			this->exit(p_render_middleware);
 		}
 		else
 		{
@@ -281,31 +281,31 @@ public:
 			{
 				com::Vector<SelectedNodeRenderer>* out_selected_node_renderers;
 				SceneHandle scene;
-				inline SceneForeach(com::Vector<SelectedNodeRenderer>* p_selected_node_renderers, SceneHandle p_scene) {
+				RenderMiddleware* render_middleware;
+
+				inline SceneForeach(com::Vector<SelectedNodeRenderer>* p_selected_node_renderers, SceneHandle p_scene, RenderMiddleware* p_render_middleware) {
 					this->out_selected_node_renderers = p_selected_node_renderers;
 					this->scene = p_scene;
+					this->render_middleware = p_render_middleware;
 				}
 
 				inline void foreach(NTreeResolve<SceneNode>& p_node)
 				{
-					MeshRenderer* l_new_mesh_renderer = this->scene.get_component<MeshRenderer>(p_node.node->index);
-					if (l_new_mesh_renderer)
+					
+					MeshRenderer* l_mesh_renderer = this->scene.get_component<MeshRenderer>(p_node.node->index);
+					if (l_mesh_renderer)
 					{
 						SelectedNodeRenderer l_selected_node_renderer;
 						l_selected_node_renderer.node = p_node.node->index;
-						l_selected_node_renderer.original_meshrenderer = *l_new_mesh_renderer;
+						l_selected_node_renderer.original_material = l_mesh_renderer->material;
 
-						this->scene.remove_component<MeshRenderer>(p_node.node->index);
-						MeshRenderer l_selected_renderer;
-						l_selected_renderer.initialize(Hash<StringSlice>::hash(StringSlice("materials/editor_selected.json")), l_new_mesh_renderer->model);
-						scene.add_component<MeshRenderer>(p_node.node->index, l_selected_renderer);
-
+						this->render_middleware->set_material(l_mesh_renderer, Hash<StringSlice>::hash(StringSlice("materials/editor_selected.json")));
 						this->out_selected_node_renderers->push_back(l_selected_node_renderer);
 					}
 				};
 			};
 
-			((Scene*)p_scene.handle)->tree.traverse(this->root_selected_node, SceneForeach(&this->selected_nodes_renderer, p_scene));
+			((Scene*)p_scene.handle)->tree.traverse(this->root_selected_node, SceneForeach(&this->selected_nodes_renderer, p_scene, p_render_middleware));
 		}
 
 
@@ -454,11 +454,11 @@ public:
 
 	};
 
-	inline void exit()
+	inline void exit(RenderMiddlewareHandle p_render_middleware)
 	{
 		for (size_t i = 0; i < this->selected_nodes_renderer.Size; i++)
 		{
-			this->selected_nodes_renderer[i].set_original_meshrenderer(this->selected_node_scene);
+			this->selected_nodes_renderer[i].set_original_meshrenderer(this->selected_node_scene, p_render_middleware);
 		}
 		this->selected_nodes_renderer.clear();
 
@@ -584,7 +584,7 @@ struct CommandHandler
 		{
 			size_t l_selected_node = FromString<size_t>::from_str(StringSlice(p_command_stack[p_depth + 1]));
 			p_tool_state.node_movement.set_selected_node(engine_scene(p_tool_state.engine_runner.engines[p_tool_state.selectged_engine].value.running_engine),
-				com::PoolToken(l_selected_node));
+				com::PoolToken(l_selected_node), engine_render_middleware(p_tool_state.engine_runner.engines[p_tool_state.selectged_engine].value.running_engine));
 		}
 	};
 

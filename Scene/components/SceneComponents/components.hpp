@@ -12,12 +12,13 @@ struct MeshRenderer
 	size_t material;
 	size_t model;
 
+	com::PoolToken rendererable_object;
+
 	inline void initialize(const size_t& p_material, const size_t& p_model)
 	{
 		this->material = p_material;
 		this->model = p_model;
 	}
-
 
 	inline void initialize(const StringSlice& p_material, const StringSlice& p_model)
 	{

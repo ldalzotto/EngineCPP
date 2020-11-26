@@ -10,7 +10,7 @@
 #include "Math/transform_def.hpp"
 #include "Math/math.hpp"
 
-typedef com::PoolToken SceneNodeComponentHandle;
+typedef com::PoolToken SceneNodeComponentToken;
 
 
 struct SceneNodeComponentHeader
@@ -46,7 +46,7 @@ private:
 	//Childs
 	com::PoolToken scenetree_entry;
 
-	com::Vector<SceneNodeComponentHandle> components;
+	com::Vector<SceneNodeComponentToken> components;
 
 public:
 	inline SceneNode() {};
@@ -94,12 +94,12 @@ public:
 
 	}
 
-	inline void addcomponent(const SceneNodeComponentHandle p_component)
+	inline void addcomponent(const SceneNodeComponentToken p_component)
 	{
 		this->components.push_back(p_component);
 	};
 
-	inline void removecomponent(const SceneNodeComponentHandle p_component)
+	inline void removecomponent(const SceneNodeComponentToken p_component)
 	{
 		for (size_t i = 0; i < this->components.Size; i++)
 		{
@@ -111,7 +111,7 @@ public:
 		}
 	};
 
-	inline com::Vector<SceneNodeComponentHandle>& get_components()
+	inline com::Vector<SceneNodeComponentToken>& get_components()
 	{
 		return this->components;
 	};
@@ -274,13 +274,15 @@ struct ComponentAddedParameter
 {
 	com::PoolToken node_token;
 	NTreeResolve<SceneNode> node;
+	SceneNodeComponentToken component_token;
 	SceneNodeComponentHeader* component;
 
 	ComponentAddedParameter() {};
-	inline ComponentAddedParameter(const com::PoolToken p_node_token, const NTreeResolve<SceneNode>& p_node, SceneNodeComponentHeader* p_component)
+	inline ComponentAddedParameter(const com::PoolToken p_node_token, const NTreeResolve<SceneNode>& p_node,const SceneNodeComponentToken& p_component_token, SceneNodeComponentHeader* p_component)
 	{
 		this->node_token = p_node_token;
 		this->node = p_node;
+		this->component_token = p_component_token;
 		this->component = p_component;
 	};
 };
@@ -327,13 +329,13 @@ struct SceneHandle
 	template<class ComponentType>
 	ComponentType* resolve_component(const com::PoolToken p_component)
 	{
-		return resolve_componentheader(SceneNodeComponentHandle(p_component.Index))->cast<ComponentType>();
+		return resolve_componentheader(SceneNodeComponentToken(p_component.Index))->cast<ComponentType>();
 	};
 
-	SceneNodeComponentHeader* resolve_componentheader(const SceneNodeComponentHandle& p_component);
+	SceneNodeComponentHeader* resolve_componentheader(const SceneNodeComponentToken& p_component);
 
 	template<class ComponentType>
-	inline SceneNodeComponentHandle add_component(const com::PoolToken p_node, const ComponentType& p_initialvalue = ComponentType())
+	inline SceneNodeComponentToken add_component(const com::PoolToken p_node, const ComponentType& p_initialvalue = ComponentType())
 	{
 		return this->add_component(p_node, ComponentType::Type, (void*)&p_initialvalue);
 	};
@@ -368,9 +370,9 @@ struct SceneHandle
 	void end_of_frame();
 
 private:
-	SceneNodeComponentHandle add_component(const com::PoolToken p_node, const SceneNodeComponent_TypeInfo& p_component_type_info, void* p_initial_value);
+	SceneNodeComponentToken add_component(const com::PoolToken p_node, const SceneNodeComponent_TypeInfo& p_component_type_info, void* p_initial_value);
 	SceneNodeComponentHeader* get_component(const com::PoolToken p_node, const SceneNodeComponent_TypeInfo& p_component_type_info);
-	void remove_component(const com::PoolToken p_node, SceneNodeComponentHandle& p_component);
+	void remove_component(const com::PoolToken p_node, SceneNodeComponentToken& p_component);
 	void remove_component(const com::PoolToken p_node, const SceneNodeComponent_TypeInfo& p_component_type_info);
 	com::Vector<NTreeResolve<SceneNode>> get_nodes_with_component(const SceneNodeComponent_TypeInfo& p_component_type_info);
 };
