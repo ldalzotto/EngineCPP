@@ -375,8 +375,8 @@ struct FileTree : public NTree<File<FilePathMemoryLayout::STRING>>
 		struct FileForeach
 		{
 			FileTree* tree;
-			com::Vector<com::PoolToken> node_levels;
-			com::PoolToken last_pushed_token;
+			com::Vector<com::TPoolToken<NTreeNode>> node_levels;
+			com::TPoolToken<FileStr> last_pushed_token;
 			FileForeach() {};
 
 			inline void allocate(FileTree& p_tree)
@@ -395,8 +395,8 @@ struct FileTree : public NTree<File<FilePathMemoryLayout::STRING>>
 				//One level depper
 				if (this->node_levels.Size + 1 == p_depth)
 				{
-					this->node_levels.push_back(this->last_pushed_token);
-					auto l_token = this->tree->push_value(this->node_levels[p_depth - 1], p_file.clone());
+					this->node_levels.push_back(this->last_pushed_token.cast<NTreeNode>());
+					com::TPoolToken<FileStr> l_token = this->tree->push_value(this->node_levels[p_depth - 1], p_file.clone());
 					this->last_pushed_token = l_token;
 				}
 				else if (this->node_levels.Size == p_depth) // same level

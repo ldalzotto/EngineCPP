@@ -471,7 +471,7 @@ public:
 
 struct ToolState
 {
-	com::PoolToken selectged_engine;
+	com::TPoolToken<Optional<EngineRunningModule>> selectged_engine;
 	EngineRunner engine_runner;
 	NodeMovement node_movement;
 };

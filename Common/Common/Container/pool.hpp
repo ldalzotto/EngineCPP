@@ -54,13 +54,13 @@ namespace com
 	}
 
 	template<class TYPE, class Allocator>
-	inline TYPE& Pool<TYPE, Allocator>::operator[](const PoolToken i)
+	inline TYPE& Pool<TYPE, Allocator>::operator[](const TPoolToken<TYPE> i)
 	{
 		return this->Memory.Memory[i.Index];
 	}
 	
 	template<class TYPE, class Allocator>
-	inline PoolToken Pool<TYPE, Allocator>::alloc_element(const TYPE& p_element)
+	inline TPoolToken<TYPE> Pool<TYPE, Allocator>::alloc_element(const TYPE& p_element)
 	{
 		if (this->FreeBlocks.Size > 0)
 		{
@@ -74,16 +74,16 @@ namespace com
 			this->Memory.push_back(p_element);
 			return this->Memory.Size - 1;
 		}
-	}
+	};
 
 	template<class TYPE, class Allocator>
-	inline void Pool<TYPE, Allocator>::release_element(const PoolToken& p_element)
+	inline void Pool<TYPE, Allocator>::release_element(const TPoolToken<TYPE>& p_element)
 	{
 		this->FreeBlocks.push_back(p_element.Index);
 	}
 
 	template<class TYPE, class Allocator>
-	inline TYPE& Pool<TYPE, Allocator>::resolve(const PoolToken& p_element)
+	inline TYPE& Pool<TYPE, Allocator>::resolve(const TPoolToken<TYPE>& p_element)
 	{
 		return this->Memory.Memory[p_element.Index];
 	};
@@ -120,7 +120,7 @@ namespace com
 	};
 
 	template<class TYPE, class Allocator>
-	inline Optional<TYPE>& OptionalPool<TYPE, Allocator>::operator[](const PoolToken i)
+	inline Optional<TYPE>& OptionalPool<TYPE, Allocator>::operator[](const TPoolToken<Optional<TYPE>> i)
 	{
 		return this->pool[i];
 	};
@@ -133,7 +133,7 @@ namespace com
 	}
 
 	template<class TYPE, class Allocator>
-	inline void OptionalPool<TYPE, Allocator>::release_element(const PoolToken& p_element)
+	inline void OptionalPool<TYPE, Allocator>::release_element(const TPoolToken<Optional<TYPE>>& p_element)
 	{
 		this->pool.release_element(p_element);
 		this->pool[p_element].clear();

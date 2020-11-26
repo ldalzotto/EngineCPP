@@ -9,7 +9,7 @@
 
 struct ComponentAsset
 {
-	com::PoolToken componentasset_heap_index;
+	com::TPoolToken<GeneralPurposeHeapMemoryChunk> componentasset_heap_index;
 	size_t id;
 };
 

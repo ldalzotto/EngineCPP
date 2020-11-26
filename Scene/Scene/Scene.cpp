@@ -22,7 +22,7 @@ struct SceneHeap
 	{
 		// if(this->component_heap.chunk_total_size <)
 		size_t l_allocationsize = sizeof(SceneNodeComponentHeader) + p_type.size;
-		com::PoolToken l_memory_allocated;
+		com::TPoolToken<GeneralPurposeHeapMemoryChunk> l_memory_allocated;
 		if (!this->component_heap.allocate_element<>(l_allocationsize, &l_memory_allocated))
 		{
 			this->component_heap.realloc((this->component_heap.memory.Size * 2) + l_allocationsize);

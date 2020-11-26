@@ -53,9 +53,9 @@ struct NTree
 
 	NTreeResolve<ElementType> resolve(com::PoolToken p_token);
 
-	com::PoolToken push_root_value(const ElementType& p_value);
-	com::PoolToken push_value(const com::PoolToken p_parent, const ElementType& p_value);
-	com::PoolToken push_value(const ElementType& p_value);
+	com::TPoolToken<ElementType> push_root_value(const ElementType& p_value);
+	com::TPoolToken<ElementType> push_value(const com::TPoolToken<NTreeNode> p_parent, const ElementType& p_value);
+	com::TPoolToken<ElementType> push_value(const ElementType& p_value);
 
 	template<class NTreeForEach>
 	void remove(com::PoolToken p_value, NTreeForEach& p_foreach_childs);

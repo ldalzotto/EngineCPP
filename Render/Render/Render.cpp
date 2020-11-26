@@ -75,7 +75,7 @@ struct GPUMemoryWithOffset
 	vk::DeviceMemory original_memory;
 	char* original_mapped_memory;
 	uint32_t memory_type;
-	com::PoolToken allocated_chunk_token;
+	com::TPoolToken<GeneralPurposeHeapMemoryChunk> allocated_chunk_token;
 	size_t pagedbuffer_index;
 };
 
@@ -736,7 +736,7 @@ struct GPUBufferMemoryHost2
 
 struct GPUMemoryDeferredCommandToken
 {
-	com::PoolToken completion_token = -1;
+	com::TPoolToken<bool> completion_token = -1;
 	size_t execution_index = -1;
 
 	template<class StagedBufferWriteCommandAllocator>
@@ -941,7 +941,7 @@ struct StagedBufferWriteCommand
 	bool isAborted = false;
 	GPUBufferMemoryHost2 staging_memory;
 
-	com::PoolToken completion_token;
+	com::TPoolToken<bool> completion_token;
 
 	inline void process_buffered(CommandBuffer& p_commandbuffer, com::Pool<bool>& p_stagin_completions, const Device& p_device)
 	{
@@ -1011,7 +1011,7 @@ struct StagedImageWriteCommand
 	bool isAborted = false;
 	GPUBufferMemoryHost2 staging_memory;
 
-	com::PoolToken completion_token;
+	com::TPoolToken<bool> completion_token;
 
 	inline void process_buffered(CommandBuffer& p_commandbuffer, com::Pool<bool>& p_stagin_completions, const Device& p_device)
 	{
@@ -1100,7 +1100,7 @@ struct TextureLayoutTransitionCommand
 	vk::Image image;
 	vk::ImageSubresourceRange image_subresource;
 
-	com::PoolToken completion_token;
+	com::TPoolToken<bool> completion_token;
 	bool isAborted = false;
 
 	inline void process_buffered(CommandBuffer& p_commandbuffer, com::Pool<bool>& p_stagin_completions)
@@ -1169,7 +1169,7 @@ struct DeferredCommandBufferExecution
 		this->commands_completion.free();
 	};
 
-	inline com::PoolToken allocate_completiontoken()
+	inline com::TPoolToken<bool> allocate_completiontoken()
 	{
 		return this->commands_completion.alloc_element(true);
 	};
@@ -1186,7 +1186,7 @@ struct DeferredCommandBufferExecution
 
 	template<class ElementType>
 	inline DeferredCommandBufferExecution::DeferredCommandBufferExecutionIndex allocate_stagincommand(
-		vk::Buffer p_buffer, size_t p_buffer_element_count, const ElementType* p_source, com::PoolToken& p_completion_token, Device& p_device)
+		vk::Buffer p_buffer, size_t p_buffer_element_count, const ElementType* p_source, com::TPoolToken<bool>& p_completion_token, Device& p_device)
 	{
 		StagedBufferWriteCommand l_command;
 		l_command.buffer = p_buffer;
@@ -1203,7 +1203,7 @@ struct DeferredCommandBufferExecution
 	inline DeferredCommandBufferExecution::DeferredCommandBufferExecutionIndex allocate_stagedimagewritecommand(
 		vk::Image& p_image, vk::ImageSubresource& p_image_subresource,
 		vk::ImageSubresourceRange& p_image_subresource_range, Vector<2, int>& p_image_size,
-		const char* p_source, size_t p_pixel_size, com::PoolToken& p_completion_token, Device& p_device)
+		const char* p_source, size_t p_pixel_size, com::TPoolToken<bool>& p_completion_token, Device& p_device)
 	{
 		StagedImageWriteCommand l_command;
 		l_command.image.ImageSize = p_image_size;
@@ -1224,7 +1224,7 @@ struct DeferredCommandBufferExecution
 		vk::ImageSubresourceRange p_image_subresource,
 		vk::ImageLayout p_source_layout, vk::ImageLayout p_target_layout,
 		TextureLayoutTransitionBarrierConfiguration& p_transition_barrier,
-		com::PoolToken& p_completion_token)
+		com::TPoolToken<bool>& p_completion_token)
 	{
 		TextureLayoutTransitionCommand l_command;
 		l_command.image = p_image;
@@ -1308,12 +1308,12 @@ struct DeferredCommandBufferExecution
 
 	};
 
-	inline bool& resolve_completion_token(const com::PoolToken& p_completion_token)
+	inline bool& resolve_completion_token(const com::TPoolToken<bool>& p_completion_token)
 	{
 		return this->commands_completion.resolve(p_completion_token);
 	};
 
-	inline void release_completion_token(const com::PoolToken& p_completion_token)
+	inline void release_completion_token(const com::TPoolToken<bool>& p_completion_token)
 	{
 		this->commands_completion.release_element(p_completion_token);
 	};
@@ -1330,10 +1330,10 @@ private:
 struct DeferredCommandbufferExecutionToken
 {
 	size_t QueueIndex = -1;
-	com::PoolToken CompletionToken = -1;
+	com::TPoolToken<bool> CompletionToken = -1;
 
 	inline DeferredCommandbufferExecutionToken() {}
-	inline DeferredCommandbufferExecutionToken(const size_t p_queue_index, const com::PoolToken p_completiontoken)
+	inline DeferredCommandbufferExecutionToken(const size_t p_queue_index, const com::TPoolToken<bool> p_completiontoken)
 	{
 		this->QueueIndex = p_queue_index;
 		this->CompletionToken = p_completiontoken;
@@ -2612,9 +2612,9 @@ struct TShaderUniformBufferParameter : public ShaderUniformBufferParameter
 struct ShaderCombinedImageSamplerParameter
 {
 	vk::DescriptorSet descriptor_set;
-	com::PoolToken texture;
+	com::TPoolToken<Texture> texture;
 
-	inline void create(const com::PoolToken& p_texture, RenderAPI& p_renderapi)
+	inline void create(const com::TPoolToken<Texture>& p_texture, RenderAPI& p_renderapi)
 	{
 		vk::DescriptorSetAllocateInfo l_allocate_info;
 		l_allocate_info.setDescriptorPool(p_renderapi.descriptor_pool);
@@ -2628,7 +2628,7 @@ struct ShaderCombinedImageSamplerParameter
 	{
 		p_renderapi.device.device.freeDescriptorSets(p_renderapi.descriptor_pool, 1, &this->descriptor_set);
 		this->descriptor_set = nullptr;
-		this->texture = com::PoolToken();
+		this->texture = com::TPoolToken<Texture>();
 	}
 
 	inline void bind(const uint32_t p_dst_binding, const Device& p_device, const TextureSamplers& p_texutre_samplers, com::Pool<Texture>& p_texutre_heap)
@@ -2706,14 +2706,14 @@ struct Material
 			{
 			case ShaderParameter::Type::UNIFORM:
 			{
-				p_shader_uniformparameter_heap[l_parameter.parameter_token].dispose(p_renderapi.device, p_renderapi.descriptor_pool);
-				p_shader_uniformparameter_heap.release_element(l_parameter.parameter_token);
+				p_shader_uniformparameter_heap[com::TPoolToken<ShaderUniformBufferParameter>(l_parameter.parameter_token.Index)].dispose(p_renderapi.device, p_renderapi.descriptor_pool);
+				p_shader_uniformparameter_heap.release_element(com::TPoolToken<ShaderUniformBufferParameter>(l_parameter.parameter_token.Index));
 			}
 			break;
 			case ShaderParameter::Type::TEXTURE:
 			{
-				p_shader_texturesample_heap[l_parameter.parameter_token].dispose(p_renderapi);
-				p_shader_texturesample_heap.release_element(l_parameter.parameter_token);
+				p_shader_texturesample_heap[com::TPoolToken<ShaderCombinedImageSamplerParameter>(l_parameter.parameter_token.Index)].dispose(p_renderapi);
+				p_shader_texturesample_heap.release_element(com::TPoolToken<ShaderCombinedImageSamplerParameter>(l_parameter.parameter_token.Index));
 			}
 			break;
 			}
@@ -2732,12 +2732,12 @@ struct Material
 			{
 			case ShaderParameter::Type::UNIFORM:
 			{
-				p_shader_uniformparameter_heap.resolve(l_parameter.parameter_token).bind_command(p_command_buffer, (uint32_t)(p_set_index + i), p_pipeline_layout);
+				p_shader_uniformparameter_heap.resolve(com::TPoolToken<ShaderUniformBufferParameter>(l_parameter.parameter_token.Index)).bind_command(p_command_buffer, (uint32_t)(p_set_index + i), p_pipeline_layout);
 			}
 			break;
 			case ShaderParameter::Type::TEXTURE:
 			{
-				p_shader_texturesample_heap.resolve(l_parameter.parameter_token).bind_command(p_command_buffer, (uint32_t)(p_set_index + i), p_pipeline_layout);
+				p_shader_texturesample_heap.resolve(com::TPoolToken<ShaderCombinedImageSamplerParameter>(l_parameter.parameter_token.Index)).bind_command(p_command_buffer, (uint32_t)(p_set_index + i), p_pipeline_layout);
 			}
 			break;
 			}
@@ -2749,12 +2749,12 @@ struct Material
 
 struct RenderableObject
 {
-	com::PoolToken mesh;
+	com::TPoolToken<Mesh> mesh;
 	TShaderUniformBufferParameter<mat4f> model_matrix_buffer;
 
 	RenderableObject() {}
 
-	inline void allocate(const com::PoolToken& p_mesh, RenderAPI& p_render_api)
+	inline void allocate(const com::TPoolToken<Mesh>& p_mesh, RenderAPI& p_render_api)
 	{
 		this->mesh = p_mesh;
 		this->model_matrix_buffer.create(p_render_api, p_render_api.shaderparameter_layouts.uniformbuffer_vertex_layout);
@@ -2773,7 +2773,7 @@ struct RenderableObject
 
 	inline void dispose(Device& p_device, vk::DescriptorPool p_descriptor_pool)
 	{
-		this->mesh = com::PoolToken();
+		this->mesh = com::TPoolToken<Mesh>();
 		this->model_matrix_buffer.dispose(p_device, p_descriptor_pool);
 	}
 
@@ -2793,10 +2793,10 @@ struct RenderHeap2
 	com::Pool<ShaderModule> shadermodules;
 
 	com::Pool<Shader> shaders;
-	com::Pool<com::Vector<com::PoolToken>> shaders_to_materials;
+	com::Pool<com::Vector<com::TPoolToken<Material>>> shaders_to_materials;
 
 	com::Pool<Material> materials;
-	com::Pool<com::Vector<com::PoolToken>> material_to_renderableobjects;
+	com::Pool<com::Vector<com::TPoolToken<RenderableObject>>> material_to_renderableobjects;
 
 	com::Pool<RenderableObject> renderableobjects;
 
@@ -2821,7 +2821,7 @@ struct RenderHeap2
 				this->render_heap = &p_render_heap;
 			};
 
-			inline com::PoolToken allocate(size_t p_key)
+			inline com::TPoolToken<ShaderModule> allocate(size_t p_key)
 			{
 				ShaderModule l_shader_module;
 				l_shader_module.key = p_key;
@@ -2829,7 +2829,7 @@ struct RenderHeap2
 				return this->render_heap->shadermodules.alloc_element(l_shader_module);
 			};
 
-			inline void free(com::PoolToken& p_shader_module)
+			inline void free(com::TPoolToken<ShaderModule>& p_shader_module)
 			{
 				dispose_shaderModule(this->render_heap->render_api->device, this->render_heap->shadermodules[p_shader_module].shader_module);
 				this->render_heap->shadermodules.release_element(p_shader_module);
@@ -2875,7 +2875,7 @@ struct RenderHeap2
 				this->render_heap = &p_render_heap;
 			};
 
-			inline com::PoolToken allocate(const size_t& p_key)
+			inline com::TPoolToken<Shader> allocate(const size_t& p_key)
 			{
 				com::Vector<char> l_shader_resource_binary = this->asset_server.get_resource(p_key);
 				ShaderAsset l_shader_asset = ShaderAsset::deserialize(l_shader_resource_binary.Memory);
@@ -2891,16 +2891,16 @@ struct RenderHeap2
 					*(this->render_heap->render_api)
 				);
 
-				this->render_heap->shaders_to_materials.alloc_element(com::Vector<com::PoolToken>());
+				this->render_heap->shaders_to_materials.alloc_element(com::Vector<com::TPoolToken<Material>>());
 				return this->render_heap->shaders.alloc_element(l_shader);
 			};
 
-			inline void free(const com::PoolToken& p_shader)
+			inline void free(const com::TPoolToken<Shader>& p_shader)
 			{
 				Shader& l_shader = this->render_heap->shaders[p_shader];
 				l_shader.dispose(this->render_heap->render_api->device);
-				this->render_heap->shaders_to_materials[p_shader].free();
-				this->render_heap->shaders_to_materials.release_element(p_shader);
+				this->render_heap->shaders_to_materials[p_shader.cast<com::Vector<com::TPoolToken<Material>>>()].free();
+				this->render_heap->shaders_to_materials.release_element(p_shader.cast<com::Vector<com::TPoolToken<Material>>>());
 				this->render_heap->shaders.release_element(p_shader);
 			};
 		};
@@ -2954,9 +2954,9 @@ struct RenderHeap2
 
 			};
 
-			inline com::PoolToken allocate(const size_t& p_key)
+			inline com::TPoolToken<Mesh> allocate(const size_t& p_key)
 			{
-				com::PoolToken l_mesh;
+				com::TPoolToken<Mesh> l_mesh;
 				com::Vector<char> l_mesh_asset_binary = this->asset_server.get_resource(p_key);
 				{
 					MeshAsset l_mesh_asset = MeshAsset::cast_from(l_mesh_asset_binary.Memory);
@@ -2966,7 +2966,7 @@ struct RenderHeap2
 				return l_mesh;
 			};
 
-			inline void free(const com::PoolToken& p_mesh)
+			inline void free(const com::TPoolToken<Mesh>& p_mesh)
 			{
 				this->render_heap->meshes[p_mesh].dispose(*this->render_heap->render_api, this->render_heap->render_api->device);
 				this->render_heap->meshes.release_element(p_mesh);
@@ -3021,9 +3021,9 @@ struct RenderHeap2
 				};
 			};
 
-			inline com::PoolToken allocate(const size_t& p_key)
+			inline com::TPoolToken<Texture> allocate(const size_t& p_key)
 			{
-				com::PoolToken l_texture;
+				com::TPoolToken<Texture> l_texture;
 				com::Vector<char> l_texture_asset_binary = this->asset_server.get_resource(p_key);
 				{
 					TextureAsset l_texture_asset = TextureAsset::cast_from(l_texture_asset_binary.Memory);
@@ -3036,7 +3036,7 @@ struct RenderHeap2
 				return l_texture;
 			};
 
-			inline void free(const com::PoolToken& p_texture)
+			inline void free(const com::TPoolToken<Texture>& p_texture)
 			{
 				this->render_heap->textures[p_texture].free(this->render_heap->render_api->stagedbuffer_commands, this->render_heap->render_api->device);
 				this->render_heap->textures.release_element(p_texture);
@@ -3044,10 +3044,10 @@ struct RenderHeap2
 
 		};
 
-		ResourceMap<size_t, com::PoolToken, ShaderModuleResourceAllocator> shader_module_resources;
-		ResourceMap<size_t, com::PoolToken, ShaderResourceAllocator> shader_resources;
-		ResourceMap<size_t, com::PoolToken, MeshResourceAllocator> mesh_resources;
-		ResourceMap<size_t, com::PoolToken, TextureResourceAllocator> texture_resources;
+		ResourceMap<size_t, com::TPoolToken<ShaderModule>, ShaderModuleResourceAllocator> shader_module_resources;
+		ResourceMap<size_t, com::TPoolToken<Shader>, ShaderResourceAllocator> shader_resources;
+		ResourceMap<size_t, com::TPoolToken<Mesh>, MeshResourceAllocator> mesh_resources;
+		ResourceMap<size_t, com::TPoolToken<Texture>, TextureResourceAllocator> texture_resources;
 
 		inline void allocate(RenderHeap2& p_render_heap, AssetServerHandle p_asset_server)
 		{
@@ -3067,7 +3067,7 @@ struct RenderHeap2
 
 	} resource;
 
-	com::Vector<com::PoolToken> shaders_sortedBy_executionOrder;
+	com::Vector<com::TPoolToken<Shader>> shaders_sortedBy_executionOrder;
 
 public:
 
@@ -3082,32 +3082,32 @@ public:
 		this->resource.free();
 	};
 
-	inline com::PoolToken allocate_shadermodule(const std::string& p_path)
+	inline com::TPoolToken<ShaderModule> allocate_shadermodule(const std::string& p_path)
 	{
 		return this->allocate_shadermodule_internal(Hash<std::string>::hash(p_path));
 	};
 
-	inline void free_shadermodule(const com::PoolToken& p_shader_module)
+	inline void free_shadermodule(const com::TPoolToken<ShaderModule>& p_shader_module)
 	{
 		this->resource.shader_module_resources.free_resource(this->shadermodules[p_shader_module].key);
 	};
 
 
-	inline com::PoolToken allocate_shader(const std::string& p_key)
+	inline com::TPoolToken<Shader> allocate_shader(const std::string& p_key)
 	{
 		return this->allocate_shader(Hash<std::string>::hash(p_key));
 	};
 
-	inline com::PoolToken allocate_shader(const size_t p_key)
+	inline com::TPoolToken<Shader> allocate_shader(const size_t p_key)
 	{
-		com::PoolToken l_allocated_shader;
+		com::TPoolToken<Shader> l_allocated_shader;
 		if (this->resource.shader_resources.allocate_resource(p_key, &l_allocated_shader) == ResourceMapEnum::Step::RESOURCE_ALLOCATED)
 		{
 			struct ShaderExecution_Sorter_V2
 			{
 				com::Pool<Shader>* shader_heap;
 				inline ShaderExecution_Sorter_V2(com::Pool<Shader>* p_shader_heap) { this->shader_heap = p_shader_heap; };
-				inline size_t get(const com::PoolToken& p_shader_token)
+				inline size_t get(const com::TPoolToken<Shader>& p_shader_token)
 				{
 					return this->shader_heap->operator[](p_shader_token).execution_order;
 				};
@@ -3118,7 +3118,7 @@ public:
 		return l_allocated_shader;
 	};
 
-	inline void free_shader(const com::PoolToken& p_shader)
+	inline void free_shader(const com::TPoolToken<Shader>& p_shader)
 	{
 		if (this->resource.shader_resources.free_resource_step(this->shaders[p_shader].key) == ResourceMapEnum::Step::RESOURCE_DEALLOCATED)
 		{
@@ -3135,13 +3135,13 @@ public:
 
 	inline com::PoolToken allocate_material(const com::PoolToken& p_shader)
 	{
-		com::PoolToken l_material_handle = this->materials.alloc_element(Material());
-		this->material_to_renderableobjects.alloc_element(com::Vector<com::PoolToken>());
+		com::TPoolToken<Material> l_material_handle = this->materials.alloc_element(Material());
+		this->material_to_renderableobjects.alloc_element(com::Vector<com::TPoolToken<RenderableObject>>());
 		this->shaders_to_materials[p_shader.Index].push_back(l_material_handle);
 		return l_material_handle;
 	};
 
-	inline void material_add_image_parameter(const com::PoolToken& p_material, const com::PoolToken& p_texture)
+	inline void material_add_image_parameter(const com::TPoolToken<Material>& p_material, const com::TPoolToken<Texture>& p_texture)
 	{
 		ShaderCombinedImageSamplerParameter l_diffuse_texture;
 		l_diffuse_texture.create(p_texture, *this->render_api);
@@ -3149,7 +3149,7 @@ public:
 		this->materials[p_material].add_image_parameter(this->shader_imagesample_parameters.alloc_element(l_diffuse_texture));
 	};
 
-	inline void material_add_uniform_parameter(const com::PoolToken& p_material, const GPtr& p_initial_value)
+	inline void material_add_uniform_parameter(const com::TPoolToken<Material>& p_material, const GPtr& p_initial_value)
 	{
 		ShaderUniformBufferParameter l_diffuse_color;
 		l_diffuse_color.create(*this->render_api, p_initial_value.element_size, this->render_api->shaderparameter_layouts.uniformbuffer_layout);
@@ -3158,9 +3158,9 @@ public:
 		this->materials[p_material].add_uniform_parameter(this->shader_uniform_parameters.alloc_element(l_diffuse_color));
 	};
 
-	inline void free_material(const com::PoolToken& p_material, const com::PoolToken& p_shader)
+	inline void free_material(const com::TPoolToken<Material>& p_material, const com::TPoolToken<Shader>& p_shader)
 	{
-		com::Vector<com::PoolToken>& l_shaders_to_materials = this->shaders_to_materials[p_shader];
+		com::Vector<com::TPoolToken<Material>>& l_shaders_to_materials = this->shaders_to_materials[p_shader.cast<com::Vector<com::TPoolToken<Material>>>()];
 		for (size_t i = 0; i < l_shaders_to_materials.Size; i++)
 		{
 			if (l_shaders_to_materials[i].Index == p_material.Index)
@@ -3172,58 +3172,59 @@ public:
 		//this->shaders_to_materials[p_shader].er
 		this->materials[p_material].free(*this->render_api, this->shader_uniform_parameters, this->shader_imagesample_parameters);
 		this->materials.release_element(p_material);
-		this->material_to_renderableobjects[p_material].free();
-		this->material_to_renderableobjects.release_element(p_material);
+		this->material_to_renderableobjects[p_material.cast<com::Vector<com::TPoolToken<RenderableObject>>>()].free();
+		this->material_to_renderableobjects.release_element(p_material.cast<com::Vector<com::TPoolToken<RenderableObject>>>());
 	};
 
-	inline com::PoolToken allocate_mesh(const std::string& p_path)
+	inline com::TPoolToken<Mesh> allocate_mesh(const std::string& p_path)
 	{
 		return this->allocate_mesh(Hash<std::string>::hash(p_path));
 	};
 
-	inline com::PoolToken allocate_mesh(const size_t& p_id)
+	inline com::TPoolToken<Mesh> allocate_mesh(const size_t& p_id)
 	{
 		return this->resource.mesh_resources.allocate_resource(p_id);
 	};
 
 
-	inline void free_mesh(const com::PoolToken& p_mesh)
+	inline void free_mesh(const com::TPoolToken<Mesh>& p_mesh)
 	{
 		this->resource.mesh_resources.free_resource(this->meshes[p_mesh].key);
 	};
 
-	inline com::PoolToken allocate_texture(const std::string& p_path)
+	inline com::TPoolToken<Texture> allocate_texture(const std::string& p_path)
 	{
 		return this->allocate_texture(Hash<std::string>::hash(p_path));
 	};
 
-	inline com::PoolToken allocate_texture(const size_t p_id)
+	inline com::TPoolToken<Texture> allocate_texture(const size_t p_id)
 	{
 		return this->resource.texture_resources.allocate_resource(p_id);
 	};
 
-	inline void free_texture(const com::PoolToken& p_texture)
+	inline void free_texture(const com::TPoolToken<Texture>& p_texture)
 	{
 		this->resource.texture_resources.free_resource(this->textures[p_texture].key);
 	};
 
-	inline com::PoolToken allocate_rendereableObject(const com::PoolToken& p_material, const com::PoolToken& p_mesh)
+	inline com::TPoolToken<RenderableObject> allocate_rendereableObject(const com::TPoolToken<Material>& p_material, const com::TPoolToken<Mesh>& p_mesh)
 	{
 		RenderableObject l_renderable_object;
 		l_renderable_object.allocate(p_mesh, *this->render_api);
-		com::PoolToken l_renderableobjet_handle = this->renderableobjects.alloc_element(l_renderable_object);
+		com::TPoolToken<RenderableObject> l_renderableobjet_handle = this->renderableobjects.alloc_element(l_renderable_object);
 		this->material_to_renderableobjects[p_material.Index].push_back(l_renderableobjet_handle);
 		return l_renderableobjet_handle;
 	};
 
-	inline void free_renderableObject(const com::PoolToken& p_renderableObject)
+	inline void free_renderableObject(const com::TPoolToken<RenderableObject>& p_renderableObject)
 	{
 		RenderableObject& l_renderableobject = this->renderableobjects[p_renderableObject];
 		l_renderableobject.dispose(this->render_api->device, this->render_api->descriptor_pool);
 		this->renderableobjects.release_element(p_renderableObject);
 	};
 
-	inline void set_material(com::PoolToken p_renderable_object, com::PoolToken p_old_marterial, com::PoolToken p_old_shader, com::PoolToken p_material)
+	inline void set_material(com::TPoolToken<RenderableObject> p_renderable_object, com::TPoolToken<Material> p_old_marterial, 
+				com::TPoolToken<Shader> p_old_shader, com::TPoolToken<Material> p_material)
 	{
 		//Remove old link
 		this->free_material(p_old_marterial, p_old_shader);
@@ -3234,7 +3235,7 @@ public:
 
 private:
 
-	inline com::PoolToken allocate_shadermodule_internal(size_t p_key)
+	inline com::TPoolToken<ShaderModule> allocate_shadermodule_internal(size_t p_key)
 	{
 		return this->resource.shader_module_resources.allocate_resource(p_key);
 	};
@@ -3318,20 +3319,20 @@ struct Render
 
 		for (size_t l_shader_index = 0; l_shader_index < this->heap.shaders_sortedBy_executionOrder.Size; l_shader_index++)
 		{
-			com::PoolToken l_shader_heap = this->heap.shaders_sortedBy_executionOrder[l_shader_index];
+			com::TPoolToken<Shader> l_shader_heap = this->heap.shaders_sortedBy_executionOrder[l_shader_index];
 			Shader& l_shader = this->heap.shaders[l_shader_heap];
 
 			l_command_buffer.command_buffer.bindPipeline(vk::PipelineBindPoint::eGraphics, l_shader.pipeline);
 
-			com::Vector<com::PoolToken>& l_materials = this->heap.shaders_to_materials[l_shader_heap.Index];
+			com::Vector<com::TPoolToken<Material>>& l_materials = this->heap.shaders_to_materials[l_shader_heap.Index];
 			for (size_t l_material_index = 0; l_material_index < l_materials.Size; l_material_index++)
 			{
-				com::PoolToken l_material_heap_token = l_materials[l_material_index];
+				com::TPoolToken<Material> l_material_heap_token = l_materials[l_material_index];
 				Material& l_material = this->heap.materials[l_material_heap_token];
 
 				l_material.bind_command(l_command_buffer, 2, this->heap.shader_uniform_parameters, this->heap.shader_imagesample_parameters, l_shader.pipeline_layout);
 
-				com::Vector<com::PoolToken>& l_renderableobjects = this->heap.material_to_renderableobjects[l_material_heap_token.Index];
+				com::Vector<com::TPoolToken<RenderableObject>>& l_renderableobjects = this->heap.material_to_renderableobjects[l_material_heap_token.Index];
 				for (size_t l_renderableobject_index = 0; l_renderableobject_index < l_renderableobjects.Size; l_renderableobject_index++)
 				{
 					RenderableObject& l_renderableobject = this->heap.renderableobjects[l_renderableobjects[l_renderableobject_index]];

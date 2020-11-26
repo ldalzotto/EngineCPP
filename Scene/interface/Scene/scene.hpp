@@ -10,7 +10,7 @@
 #include "Math/transform_def.hpp"
 #include "Math/math.hpp"
 
-typedef com::PoolToken SceneNodeComponentToken;
+typedef com::TPoolToken<GeneralPurposeHeapMemoryChunk> SceneNodeComponentToken;
 
 
 struct SceneNodeComponentHeader

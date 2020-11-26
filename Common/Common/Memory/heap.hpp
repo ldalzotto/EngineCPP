@@ -20,12 +20,12 @@ struct AllocationAlignementConstraint
 template<class ReturnType>
 struct IMemoryChunkMapper
 {
-	ReturnType map(const GeneralPurposeHeapMemoryChunk& p_chunk, com::PoolToken& p_chunktoken);
+	ReturnType map(const GeneralPurposeHeapMemoryChunk& p_chunk, com::TPoolToken<GeneralPurposeHeapMemoryChunk>& p_chunktoken);
 };
 
-struct DefaultMemoryChunkMapper : public IMemoryChunkMapper<com::PoolToken&>
+struct DefaultMemoryChunkMapper : public IMemoryChunkMapper<com::TPoolToken<GeneralPurposeHeapMemoryChunk>&>
 {
-	inline com::PoolToken& map(const GeneralPurposeHeapMemoryChunk& p_chunk, com::PoolToken& p_chunktoken) { return p_chunktoken; }
+	inline com::TPoolToken<GeneralPurposeHeapMemoryChunk>& map(const GeneralPurposeHeapMemoryChunk& p_chunk, com::TPoolToken<GeneralPurposeHeapMemoryChunk>& p_chunktoken) { return p_chunktoken; }
 };
 
 //TODO - defragmentation (sorting free_chunks by offset and merging if neghbors)
@@ -74,19 +74,19 @@ struct GeneralPurposeHeap
 	};
 
 	template<class ElementType>
-	inline ElementType* map(com::PoolToken p_memory)
+	inline ElementType* map(com::TPoolToken<GeneralPurposeHeapMemoryChunk> p_memory)
 	{
 		return (ElementType*)(this->memory.Memory + this->allocated_chunks[p_memory].offset);
 	};
 
-	inline GeneralPurposeHeapMemoryChunk& resolve_allocated_chunk(const com::PoolToken p_memory)
+	inline GeneralPurposeHeapMemoryChunk& resolve_allocated_chunk(const com::TPoolToken<GeneralPurposeHeapMemoryChunk> p_memory)
 	{
 		return this->allocated_chunks[p_memory];
 	};
 
 	//TODO -> having multiple free_chunks indexed by allocation size range ?
 	//        to avoid fragmentation of huge chunk for a very small size.
-	template<class ReturnType = com::PoolToken&, class MemoryChunkMapper = DefaultMemoryChunkMapper >
+	template<class ReturnType = com::TPoolToken<GeneralPurposeHeapMemoryChunk>&, class MemoryChunkMapper = DefaultMemoryChunkMapper >
 	inline bool allocate_element(size_t p_size, ReturnType* out_chunk, MemoryChunkMapper& p_memorychunk_mapper = DefaultMemoryChunkMapper())
 	{
 		// static_assert(std::is_base_of<IMemoryChunkMapper<ReturnType>, MemoryChunkMapper>::value, "MemoryChunkMapper must implements IMemoryChunkMapper.");
@@ -176,7 +176,7 @@ struct GeneralPurposeHeap
 		return false;
 	};
 
-	inline void release_element(const com::PoolToken p_buffer)
+	inline void release_element(const com::TPoolToken<GeneralPurposeHeapMemoryChunk> p_buffer)
 	{
 		this->free_chunks.push_back(this->allocated_chunks[p_buffer]);
 		this->allocated_chunks.release_element(p_buffer);

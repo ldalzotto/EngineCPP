@@ -16,6 +16,24 @@ namespace com
 		inline void reset() { this->Index = -1; };
 	};
 
+	template<class TYPE>
+	struct TPoolToken : PoolToken {
+		inline TPoolToken() : PoolToken() { };
+		inline TPoolToken(size_t p_index) : PoolToken(p_index) {};
+
+		template<class CastedType>
+		inline TPoolToken<CastedType> cast()
+		{
+			return TPoolToken<CastedType>(this->Index);
+		};
+
+		template<class CastedType>
+		inline const TPoolToken<CastedType> cast() const
+		{
+			return TPoolToken<CastedType>(this->Index);
+		};
+	};
+
 	template<class TYPE, class Allocator = HeapAllocator>
 	struct Pool
 	{
@@ -32,10 +50,10 @@ namespace com
 		Vector<size_t, HeapAllocator> clone_freeblocks();
 		size_t size();
 		TYPE& operator[](size_t i);
-		TYPE& operator[](const PoolToken i);
-		PoolToken alloc_element(const TYPE& p_element);
-		void release_element(const PoolToken& p_element);
-		TYPE& resolve(const PoolToken& p_element);
+		TYPE& operator[](const TPoolToken<TYPE> i);
+		TPoolToken<TYPE> alloc_element(const TYPE& p_element);
+		void release_element(const TPoolToken<TYPE>& p_element);
+		TYPE& resolve(const TPoolToken<TYPE>& p_element);
 	};
 
 	template<class TYPE, class Allocator = HeapAllocator>
@@ -50,9 +68,9 @@ namespace com
 		void free();
 		size_t size();
 		Optional<TYPE>& operator[](size_t i);
-		Optional<TYPE>& operator[](const PoolToken i);
+		Optional<TYPE>& operator[](const TPoolToken<Optional<TYPE>> i);
 		PoolToken alloc_element(const TYPE& p_element);
-		void release_element(const PoolToken& p_element);
+		void release_element(const TPoolToken<Optional<TYPE>>& p_element);
 	};
 }
 

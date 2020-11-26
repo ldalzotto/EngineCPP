@@ -86,13 +86,13 @@ template<class ElementType, class Allocator>
 inline NTreeResolve<ElementType> NTree<ElementType, Allocator>::resolve(com::PoolToken p_token)
 {
 	return NTreeResolve<ElementType>(
-		this->Memory.resolve(p_token),
-		this->Indices.resolve(p_token)
-		);
+		this->Memory.resolve(com::TPoolToken<ElementType>(p_token.Index)),
+		this->Indices.resolve(com::TPoolToken<NTreeNode>(p_token.Index))
+	);
 };
 
 template<class ElementType, class Allocator>
-inline com::PoolToken NTree<ElementType, Allocator>::push_root_value(const ElementType& p_value)
+inline com::TPoolToken<ElementType> NTree<ElementType, Allocator>::push_root_value(const ElementType& p_value)
 {
 	if (this->Memory.size() == 0)
 	{
@@ -112,7 +112,7 @@ inline com::PoolToken NTree<ElementType, Allocator>::push_root_value(const Eleme
 };
 
 template<class ElementType, class Allocator>
-inline com::PoolToken NTree<ElementType, Allocator>::push_value(const com::PoolToken p_parent, const ElementType& p_value)
+inline com::TPoolToken<ElementType> NTree<ElementType, Allocator>::push_value(const com::TPoolToken<NTreeNode> p_parent, const ElementType& p_value)
 {
 	auto l_allcoated_item = this->Memory.alloc_element(p_value);
 	NTreeNode l_node;
@@ -122,7 +122,7 @@ inline com::PoolToken NTree<ElementType, Allocator>::push_value(const com::PoolT
 };
 
 template<class ElementType, class Allocator>
-inline com::PoolToken NTree<ElementType, Allocator>::push_value(const ElementType& p_value)
+inline com::TPoolToken<ElementType> NTree<ElementType, Allocator>::push_value(const ElementType& p_value)
 {
 	auto l_allcoated_item = this->Memory.alloc_element(p_value);
 	NTreeNode l_node;

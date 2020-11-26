@@ -82,7 +82,7 @@ struct RenderMiddleware
 		this->allocated_camera.node = com::PoolToken();
 	};
 
-	inline RenderableObjectEntry* get_renderable_object(const com::PoolToken& p_renderable_object)
+	inline RenderableObjectEntry* get_renderable_object(const com::TPoolToken<Optional<RenderableObjectEntry>>& p_renderable_object)
 	{
 		Optional<RenderableObjectEntry>& l_entry = this->allocated_renderableobjects[p_renderable_object];
 		if (l_entry.hasValue)
@@ -163,7 +163,7 @@ struct RenderMiddleware
 
 	inline void set_material(MeshRenderer* p_mesh_renderer, size_t p_new_material)
 	{
-		this->get_renderable_object(p_mesh_renderer->rendererable_object)->set_material(p_mesh_renderer, p_new_material, this->asset_server, this->render);
+		this->get_renderable_object(com::TPoolToken<Optional<RenderableObjectEntry>>(p_mesh_renderer->rendererable_object.Index))->set_material(p_mesh_renderer, p_new_material, this->asset_server, this->render);
 	};
 };
 

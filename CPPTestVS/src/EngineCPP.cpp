@@ -44,24 +44,23 @@ void update(void* p_engine, float p_delta)
 		}
 	}
 
-	/*
 	if (l_input.get_state(InputKey::InputKey_B, KeyState::KeyStateFlag_PRESSED_THIS_FRAME))
 	{
 		com::Vector<NTreeResolve<SceneNode>> l_nodes = l_scenehandle.get_nodes_with_component<MeshRenderer>();
 		MeshRenderer* l_mesh_renderer = l_scenehandle.get_component<MeshRenderer>(l_nodes[0].node->index);
-		RenderableObjectEntry* l_renderable_object = ((RenderMiddleware*)engine_render_middleware(*l_engine))->get_renderable_object(l_mesh_renderer->rendererable_object);
-		RenderHandle l_render = engine_render(*l_engine);
-		l_renderable_object->replace_material(Hash<StringSlice>::hash(StringSlice("materials/editor_selected.json")), engine_assetserver(*l_engine), l_render);
+		engine_render_middleware(*l_engine)->set_material(l_mesh_renderer, Hash<StringSlice>::hash(StringSlice("materials/editor_selected.json")));
 	}
 	else if (l_input.get_state(InputKey::InputKey_V, KeyState::KeyStateFlag_PRESSED_THIS_FRAME))
 	{
 		com::Vector<NTreeResolve<SceneNode>> l_nodes = l_scenehandle.get_nodes_with_component<MeshRenderer>();
 		MeshRenderer* l_mesh_renderer = l_scenehandle.get_component<MeshRenderer>(l_nodes[0].node->index);
-		RenderableObjectEntry* l_renderable_object = ((RenderMiddleware*)engine_render_middleware(*l_engine))->get_renderable_object(l_mesh_renderer->rendererable_object);
-		RenderHandle l_render = engine_render(*l_engine);
-		l_renderable_object->replace_material(Hash<StringSlice>::hash(StringSlice("materials/test.json")), engine_assetserver(*l_engine), l_render);
+		engine_render_middleware(*l_engine)->set_material(l_mesh_renderer, Hash<StringSlice>::hash(StringSlice("materials/test.json")));
 	}
-	*/
+	else if (l_input.get_state(InputKey::InputKey_C, KeyState::KeyStateFlag_PRESSED_THIS_FRAME))
+	{
+		com::Vector<NTreeResolve<SceneNode>> l_nodes = l_scenehandle.get_nodes_with_component<MeshRenderer>();
+		l_scenehandle.free_node(com::PoolToken(l_nodes[0].node->index));
+	}
 
 	for (size_t i = 0; i < testContext.moving_nodes.Size; i++)
 	{
