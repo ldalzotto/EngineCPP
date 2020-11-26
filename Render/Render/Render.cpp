@@ -3223,18 +3223,10 @@ public:
 		this->renderableobjects.release_element(p_renderableObject);
 	};
 
-	inline void set_material(com::PoolToken p_renderable_object, com::PoolToken p_old_marterial, com::PoolToken p_material)
+	inline void set_material(com::PoolToken p_renderable_object, com::PoolToken p_old_marterial, com::PoolToken p_old_shader, com::PoolToken p_material)
 	{
 		//Remove old link
-		com::Vector<com::PoolToken>& l_material_to_renderableobject_link = this->material_to_renderableobjects[p_old_marterial.Index];
-		for (size_t i = 0; i < l_material_to_renderableobject_link.Size; i++)
-		{
-			if (l_material_to_renderableobject_link[i].Index == p_renderable_object.Index)
-			{
-				l_material_to_renderableobject_link.erase_at(i);
-				break;
-			}
-		}
+		this->free_material(p_old_marterial, p_old_shader);
 
 		//Create new link
 		this->material_to_renderableobjects[p_material.Index].push_back(p_renderable_object);

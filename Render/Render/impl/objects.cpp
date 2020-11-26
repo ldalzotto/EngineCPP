@@ -19,7 +19,7 @@ void RenderableObjectHandle::push_trs(const RenderHandle& p_render, const Math::
 void RenderableObjectHandle::set_material(const RenderHandle& p_render, const MaterialHandle& p_material)
 {
 	Render* l_render = (Render*)p_render;
-	l_render->heap.set_material(this->handle, this->material.handle, p_material.handle);
+	l_render->heap.set_material(this->handle, this->material.handle, this->material.shader.handle, p_material.handle);
 	this->material = p_material;
 };
 

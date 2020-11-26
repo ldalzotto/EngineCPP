@@ -41,13 +41,7 @@ struct RenderableObjectEntry
 	inline void set_material(MeshRenderer* p_mesh_renderer, size_t p_new_material, AssetServerHandle& p_asset_server, RenderHandle& p_render)
 	{
 		MaterialHandle l_new_material = MaterialBuilder::build(p_new_material, p_asset_server, p_render);
-		MaterialHandle l_old_material = this->renderableobject.material;
 		this->renderableobject.set_material(p_render, l_new_material);
-		if (l_old_material.handle != -1) 
-		{
-			l_old_material.free(p_render);
-		}
-
 		p_mesh_renderer->material = p_new_material;
 	};
 };
