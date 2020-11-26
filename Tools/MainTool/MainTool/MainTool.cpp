@@ -10,6 +10,7 @@
 #include "Common/Clock/clock.hpp"
 #include "Math/math.hpp"
 #include "Math/contants.hpp"
+#include "SceneComponents/components.hpp"
 
 struct InterpretorFile
 {
@@ -222,7 +223,7 @@ struct NodeMovement
 		POSITION_LOCAL = 1,
 		ROTATION_LOCAL = 2,
 		SCALE_LOCAL = 3
-		
+
 	} state = State::UNDEFINED;
 
 	enum class Direction
@@ -231,14 +232,88 @@ struct NodeMovement
 		X = 1, Y = 2, Z = 3
 	} direction = Direction::UNDEFINED;
 
-	com::PoolToken selected_node;
+
 	float movement_step = 1.0f;
 	float rotation_step_deg = 5.0f;
 	float scale_step = 0.1f;
 
+private:
+
+	struct SelectedNodeRenderer
+	{
+		com::PoolToken node;
+		MeshRenderer original_meshrenderer;
+
+		inline void set_original_meshrenderer(SceneHandle& p_scene)
+		{
+			p_scene.remove_component<MeshRenderer>(this->node);
+			p_scene.add_component<MeshRenderer>(this->node, this->original_meshrenderer);
+		};
+	};
+
+	com::PoolToken root_selected_node;
+	com::Vector<SelectedNodeRenderer> selected_nodes_renderer;
+	SceneHandle selected_node_scene;
+
+public:
+
+	inline void set_selected_node(SceneHandle& p_scene, com::PoolToken& p_node)
+	{
+		for (size_t i = 0; i < this->selected_nodes_renderer.Size; i++)
+		{
+			this->selected_nodes_renderer[i].set_original_meshrenderer(this->selected_node_scene);
+		}
+		this->selected_nodes_renderer.clear();
+
+		this->root_selected_node = com::PoolToken();
+		this->selected_node_scene = SceneHandle();
+
+		if (p_node.Index == -1)
+		{
+			this->exit();
+		}
+		else
+		{
+			this->root_selected_node = p_node;
+			this->selected_node_scene = p_scene;
+
+			struct SceneForeach
+			{
+				com::Vector<SelectedNodeRenderer>* out_selected_node_renderers;
+				SceneHandle scene;
+				inline SceneForeach(com::Vector<SelectedNodeRenderer>* p_selected_node_renderers, SceneHandle p_scene) {
+					this->out_selected_node_renderers = p_selected_node_renderers;
+					this->scene = p_scene;
+				}
+
+				inline void foreach(NTreeResolve<SceneNode>& p_node)
+				{
+					MeshRenderer* l_new_mesh_renderer = this->scene.get_component<MeshRenderer>(p_node.node->index);
+					if (l_new_mesh_renderer)
+					{
+						SelectedNodeRenderer l_selected_node_renderer;
+						l_selected_node_renderer.node = p_node.node->index;
+						l_selected_node_renderer.original_meshrenderer = *l_new_mesh_renderer;
+
+						this->scene.remove_component<MeshRenderer>(p_node.node->index);
+						MeshRenderer l_selected_renderer;
+						l_selected_renderer.initialize(Hash<StringSlice>::hash(StringSlice("materials/editor_selected.json")), l_new_mesh_renderer->model);
+						scene.add_component<MeshRenderer>(p_node.node->index, l_selected_renderer);
+
+						this->out_selected_node_renderers->push_back(l_selected_node_renderer);
+					}
+				};
+			};
+
+			((Scene*)p_scene.handle)->tree.traverse(this->root_selected_node, SceneForeach(&this->selected_nodes_renderer, p_scene));
+		}
+
+
+	};
+
 	inline void perform_node_movement(EngineHandle p_engine)
 	{
-		if (this->selected_node.Index != -1)
+		if (this->root_selected_node.Index != -1)
 		{
 			InputHandle l_input = engine_input(p_engine);
 
@@ -264,7 +339,7 @@ struct NodeMovement
 				this->state = NodeMovement::State::SCALE_LOCAL;
 				printf("NodeMovement : Scale mode enabled\n");
 			}
-			
+
 			if (l_input.get_state(InputKey::InputKey_X, KeyState::KeyStateFlag_PRESSED_THIS_FRAME))
 			{
 				this->direction = NodeMovement::Direction::X;
@@ -285,9 +360,9 @@ struct NodeMovement
 			if (this->direction != NodeMovement::Direction::UNDEFINED &&
 				this->state != NodeMovement::State::UNDEFINED)
 			{
-				
+
 				Scene* p_scene = (Scene*)engine_scene(p_engine).handle;
-				NTreeResolve<SceneNode> l_node = p_scene->resolve_node(this->selected_node);
+				NTreeResolve<SceneNode> l_node = p_scene->resolve_node(this->root_selected_node);
 
 				switch (this->state)
 				{
@@ -336,7 +411,7 @@ struct NodeMovement
 				break;
 				case NodeMovement::State::ROTATION_LOCAL:
 				{
-					
+
 					float l_value = 0.0f;
 
 					if (l_input.get_state(InputKey::InputKey_UP, KeyState::KeyStateFlag_PRESSED_THIS_FRAME))
@@ -376,8 +451,22 @@ struct NodeMovement
 
 			}
 		}
-		
+
 	};
+
+	inline void exit()
+	{
+		for (size_t i = 0; i < this->selected_nodes_renderer.Size; i++)
+		{
+			this->selected_nodes_renderer[i].set_original_meshrenderer(this->selected_node_scene);
+		}
+		this->selected_nodes_renderer.clear();
+
+		this->root_selected_node = com::PoolToken();
+		this->selected_node_scene = SceneHandle();
+
+		this->state = State::UNDEFINED;
+	}
 };
 
 struct ToolState
@@ -493,7 +582,9 @@ struct CommandHandler
 	{
 		if (p_command_stack[p_depth].equals(CommandHandler::select_slice))
 		{
-			p_tool_state.node_movement.selected_node = FromString<size_t>::from_str(StringSlice(p_command_stack[p_depth + 1]));
+			size_t l_selected_node = FromString<size_t>::from_str(StringSlice(p_command_stack[p_depth + 1]));
+			p_tool_state.node_movement.set_selected_node(engine_scene(p_tool_state.engine_runner.engines[p_tool_state.selectged_engine].value.running_engine),
+				com::PoolToken(l_selected_node));
 		}
 	};
 
@@ -553,9 +644,9 @@ int main()
 				{
 					tool_state.node_movement.perform_node_movement(l_engine_module.running_engine);
 				}
-				
+
 			};
-			
+
 		}
 
 	}

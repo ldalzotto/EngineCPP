@@ -312,7 +312,7 @@ struct ComponentAssetPushParameter
 
 struct SceneHandle
 {
-	void* handle;
+	void* handle = nullptr;
 
 	void allocate(const Callback<void, ComponentAddedParameter>& p_componentadded_callback, const Callback<void, ComponentRemovedParameter>& p_componentremoved_callback,
 		const Callback<void, ComponentAssetPushParameter>& p_componentasset_push_callback);
@@ -341,7 +341,12 @@ struct SceneHandle
 	template<class ComponentType>
 	inline ComponentType* get_component(const com::PoolToken p_node)
 	{
-		return this->get_component(p_node, ComponentType::Type)->cast<ComponentType>();
+		SceneNodeComponentHeader* l_component_header = this->get_component(p_node, ComponentType::Type);
+		if (l_component_header)
+		{
+			return l_component_header->cast<ComponentType>();
+		}
+		return nullptr;
 	};
 
 	template<class ComponentType>

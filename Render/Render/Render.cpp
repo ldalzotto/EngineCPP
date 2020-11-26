@@ -2786,6 +2786,9 @@ struct RenderableObject
 	}
 };
 
+//TODO -> adding a way to switch Material from a renderable object.
+//        this can be done by allocating a new material from it's size_t, updating the link between Material <-> RenderableObject.
+//        disposing the old material.
 struct RenderHeap2
 {
 	RenderAPI* render_api;

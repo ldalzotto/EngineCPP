@@ -11,6 +11,9 @@ struct RenderableObjectEntry
 	com::PoolToken node;
 	RenderableObjectHandle renderableobject;
 
+	// this boolean is used to push data to render when the MeshRenderer component is added after the node is created. Because in this case,
+	// the haschanged_thisframe will be false.
+	bool force_update = false;
 	RenderableObjectEntry() {}
 };
 
@@ -21,6 +24,8 @@ struct CameraEntry
 	CameraEntry(){}
 };
 
+//TODO -> adding a way to retreave the RenderableObjectEntry entry from the MeshRenderer.
+//        this can be done by using an OpiontalPool to store the allocated_renderableobjects then store the token back to the MeshRenderer.
 struct RenderMiddleware
 {
 	RenderHandle render;
@@ -74,6 +79,7 @@ struct RenderMiddleware
 		RenderableObjectEntry l_entry;
 		l_entry.node = p_node_token;
 		l_entry.renderableobject = l_renderable_object;
+		l_entry.force_update = true;
 
 		this->allocated_renderableobjects.push_back(l_entry);
 	};
@@ -114,9 +120,10 @@ struct RenderMiddleware
 		{
 			RenderableObjectEntry& l_entry = this->allocated_renderableobjects[i];
 			NTreeResolve<SceneNode> l_scenenode = p_scene.resolve_node(l_entry.node);
-			if (l_scenenode.element->state.haschanged_thisframe)
+			if (l_scenenode.element->state.haschanged_thisframe || l_entry.force_update)
 			{
 				l_entry.renderableobject.push_trs(this->render, l_scenenode.element->get_localtoworld());
+				l_entry.force_update = false;
 			}
 		}
 	};
