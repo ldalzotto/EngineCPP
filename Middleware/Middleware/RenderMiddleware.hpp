@@ -6,9 +6,26 @@
 #include "Render/render.hpp"
 #include <optick.h>
 
+struct DefaultMaterial : public MaterialHandle
+{
+	inline static const size_t COLOR_INDEX = 1;
+
+	inline void set_color(const RenderHandle& p_render, Math::vec4f& p_value)
+	{
+		this->set_uniform_parameter(p_render, DefaultMaterial::COLOR_INDEX, GPtr::fromType(&p_value));
+	};
+
+	inline Math::vec4f get_color(const RenderHandle& p_render)
+	{
+		Math::vec4f l_return;
+		this->get_uniform_paramter(p_render, DefaultMaterial::COLOR_INDEX, GPtr::fromType(&l_return));
+		return l_return;
+	};
+};
+
 struct MaterialBuilder
 {
-	inline static MaterialHandle build(size_t p_material, AssetServerHandle& p_asset_server, RenderHandle& p_render)
+	inline static DefaultMaterial build(size_t p_material, AssetServerHandle& p_asset_server, RenderHandle& p_render)
 	{
 		com::Vector<char> l_material_binary = p_asset_server.get_resource(p_material);
 		MaterialAsset l_material_asset = MaterialAsset::deserialize(l_material_binary.Memory);
@@ -19,7 +36,7 @@ struct MaterialBuilder
 		TextureHandle l_texture;
 		l_texture.allocate(p_render, l_material_asset.texture);
 
-		MaterialHandle l_material;
+		DefaultMaterial l_material;
 		l_material.allocate(p_render, l_shader);
 		l_material.add_image_parameter(p_render, l_texture);
 		l_material.add_uniform_parameter(p_render, GPtr::fromType(&l_material_asset.color));
@@ -32,6 +49,7 @@ struct RenderableObjectEntry
 {
 	com::PoolToken node;
 	RenderableObjectHandle renderableobject;
+	DefaultMaterial default_material;
 
 	// this boolean is used to push data to render when the MeshRenderer component is added after the node is created. Because in this case,
 	// the haschanged_thisframe will be false.
@@ -40,8 +58,8 @@ struct RenderableObjectEntry
 
 	inline void set_material(MeshRenderer* p_mesh_renderer, size_t p_new_material, AssetServerHandle& p_asset_server, RenderHandle& p_render)
 	{
-		MaterialHandle l_new_material = MaterialBuilder::build(p_new_material, p_asset_server, p_render);
-		this->renderableobject.set_material(p_render, l_new_material);
+		this->default_material = MaterialBuilder::build(p_new_material, p_asset_server, p_render);
+		this->renderableobject.set_material(p_render, this->default_material);
 		p_mesh_renderer->material = p_new_material;
 	};
 };
@@ -92,9 +110,14 @@ struct RenderMiddleware
 		return nullptr;
 	};
 
+	inline RenderableObjectEntry* get_renderable_object(MeshRenderer* p_mesh_renderer)
+	{
+		return this->get_renderable_object(com::TPoolToken<Optional<RenderableObjectEntry>>(p_mesh_renderer->rendererable_object.Index));
+	};
+
 	inline void on_elligible(const com::PoolToken p_node_token, const NTreeResolve<SceneNode>& p_node, MeshRenderer& p_mesh_renderer)
 	{
-		MaterialHandle l_material = MaterialBuilder::build(p_mesh_renderer.material, this->asset_server, this->render);
+		DefaultMaterial l_material = MaterialBuilder::build(p_mesh_renderer.material, this->asset_server, this->render);
 
 		MeshHandle l_mesh;
 		l_mesh.allocate(this->render, p_mesh_renderer.model);
@@ -104,6 +127,7 @@ struct RenderMiddleware
 		RenderableObjectEntry l_entry;
 		l_entry.node = p_node_token;
 		l_entry.renderableobject = l_renderable_object;
+		l_entry.default_material = l_material;
 		l_entry.force_update = true;
 
 		com::PoolToken l_allocated_entry = this->allocated_renderableobjects.alloc_element(l_entry);
@@ -165,6 +189,8 @@ struct RenderMiddleware
 	{
 		this->get_renderable_object(com::TPoolToken<Optional<RenderableObjectEntry>>(p_mesh_renderer->rendererable_object.Index))->set_material(p_mesh_renderer, p_new_material, this->asset_server, this->render);
 	};
+
+	
 };
 
 typedef RenderMiddleware* RenderMiddlewareHandle;

@@ -21,6 +21,7 @@ void RenderableObjectHandle::set_material(const RenderHandle& p_render, const Ma
 	Render* l_render = (Render*)p_render;
 	l_render->heap.set_material(com::TPoolToken<RenderableObject>(this->handle), 
 					com::TPoolToken<Material>(this->material.handle), com::TPoolToken<Shader>(this->material.shader.handle), com::TPoolToken<Material>(p_material.handle));
+	this->material.free(p_render);
 	this->material = p_material;
 };
 
@@ -70,6 +71,19 @@ void MaterialHandle::add_uniform_parameter(const RenderHandle& p_render, const G
 	Render* l_render = (Render*)p_render;
 	l_render->heap.material_add_uniform_parameter(this->handle, p_initial_value);
 };
+
+void MaterialHandle::set_uniform_parameter(const RenderHandle& p_render, const size_t p_parameter_index, const GPtr& p_value)
+{
+	Render* l_render = (Render*)p_render;
+	l_render->heap.material_set_uniform_paramter(this->handle, p_parameter_index, p_value);
+};
+
+void MaterialHandle::get_uniform_paramter(const RenderHandle& p_render, size_t p_parameter_index, GPtr& out_value)
+{
+	Render* l_render = (Render*)p_render;
+	l_render->heap.material_get_uniform_paramter(this->handle, p_parameter_index, out_value);
+};
+
 
 void MaterialHandle::free(const RenderHandle& p_render)
 {

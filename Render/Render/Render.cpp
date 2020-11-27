@@ -2125,12 +2125,12 @@ struct Shader
 	}
 
 	Shader(const size_t p_key, const size_t p_execution_order, const ShaderModule& p_vertex_shader, const ShaderModule& p_fragment_shader,
-		const ShaderCompareOp::Type p_compare_op, const RenderPass& p_render_pass, const RenderAPI& p_render_api)
+		const ShaderAsset::Config& p_shader_config, const RenderPass& p_render_pass, const RenderAPI& p_render_api)
 	{
 		this->key = p_key;
 		this->execution_order = p_execution_order;
 		this->createPipelineLayout(p_render_api);
-		this->createPipeline(p_render_api.device, p_render_pass, p_vertex_shader, p_fragment_shader, p_compare_op);
+		this->createPipeline(p_render_api.device, p_render_pass, p_vertex_shader, p_fragment_shader, p_shader_config);
 	}
 
 	inline void dispose(const Device& p_device)
@@ -2165,7 +2165,7 @@ private:
 	}
 
 	inline void createPipeline(const Device& p_device, const RenderPass& p_renderPass,
-		const ShaderModule& p_vertex_shader, const ShaderModule& p_fragment_shader, const ShaderCompareOp::Type p_compare_op)
+		const ShaderModule& p_vertex_shader, const ShaderModule& p_fragment_shader, const ShaderAsset::Config& p_shader_config)
 	{
 		com::Vector<vk::DynamicState> l_dynamicstates_enabled;
 		l_dynamicstates_enabled.allocate(2);
@@ -2198,8 +2198,10 @@ private:
 			l_rasterization_state.setDepthBiasEnable(false);
 
 			vk::PipelineColorBlendAttachmentState l_blendattachment_state;
+
 			l_blendattachment_state.setColorWriteMask(vk::ColorComponentFlags(0xf));
 			l_blendattachment_state.setBlendEnable(false);
+
 			vk::PipelineColorBlendStateCreateInfo l_blendattachment_state_create;
 			l_blendattachment_state_create.setAttachmentCount(1);
 			l_blendattachment_state_create.setPAttachments(&l_blendattachment_state);
@@ -2217,8 +2219,8 @@ private:
 
 			vk::PipelineDepthStencilStateCreateInfo l_depthstencil_state;
 			l_depthstencil_state.setDepthTestEnable(true);
-			l_depthstencil_state.setDepthWriteEnable(true);
-			l_depthstencil_state.setDepthCompareOp((vk::CompareOp)p_compare_op);
+			l_depthstencil_state.setDepthWriteEnable(p_shader_config.zwrite);
+			l_depthstencil_state.setDepthCompareOp((vk::CompareOp)p_shader_config.ztest);
 			l_depthstencil_state.setDepthBoundsTestEnable(false);
 			vk::StencilOpState l_back;
 			l_back.setCompareOp(vk::CompareOp::eAlways);
@@ -2306,6 +2308,37 @@ private:
 	inline void destroyPipeline(const Device& p_device)
 	{
 		p_device.device.destroyPipeline(this->pipeline);
+	}
+
+	inline static vk::BlendOp blendop_map(ShaderBlendOp::Type p_input)
+	{
+		switch (p_input)
+		{
+		case ShaderBlendOp::Type::Add: return vk::BlendOp::eAdd;
+		case ShaderBlendOp::Type::Substract: return vk::BlendOp::eSubtract;
+		case ShaderBlendOp::Type::ReverseSubstract: return vk::BlendOp::eReverseSubtract;
+		case ShaderBlendOp::Type::Min: return vk::BlendOp::eMin;
+		case ShaderBlendOp::Type::Max: return vk::BlendOp::eMax;
+		}
+	}
+
+	inline static vk::BlendFactor blendfactor_map(ShaderBlendFactor::Type p_input)
+	{
+
+		switch (p_input)
+		{
+		case ShaderBlendFactor::Type::One: return vk::BlendFactor::eOne;
+		case ShaderBlendFactor::Type::Zero: return vk::BlendFactor::eZero;
+		case ShaderBlendFactor::Type::SrcColor: return vk::BlendFactor::eSrcColor;
+		case ShaderBlendFactor::Type::SrcAlpha: return vk::BlendFactor::eSrcAlpha;
+		case ShaderBlendFactor::Type::DstColor: return vk::BlendFactor::eDstColor;
+		case ShaderBlendFactor::Type::DstAlpha: return vk::BlendFactor::eDstAlpha;
+		case ShaderBlendFactor::Type::OneMinusSrcColor: return vk::BlendFactor::eOneMinusSrcColor;
+		case ShaderBlendFactor::Type::OneMinusSrcAlpha: return vk::BlendFactor::eOneMinusSrcAlpha;
+		case ShaderBlendFactor::Type::OneMinusDstColor: return vk::BlendFactor::eOneMinusDstColor;
+		case ShaderBlendFactor::Type::OneMinusDstAlpha: return vk::BlendFactor::eOneMinusDstAlpha;
+		}
+
 	}
 };
 
@@ -2554,6 +2587,11 @@ struct ShaderUniformBufferParameter
 	inline char* get_buffer_ptr()
 	{
 		return this->memory.mapped_memory.mapped_data;
+	};
+
+	inline void copy_to(GPtr& p_to)
+	{
+		memcpy(p_to.ptr, this->get_buffer_ptr(), p_to.element_size);
 	};
 
 	inline void pushbuffer(const GPtr& p_source, const Device& p_device)
@@ -2886,7 +2924,7 @@ struct RenderHeap2
 				Shader l_shader = Shader(p_key, l_shader_asset.execution_order,
 					this->render_heap->shadermodules[l_vertex_module],
 					this->render_heap->shadermodules[l_fragment_module],
-					l_shader_asset.compare_op,
+					l_shader_asset.config,
 					this->render_heap->render_api->swap_chain.renderpass,
 					*(this->render_heap->render_api)
 				);
@@ -3158,6 +3196,18 @@ public:
 		this->materials[p_material].add_uniform_parameter(this->shader_uniform_parameters.alloc_element(l_diffuse_color));
 	};
 
+	inline void material_set_uniform_paramter(const com::TPoolToken<Material>& p_material, size_t p_parameter_index, const GPtr& p_value)
+	{
+		this->shader_uniform_parameters[com::TPoolToken<ShaderUniformBufferParameter>(this->materials[p_material].parameters[p_parameter_index].parameter_token.Index)]
+			.pushbuffer(p_value, this->render_api->device);
+	};
+
+	inline void material_get_uniform_paramter(const com::TPoolToken<Material>& p_material, size_t p_parameter_index, GPtr& out_value)
+	{
+		this->shader_uniform_parameters[com::TPoolToken<ShaderUniformBufferParameter>(this->materials[p_material].parameters[p_parameter_index].parameter_token.Index)]
+			.copy_to(out_value);
+	};
+
 	inline void free_material(const com::TPoolToken<Material>& p_material, const com::TPoolToken<Shader>& p_shader)
 	{
 		com::Vector<com::TPoolToken<Material>>& l_shaders_to_materials = this->shaders_to_materials[p_shader.cast<com::Vector<com::TPoolToken<Material>>>()];
@@ -3226,9 +3276,6 @@ public:
 	inline void set_material(com::TPoolToken<RenderableObject> p_renderable_object, com::TPoolToken<Material> p_old_marterial, 
 				com::TPoolToken<Shader> p_old_shader, com::TPoolToken<Material> p_material)
 	{
-		//Remove old link
-		this->free_material(p_old_marterial, p_old_shader);
-
 		//Create new link
 		this->material_to_renderableobjects[p_material.Index].push_back(p_renderable_object);
 	};

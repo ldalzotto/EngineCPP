@@ -357,6 +357,27 @@ struct JSONDeserializer<float>
 };
 
 template<>
+struct JSONDeserializer<bool>
+{
+	static bool deserialize(Serialization::JSON::JSONObjectIterator& p_iterator)
+	{
+		String<> l_str; l_str.allocate(30);
+		l_str.append(p_iterator.get_currentfield().value);
+		bool l_return = false;
+		if (l_str.equals(StringSlice("true")))
+		{
+			l_return = true;
+		}
+		else if (l_str.equals(StringSlice("false")))
+		{
+			l_return = false;
+		}
+		l_str.free();
+		return l_return;
+	};
+};
+
+template<>
 struct JSONDeserializer<String<>>
 {
 	static String<> deserialize(Serialization::JSON::JSONObjectIterator& p_iterator)

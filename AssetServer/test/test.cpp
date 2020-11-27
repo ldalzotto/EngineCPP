@@ -6,6 +6,25 @@
 void main(int argc, char** argv)
 {
 
+	size_t One = Hash<StringSlice>::hash(StringSlice("One"));
+	size_t Zero = Hash<StringSlice>::hash(StringSlice("Zero"));
+	size_t SrcColor = Hash<StringSlice>::hash(StringSlice("SrcColor"));
+	size_t SrcAlpha = Hash<StringSlice>::hash(StringSlice("SrcAlpha"));
+	size_t DstColor = Hash<StringSlice>::hash(StringSlice("DstColor"));
+	size_t DstAlpha = Hash<StringSlice>::hash(StringSlice("DstAlpha"));
+	size_t OneMinusSrcColor = Hash<StringSlice>::hash(StringSlice("OneMinusSrcColor"));
+	size_t OneMinusSrcAlpha = Hash<StringSlice>::hash(StringSlice("OneMinusSrcAlpha"));
+	size_t OneMinusDstColor = Hash<StringSlice>::hash(StringSlice("OneMinusDstColor"));
+	size_t OneMinusDstAlpha = Hash<StringSlice>::hash(StringSlice("OneMinusDstAlpha"));
+
+
+	size_t Add = Hash<StringSlice>::hash(StringSlice("Add"));
+	size_t Substract = Hash<StringSlice>::hash(StringSlice("Substract"));
+	size_t ReverseSubstract = Hash<StringSlice>::hash(StringSlice("ReverseSubstract"));
+	size_t Min = Hash<StringSlice>::hash(StringSlice("Min"));
+	size_t Max = Hash<StringSlice>::hash(StringSlice("Max"));
+
+
 #if 0
 	AssetServer l_server;
 	l_server.allocate(std::string(argv[0]));

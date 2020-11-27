@@ -47,6 +47,9 @@ struct MaterialHandle : public Handle
 	void allocate(const RenderHandle& p_render, const ShaderHandle& p_shader);
 	void add_image_parameter(const RenderHandle& p_render, const TextureHandle& p_texture);
 	void add_uniform_parameter(const RenderHandle& p_render, const GPtr& p_initial_value);
+	void set_uniform_parameter(const RenderHandle& p_render, const size_t p_parameter_index, const GPtr& p_value);
+	void get_uniform_paramter(const RenderHandle& p_render, size_t p_parameter_index, GPtr& out_value);
+
 	void free(const RenderHandle& p_render);
 };
 
