@@ -448,7 +448,7 @@ struct RenderPass
 {
 	vk::RenderPass l_render_pass;
 
-	void create(const Device& p_device, vk::SurfaceFormatKHR p_surface_format, vk::Format p_depth_format)
+	void create_color_depth(const Device& p_device, vk::Format p_rendertarget_format, vk::Format p_depth_format)
 	{
 		com::Vector<vk::AttachmentDescription> l_attachments;
 		l_attachments.allocate(2);
@@ -460,14 +460,14 @@ struct RenderPass
 		{
 			vk::AttachmentDescription& l_color_attachment = l_attachments[0];
 			l_color_attachment = vk::AttachmentDescription();
-			l_color_attachment.setFormat(p_surface_format.format);
+			l_color_attachment.setFormat(p_rendertarget_format);
 			l_color_attachment.setSamples(vk::SampleCountFlagBits::e1);
 			l_color_attachment.setLoadOp(vk::AttachmentLoadOp::eClear);
 			l_color_attachment.setStoreOp(vk::AttachmentStoreOp::eStore);
 			l_color_attachment.setStencilLoadOp(vk::AttachmentLoadOp::eDontCare);
 			l_color_attachment.setStencilStoreOp(vk::AttachmentStoreOp::eDontCare);
 			l_color_attachment.setInitialLayout(vk::ImageLayout::eUndefined);
-			l_color_attachment.setFinalLayout(vk::ImageLayout::ePresentSrcKHR);
+			l_color_attachment.setFinalLayout(vk::ImageLayout::eColorAttachmentOptimal);
 
 			vk::AttachmentDescription& l_depth_attachment = l_attachments[1];
 			l_depth_attachment = vk::AttachmentDescription();
@@ -511,6 +511,31 @@ struct RenderPass
 	{
 		p_device.device.destroyRenderPass(this->l_render_pass);
 	}
+};
+
+struct FrameBuffer
+{
+	vk::Framebuffer frame_buffer;
+
+	inline void allocate(const Device& p_device, com::Vector<vk::ImageView>& p_attachments, RenderPass& p_render_pass, vk::Extent2D& p_extend)
+	{
+		vk::FramebufferCreateInfo l_framebuffer_create;
+		l_framebuffer_create.setRenderPass(p_render_pass.l_render_pass);
+		l_framebuffer_create.setAttachmentCount((uint32_t)p_attachments.Size);
+		l_framebuffer_create.setPAttachments(p_attachments.Memory);
+		l_framebuffer_create.setWidth(p_extend.width);
+		l_framebuffer_create.setHeight(p_extend.height);
+		l_framebuffer_create.setLayers(1);
+
+		this->frame_buffer = p_device.device.createFramebuffer(l_framebuffer_create);
+	};
+
+	inline void free(const Device& p_device)
+	{
+		p_device.device.destroyFramebuffer(this->frame_buffer);
+		this->frame_buffer = nullptr;
+	};
+
 };
 
 struct CommandBuffer
@@ -1090,6 +1115,21 @@ struct TransitionBarrierConfigurationBuilder<vk::ImageLayout::eTransferDstOptima
 	};
 };
 
+template<>
+struct TransitionBarrierConfigurationBuilder<vk::ImageLayout::eUndefined, vk::ImageLayout::ePresentSrcKHR> {
+
+	inline static TextureLayoutTransitionBarrierConfiguration build()
+	{
+		TextureLayoutTransitionBarrierConfiguration l_transition;
+		l_transition.src_access_mask = vk::AccessFlags(vk::AccessFlagBits::eTransferWrite);
+		l_transition.dst_access_mask = vk::AccessFlags(vk::AccessFlagBits::eTransferRead);
+
+		l_transition.src_stage = vk::PipelineStageFlags(vk::PipelineStageFlagBits::eTransfer);
+		l_transition.dst_stage = vk::PipelineStageFlags(vk::PipelineStageFlagBits::eTransfer);
+		return l_transition;
+	};
+};
+
 struct TextureLayoutTransitionCommand
 {
 	inline static const RenderEnums::DeferredCommandBufferExecutionType Type = RenderEnums::DeferredCommandBufferExecutionType::IMAGE_TRANSITION;
@@ -1369,28 +1409,35 @@ public:
 	typedef struct _SwapChainBuffers {
 		VkImage image;
 		VkImageView view;
+		vk::ImageSubresourceLayers image_layers;
 	} SwapChainBuffer;
 
 	vk::SwapchainKHR handle;
 
 	vk::SurfaceFormatKHR surface_format;
+	vk::Format rendertarget_format;
 	vk::Format depth_format;
 
 	vk::PresentModeKHR present_mode;
-	vk::Extent2D extend;
+	vk::Extent2D window_extend;
 	uint32_t image_count;
 
 	std::vector<vk::Image> images;
 	com::Vector<SwapChainBuffer> buffers;
 
+
+	vk::Extent2D rendertarget_extend;
+	GPUOnlyImageMemory rendertarget_image;
+	vk::ImageView rendertarget_image_view;
+	vk::ImageSubresourceLayers rendertarget_image_layers;
+
 	GPUOnlyImageMemory depth_image;
 	vk::ImageView depth_image_view;
 
-	SwapChainBuffer depth_stencil;
 
 	RenderPass renderpass;
 
-	com::Vector<vk::Framebuffer> framebuffers;
+	com::Vector<FrameBuffer> framebuffers;
 
 private:
 	const vk::Instance* instance;
@@ -1424,7 +1471,7 @@ public:
 		l_swapchain_create_info.setMinImageCount(this->image_count);
 		l_swapchain_create_info.setImageFormat(this->surface_format.format);
 		l_swapchain_create_info.setImageColorSpace(this->surface_format.colorSpace);
-		l_swapchain_create_info.setImageExtent(this->extend);
+		l_swapchain_create_info.setImageExtent(this->window_extend);
 		l_swapchain_create_info.setImageArrayLayers(1);
 		l_swapchain_create_info.setImageUsage(vk::ImageUsageFlags(vk::ImageUsageFlagBits::eColorAttachment));
 		l_swapchain_create_info.setImageSharingMode(vk::SharingMode::eExclusive);
@@ -1437,7 +1484,8 @@ public:
 		l_swapchain_create_info.setOldSwapchain(nullptr);
 		this->handle = this->device->device.createSwapchainKHR(l_swapchain_create_info);
 
-		this->create_images();
+		this->create_images(p_staging_commands);
+		this->create_rendertarget_image(p_staging_commands);
 		this->create_depth_image(p_staging_commands);
 		this->createRenderPass(p_device);
 		this->create_framebuffers(p_device);
@@ -1447,6 +1495,7 @@ public:
 	{
 		this->destroy_framebuffers();
 		this->destroyRenderPass();
+		this->free_rendertarget_image(p_staging_commands);
 		this->destroy_depth_image(p_staging_commands);
 		this->destroy_images();
 		this->device->device.destroySwapchainKHR(this->handle);
@@ -1503,33 +1552,37 @@ private:
 	inline void pick_extent()
 	{
 		this->surface_capabilities = this->physicalDevice->getSurfaceCapabilitiesKHR(*this->surface);
+		this->rendertarget_extend = vk::Extent2D(800, 600);
+
 		if (this->surface_capabilities.currentExtent.width != UINT32_MAX)
 		{
-			this->extend = this->surface_capabilities.currentExtent;
+			this->window_extend = this->surface_capabilities.currentExtent;
 			return;
 		}
 		else
 		{
-			this->extend.setWidth(this->window->Width);
-			this->extend.setHeight(this->window->Height);
+			this->window_extend.setWidth(this->window->Width);
+			this->window_extend.setHeight(this->window->Height);
 
-			if (this->extend.width < this->surface_capabilities.minImageExtent.width)
+			if (this->window_extend.width < this->surface_capabilities.minImageExtent.width)
 			{
-				this->extend.width = this->surface_capabilities.minImageExtent.width;
+				this->window_extend.width = this->surface_capabilities.minImageExtent.width;
 			}
-			if (this->extend.width > this->surface_capabilities.maxImageExtent.width)
+			if (this->window_extend.width > this->surface_capabilities.maxImageExtent.width)
 			{
-				this->extend.width = this->surface_capabilities.maxImageExtent.width;
+				this->window_extend.width = this->surface_capabilities.maxImageExtent.width;
 			}
-			if (this->extend.height < this->surface_capabilities.minImageExtent.height)
+			if (this->window_extend.height < this->surface_capabilities.minImageExtent.height)
 			{
-				this->extend.height = this->surface_capabilities.minImageExtent.height;
+				this->window_extend.height = this->surface_capabilities.minImageExtent.height;
 			}
-			if (this->extend.height > this->surface_capabilities.maxImageExtent.height)
+			if (this->window_extend.height > this->surface_capabilities.maxImageExtent.height)
 			{
-				this->extend.height = this->surface_capabilities.maxImageExtent.height;
+				this->window_extend.height = this->surface_capabilities.maxImageExtent.height;
 			}
 		}
+
+
 	}
 
 	inline void pick_image_count()
@@ -1541,7 +1594,7 @@ private:
 		}
 	}
 
-	inline void create_images()
+	inline void create_images(DeferredCommandBufferExecution& p_staging_commands)
 	{
 		this->images = this->device->device.getSwapchainImagesKHR(this->handle);
 		this->buffers.resize(this->images.size());
@@ -1567,7 +1620,16 @@ private:
 			l_swapchainBuffer.image = l_image;
 			l_swapchainBuffer.view = this->device->device.createImageView(l_image_view_create_info);
 
+			l_swapchainBuffer.image_layers.aspectMask = l_image_subresource.aspectMask;
+			l_swapchainBuffer.image_layers.baseArrayLayer = l_image_subresource.baseArrayLayer;
+			l_swapchainBuffer.image_layers.layerCount = l_image_subresource.layerCount;
+			l_swapchainBuffer.image_layers.mipLevel = 0;
+
 			this->buffers.push_back(l_swapchainBuffer);
+
+			com::TPoolToken<bool> l_test;
+			p_staging_commands.allocate_texturelayouttransitioncommand(l_image, l_image_subresource, vk::ImageLayout::eUndefined, vk::ImageLayout::ePresentSrcKHR,
+				TransitionBarrierConfigurationBuilder<vk::ImageLayout::eUndefined, vk::ImageLayout::ePresentSrcKHR>::build(), l_test);
 		}
 	}
 
@@ -1580,6 +1642,50 @@ private:
 		this->buffers.free();
 	}
 
+	inline void create_rendertarget_image(DeferredCommandBufferExecution& p_staging_commands)
+	{
+		this->rendertarget_format = vk::Format::eR32G32B32A32Sfloat;
+
+		vk::ImageCreateInfo l_depth_image_create_info;
+		l_depth_image_create_info.setImageType(vk::ImageType::e2D);
+		l_depth_image_create_info.setFormat(this->rendertarget_format);
+		l_depth_image_create_info.setExtent({ this->rendertarget_extend.width, this->rendertarget_extend.height, 1 });
+		l_depth_image_create_info.setMipLevels(1);
+		l_depth_image_create_info.setArrayLayers(1);
+		l_depth_image_create_info.setSamples(vk::SampleCountFlagBits::e1);
+		l_depth_image_create_info.setTiling(vk::ImageTiling::eOptimal);
+		l_depth_image_create_info.setUsage(vk::ImageUsageFlagBits::eColorAttachment);
+		l_depth_image_create_info.setInitialLayout(vk::ImageLayout::eUndefined);
+
+		this->rendertarget_image.allocate(p_staging_commands, l_depth_image_create_info, *this->device);
+
+		vk::ImageViewCreateInfo l_depth_view_create_info;
+		l_depth_view_create_info.setImage(this->rendertarget_image.buffer);
+		l_depth_view_create_info.setViewType(vk::ImageViewType::e2D);
+		l_depth_view_create_info.setFormat(this->rendertarget_format);
+		l_depth_view_create_info.setComponents(vk::ComponentMapping());
+
+		vk::ImageSubresourceRange l_image_subresource;
+		l_image_subresource.setBaseMipLevel(0);
+		l_image_subresource.setLevelCount(1);
+		l_image_subresource.setBaseArrayLayer(0);
+		l_image_subresource.setLayerCount(1);
+		l_image_subresource.setAspectMask(vk::ImageAspectFlagBits::eColor);
+		l_depth_view_create_info.setSubresourceRange(l_image_subresource);
+
+		this->rendertarget_image_view = this->device->device.createImageView(l_depth_view_create_info);
+		this->rendertarget_image_layers.aspectMask = l_image_subresource.aspectMask;
+		this->rendertarget_image_layers.baseArrayLayer = l_image_subresource.baseArrayLayer;
+		this->rendertarget_image_layers.layerCount = l_image_subresource.layerCount;
+		this->rendertarget_image_layers.mipLevel = 0;
+	}
+
+	inline void free_rendertarget_image(DeferredCommandBufferExecution& p_staging_commands)
+	{
+		this->device->device.destroyImageView(this->rendertarget_image_view);
+		this->rendertarget_image.dispose(*this->device, p_staging_commands);
+	}
+
 	inline void create_depth_image(DeferredCommandBufferExecution& p_staging_commands)
 	{
 		//TODO -> format check
@@ -1588,7 +1694,7 @@ private:
 		vk::ImageCreateInfo l_depth_image_create_info;
 		l_depth_image_create_info.setImageType(vk::ImageType::e2D);
 		l_depth_image_create_info.setFormat(this->depth_format);
-		l_depth_image_create_info.setExtent({ this->extend.width, this->extend.height, 1 });
+		l_depth_image_create_info.setExtent({ this->rendertarget_extend.width, this->rendertarget_extend.height, 1 });
 		l_depth_image_create_info.setMipLevels(1);
 		l_depth_image_create_info.setArrayLayers(1);
 		l_depth_image_create_info.setSamples(vk::SampleCountFlagBits::e1);
@@ -1623,7 +1729,7 @@ private:
 
 	inline void createRenderPass(const Device& p_device)
 	{
-		this->renderpass.create(p_device, this->surface_format, this->depth_format);
+		this->renderpass.create_color_depth(p_device, this->rendertarget_format, this->depth_format);
 	}
 
 	inline void destroyRenderPass()
@@ -1635,23 +1741,18 @@ private:
 	{
 		this->framebuffers.allocate(this->image_count);
 		this->framebuffers.Size = this->framebuffers.Capacity;
+
 		com::Vector<vk::ImageView> l_attachments;
 		l_attachments.allocate(2);
+		l_attachments.Size = l_attachments.Capacity;
+		l_attachments[0] = this->rendertarget_image_view;
+		l_attachments[1] = this->depth_image_view;
+
 		for (size_t i = 0; i < this->framebuffers.Size; i++)
 		{
-			l_attachments.Size = l_attachments.Capacity;
-			l_attachments[0] = this->buffers[i].view;
-			l_attachments[1] = this->depth_image_view;
-
-			vk::FramebufferCreateInfo l_framebuffer_create;
-			l_framebuffer_create.setRenderPass(this->renderpass.l_render_pass);
-			l_framebuffer_create.setAttachmentCount((uint32_t)l_attachments.Size);
-			l_framebuffer_create.setPAttachments(l_attachments.Memory);
-			l_framebuffer_create.setWidth(this->window->Width);
-			l_framebuffer_create.setHeight(this->window->Height);
-			l_framebuffer_create.setLayers(1);
-
-			this->framebuffers[i] = p_device.device.createFramebuffer(l_framebuffer_create);
+			FrameBuffer l_frame_buffer;
+			l_frame_buffer.allocate(p_device, l_attachments, this->renderpass, this->rendertarget_extend);
+			this->framebuffers[i] = l_frame_buffer;
 		}
 		l_attachments.free();
 	}
@@ -1660,7 +1761,7 @@ private:
 	{
 		for (size_t i = 0; i < this->framebuffers.Size; i++)
 		{
-			this->device->device.destroyFramebuffer(this->framebuffers[i]);
+			this->framebuffers[i].free(*this->device);
 		}
 		this->framebuffers.free();
 	}
@@ -3273,8 +3374,8 @@ public:
 		this->renderableobjects.release_element(p_renderableObject);
 	};
 
-	inline void set_material(com::TPoolToken<RenderableObject> p_renderable_object, com::TPoolToken<Material> p_old_marterial, 
-				com::TPoolToken<Shader> p_old_shader, com::TPoolToken<Material> p_material)
+	inline void set_material(com::TPoolToken<RenderableObject> p_renderable_object, com::TPoolToken<Material> p_old_marterial,
+		com::TPoolToken<Shader> p_old_shader, com::TPoolToken<Material> p_material)
 	{
 		//Create new link
 		this->material_to_renderableobjects[p_material.Index].push_back(p_renderable_object);
@@ -3300,7 +3401,7 @@ struct Render
 
 	inline Render(const AssetServerHandle p_asset_server)
 	{
-		this->window = RenderWindow(800, 600, "MyGame");
+		this->window = RenderWindow(1280, 720, "MyGame");
 		this->renderApi.init(window);
 		this->create_global_buffers();
 		this->heap.allocate(p_asset_server, this->renderApi);
@@ -3338,23 +3439,21 @@ struct Render
 		l_renderpass_begin.setRenderPass(this->renderApi.swap_chain.renderpass.l_render_pass);
 		vk::Rect2D l_renderArea;
 		l_renderArea.setOffset(vk::Offset2D(0, 0));
-		l_renderArea.setExtent(this->renderApi.swap_chain.extend);
+		l_renderArea.setExtent(this->renderApi.swap_chain.rendertarget_extend);
 		l_renderpass_begin.setRenderArea(l_renderArea);
 		l_renderpass_begin.setClearValueCount(2);
 		l_renderpass_begin.setPClearValues(l_clear);
-		l_renderpass_begin.setFramebuffer(this->renderApi.swap_chain.framebuffers[l_render_image_index]);
+		l_renderpass_begin.setFramebuffer(this->renderApi.swap_chain.framebuffers[l_render_image_index].frame_buffer);
 
 		vk::Viewport l_viewport;
-		l_viewport.setHeight(this->window.Height);
-		l_viewport.setWidth(this->window.Width);
-		//l_viewport.setX(this->window.Width);
-		//l_viewport.setY(this->window.Height);
+		l_viewport.setHeight(this->renderApi.swap_chain.rendertarget_extend.height);
+		l_viewport.setWidth(this->renderApi.swap_chain.rendertarget_extend.width);
 		l_viewport.setMinDepth(0.0f);
 		l_viewport.setMaxDepth(1.0f);
 
 		vk::Rect2D l_windowarea;
 		l_windowarea.setOffset(vk::Offset2D(0, 0));
-		l_windowarea.setExtent(vk::Extent2D(this->window.Width, this->window.Height));
+		l_windowarea.setExtent(vk::Extent2D(this->renderApi.swap_chain.rendertarget_extend.width, this->renderApi.swap_chain.rendertarget_extend.height));
 
 
 		l_command_buffer.command_buffer.beginRenderPass(l_renderpass_begin, vk::SubpassContents::eInline);
@@ -3391,6 +3490,19 @@ struct Render
 
 		l_command_buffer.command_buffer.endRenderPass();
 
+
+		/*
+		vk::ImageCopy l_copy_region;
+		l_copy_region.setSrcOffset(vk::Offset3D(0, 0, 0));
+		l_copy_region.setSrcSubresource(this->renderApi.swap_chain.rendertarget_image_layers);
+
+		l_copy_region.setDstOffset(vk::Offset3D(0, 0.0f, 0.0f));
+		l_copy_region.setDstSubresource(this->renderApi.swap_chain.buffers[l_render_image_index].image_layers);
+
+		l_copy_region.setExtent(vk::Extent3D(this->renderApi.swap_chain.window_extend.width, this->renderApi.swap_chain.window_extend.height, 1));
+		l_command_buffer.command_buffer.copyImage(this->renderApi.swap_chain.rendertarget_image.buffer, vk::ImageLayout::eColorAttachmentOptimal, this->renderApi.swap_chain.images[l_render_image_index],
+			vk::ImageLayout::ePresentSrcKHR, l_copy_region);
+			*/
 		l_command_buffer.end();
 
 
@@ -3414,7 +3526,7 @@ struct Render
 	{
 		CameraMatrices l_cam_mat;
 		l_cam_mat.view = view(p_world_position, p_world_forward, p_world_up);
-		l_cam_mat.projection = perspective<float>(p_fov * DEG_TO_RAD, (float)this->renderApi.swap_chain.extend.width / (float)this->renderApi.swap_chain.extend.height, p_near, p_far);
+		l_cam_mat.projection = perspective<float>(p_fov * DEG_TO_RAD, (float)this->renderApi.swap_chain.rendertarget_extend.width / (float)this->renderApi.swap_chain.rendertarget_extend.height, p_near, p_far);
 		this->camera_matrices_globalbuffer.pushbuffer(&l_cam_mat, this->renderApi.device);
 	};
 
