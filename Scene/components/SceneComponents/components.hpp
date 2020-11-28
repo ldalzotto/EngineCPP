@@ -9,12 +9,22 @@ struct MeshRenderer
 	inline static const size_t Id = 0;
 	static const SceneNodeComponent_TypeInfo Type;
 
-	size_t material;
-	size_t model;
+	struct MaterialKey
+	{
+		size_t key;
+		inline MaterialKey() {};
+		inline MaterialKey(size_t p_key) { this->key = p_key; };
+	} material;
+
+	struct MeshKey {
+		size_t key;
+		inline MeshKey() {};
+		inline MeshKey(size_t p_key) { this->key = p_key; };
+	} model;
 
 	com::PoolToken rendererable_object;
 
-	inline void initialize(const size_t& p_material, const size_t& p_model)
+	inline void initialize(const MeshRenderer::MaterialKey& p_material, const MeshRenderer::MeshKey& p_model)
 	{
 		this->material = p_material;
 		this->model = p_model;

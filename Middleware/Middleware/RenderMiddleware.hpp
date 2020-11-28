@@ -25,9 +25,9 @@ struct DefaultMaterial : public MaterialHandle
 
 struct MaterialBuilder
 {
-	inline static DefaultMaterial build(size_t p_material, AssetServerHandle& p_asset_server, RenderHandle& p_render)
+	inline static DefaultMaterial build(MeshRenderer::MaterialKey p_material, AssetServerHandle& p_asset_server, RenderHandle& p_render)
 	{
-		com::Vector<char> l_material_binary = p_asset_server.get_resource(p_material);
+		com::Vector<char> l_material_binary = p_asset_server.get_resource(p_material.key);
 		MaterialAsset l_material_asset = MaterialAsset::deserialize(l_material_binary.Memory);
 		l_material_binary.free();
 
@@ -120,7 +120,7 @@ struct RenderMiddleware
 		DefaultMaterial l_material = MaterialBuilder::build(p_mesh_renderer.material, this->asset_server, this->render);
 
 		MeshHandle l_mesh;
-		l_mesh.allocate(this->render, p_mesh_renderer.model);
+		l_mesh.allocate(this->render, p_mesh_renderer.model.key);
 		RenderableObjectHandle l_renderable_object;
 		l_renderable_object.allocate(this->render, l_material, l_mesh);
 

@@ -543,8 +543,10 @@ struct CommandHandler
 			if (p_tool_state.engine_runner.engines[p_tool_state.selectged_engine].hasValue)
 			{
 				com::Vector<char> l_scene = engine_assetserver(p_tool_state.engine_runner.engines[p_tool_state.selectged_engine].value.running_engine).get_resource(Hash<StringSlice>::hash(p_command_stack[p_depth + 1]));
-				size_t l_pointer = 0;
-				engine_scene(p_tool_state.engine_runner.engines[p_tool_state.selectged_engine].value.running_engine).feed_with_asset(SceneSerializer::deserialize_from_binary(l_scene));
+				SceneAsset l_deserialized_scene = SceneSerializer::deserialize_from_binary(l_scene);
+				{
+					engine_scene(p_tool_state.engine_runner.engines[p_tool_state.selectged_engine].value.running_engine).feed_with_asset(l_deserialized_scene);
+				}
 				l_scene.free();
 				p_tool_state.engine_runner.engines[p_tool_state.selectged_engine].value.update(0);
 			}

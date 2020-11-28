@@ -1299,6 +1299,12 @@ struct TextureLayoutTransitionCommand
 		p_commandbuffer.command_buffer.pipelineBarrier(p_transition_configuration.src_stage, p_transition_configuration.dst_stage,
 			vk::DependencyFlags(), 0, nullptr, 0, nullptr, 1, &l_image_memory_barrier);
 	};
+
+	template<vk::ImageLayout SourceLayout, vk::ImageLayout TargetLayout>
+	inline static void execute_transition(CommandBuffer& p_commandbuffer, vk::Image& p_image, vk::ImageSubresourceRange& p_image_subresource_range)
+	{
+		execute_transition(p_commandbuffer, SourceLayout, TargetLayout, TransitionBarrierConfigurationBuilder<SourceLayout, TargetLayout>::build(), p_image, p_image_subresource_range);
+	}
 };
 
 struct DeferredCommandBufferExecution
@@ -3678,8 +3684,7 @@ struct KHRPresentStep
 	{
 
 		//vk::ImageLayout::eColorAttachmentOptimal
-		TextureLayoutTransitionCommand::execute_transition(p_command_buffer, vk::ImageLayout::eColorAttachmentOptimal, vk::ImageLayout::eShaderReadOnlyOptimal,
-			TransitionBarrierConfigurationBuilder<vk::ImageLayout::eColorAttachmentOptimal, vk::ImageLayout::eShaderReadOnlyOptimal>::build(),
+		TextureLayoutTransitionCommand::execute_transition<vk::ImageLayout::eColorAttachmentOptimal, vk::ImageLayout::eShaderReadOnlyOptimal>(p_command_buffer,
 			this->renderApi->swap_chain.rendertarget_image.buffer, this->renderApi->swap_chain.rendertarget_image_subresource_range);
 
 		vk::ClearValue l_clear[1];
