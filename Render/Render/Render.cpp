@@ -30,6 +30,12 @@ struct Vertex
 {
 	vec3f position;
 	vec2f uv;
+
+	inline Vertex(const vec3f& p_position, const vec2f& p_uv)
+	{
+		this->position = p_position;
+		this->uv = p_uv;
+	};
 };
 
 struct RenderWindow
@@ -444,6 +450,7 @@ struct Device
 };
 
 
+//TODO -> create a dynamic RenderPass, from a vector of parameter
 struct RenderPass
 {
 	vk::RenderPass l_render_pass;
@@ -494,6 +501,49 @@ struct RenderPass
 			l_color_subpass.setColorAttachmentCount(1);
 			l_color_subpass.setPColorAttachments(&l_color_attachment_ref);
 			l_color_subpass.setPDepthStencilAttachment(&l_depth_atttachment_ref);
+
+			vk::RenderPassCreateInfo l_renderpass_create_info;
+			l_renderpass_create_info.setAttachmentCount((uint32_t)l_attachments.Size);
+			l_renderpass_create_info.setPAttachments(l_attachments.Memory);
+			l_renderpass_create_info.setSubpassCount((uint32_t)l_subpasses.Size);
+			l_renderpass_create_info.setPSubpasses(l_subpasses.Memory);
+
+			this->l_render_pass = p_device.device.createRenderPass(l_renderpass_create_info);
+		}
+		l_subpasses.free();
+		l_subpasses.free();
+	}
+
+	void create_khr_draw(const Device& p_device, vk::Format p_khr_format)
+	{
+		com::Vector<vk::AttachmentDescription> l_attachments;
+		l_attachments.allocate(1);
+		l_attachments.Size = l_attachments.Capacity;
+
+		com::Vector<vk::SubpassDescription> l_subpasses;
+		l_subpasses.allocate(1);
+		l_subpasses.Size = 1;
+		{
+			vk::AttachmentDescription& l_color_attachment = l_attachments[0];
+			l_color_attachment = vk::AttachmentDescription();
+			l_color_attachment.setFormat(p_khr_format);
+			l_color_attachment.setSamples(vk::SampleCountFlagBits::e1);
+			l_color_attachment.setLoadOp(vk::AttachmentLoadOp::eClear);
+			l_color_attachment.setStoreOp(vk::AttachmentStoreOp::eStore);
+			l_color_attachment.setStencilLoadOp(vk::AttachmentLoadOp::eDontCare);
+			l_color_attachment.setStencilStoreOp(vk::AttachmentStoreOp::eDontCare);
+			l_color_attachment.setInitialLayout(vk::ImageLayout::eUndefined);
+			l_color_attachment.setFinalLayout(vk::ImageLayout::ePresentSrcKHR);
+
+			vk::AttachmentReference l_color_attachment_ref;
+			l_color_attachment_ref.setAttachment(0);
+			l_color_attachment_ref.setLayout(vk::ImageLayout::eColorAttachmentOptimal);
+
+			vk::SubpassDescription& l_color_subpass = l_subpasses[0];
+			l_color_subpass = vk::SubpassDescription();
+			l_color_subpass.setPipelineBindPoint(vk::PipelineBindPoint::eGraphics);
+			l_color_subpass.setColorAttachmentCount(1);
+			l_color_subpass.setPColorAttachments(&l_color_attachment_ref);
 
 			vk::RenderPassCreateInfo l_renderpass_create_info;
 			l_renderpass_create_info.setAttachmentCount((uint32_t)l_attachments.Size);
@@ -1130,6 +1180,21 @@ struct TransitionBarrierConfigurationBuilder<vk::ImageLayout::eUndefined, vk::Im
 	};
 };
 
+template<>
+struct TransitionBarrierConfigurationBuilder<vk::ImageLayout::eColorAttachmentOptimal, vk::ImageLayout::eShaderReadOnlyOptimal> {
+
+	inline static TextureLayoutTransitionBarrierConfiguration build()
+	{
+		TextureLayoutTransitionBarrierConfiguration l_transition;
+		l_transition.src_access_mask = vk::AccessFlags(vk::AccessFlagBits::eColorAttachmentWrite);
+		l_transition.dst_access_mask = vk::AccessFlags(vk::AccessFlagBits::eShaderRead);
+
+		l_transition.src_stage = vk::PipelineStageFlags(vk::PipelineStageFlagBits::eColorAttachmentOutput);
+		l_transition.dst_stage = vk::PipelineStageFlags(vk::PipelineStageFlagBits::eFragmentShader);
+		return l_transition;
+	};
+};
+
 struct TextureLayoutTransitionCommand
 {
 	inline static const RenderEnums::DeferredCommandBufferExecutionType Type = RenderEnums::DeferredCommandBufferExecutionType::IMAGE_TRANSITION;
@@ -1147,20 +1212,7 @@ struct TextureLayoutTransitionCommand
 	{
 		if (!this->isAborted)
 		{
-			vk::ImageMemoryBarrier l_image_memory_barrier;
-			l_image_memory_barrier.setOldLayout(this->source_layout);
-			l_image_memory_barrier.setNewLayout(this->target_layout);
-			l_image_memory_barrier.setSrcQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED);
-			l_image_memory_barrier.setDstQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED);
-			l_image_memory_barrier.setImage(this->image);
-			l_image_memory_barrier.setSubresourceRange(this->image_subresource);
-
-			l_image_memory_barrier.setSrcAccessMask(this->transition_barrier.src_access_mask);
-			l_image_memory_barrier.setDstAccessMask(this->transition_barrier.dst_access_mask);
-
-			p_commandbuffer.command_buffer.pipelineBarrier(this->transition_barrier.src_stage, this->transition_barrier.dst_stage,
-				vk::DependencyFlags(), 0, nullptr, 0, nullptr, 1, &l_image_memory_barrier);
-
+			execute_transition(p_commandbuffer, this->source_layout, this->target_layout, this->transition_barrier, this->image, this->image_subresource);
 			p_stagin_completions.resolve(this->completion_token) = true;
 		}
 	};
@@ -1168,6 +1220,24 @@ struct TextureLayoutTransitionCommand
 	inline void invalidate()
 	{
 		this->isAborted = true;
+	};
+
+	inline static void execute_transition(CommandBuffer& p_commandbuffer, vk::ImageLayout p_source_layout, vk::ImageLayout p_target_layout,
+		TextureLayoutTransitionBarrierConfiguration& p_transition_configuration, vk::Image& p_image, vk::ImageSubresourceRange& p_image_subresource_range)
+	{
+		vk::ImageMemoryBarrier l_image_memory_barrier;
+		l_image_memory_barrier.setOldLayout(p_source_layout);
+		l_image_memory_barrier.setNewLayout(p_target_layout);
+		l_image_memory_barrier.setSrcQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED);
+		l_image_memory_barrier.setDstQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED);
+		l_image_memory_barrier.setImage(p_image);
+		l_image_memory_barrier.setSubresourceRange(p_image_subresource_range);
+
+		l_image_memory_barrier.setSrcAccessMask(p_transition_configuration.src_access_mask);
+		l_image_memory_barrier.setDstAccessMask(p_transition_configuration.dst_access_mask);
+
+		p_commandbuffer.command_buffer.pipelineBarrier(p_transition_configuration.src_stage, p_transition_configuration.dst_stage,
+			vk::DependencyFlags(), 0, nullptr, 0, nullptr, 1, &l_image_memory_barrier);
 	};
 };
 
@@ -1429,15 +1499,19 @@ public:
 	vk::Extent2D rendertarget_extend;
 	GPUOnlyImageMemory rendertarget_image;
 	vk::ImageView rendertarget_image_view;
+	vk::ImageSubresourceRange rendertarget_image_subresource_range;
 	vk::ImageSubresourceLayers rendertarget_image_layers;
 
 	GPUOnlyImageMemory depth_image;
 	vk::ImageView depth_image_view;
 
 
-	RenderPass renderpass;
+	RenderPass rendertarget_draw_renderpass;
+	FrameBuffer rendertarget_draw_framebuffers;
 
-	com::Vector<FrameBuffer> framebuffers;
+	RenderPass khr_pass;
+	com::Vector<FrameBuffer> khr_framebuffers;
+
 
 private:
 	const vk::Instance* instance;
@@ -1552,7 +1626,7 @@ private:
 	inline void pick_extent()
 	{
 		this->surface_capabilities = this->physicalDevice->getSurfaceCapabilitiesKHR(*this->surface);
-		this->rendertarget_extend = vk::Extent2D(800, 600);
+		this->rendertarget_extend = vk::Extent2D(256, 224);
 
 		if (this->surface_capabilities.currentExtent.width != UINT32_MAX)
 		{
@@ -1626,10 +1700,6 @@ private:
 			l_swapchainBuffer.image_layers.mipLevel = 0;
 
 			this->buffers.push_back(l_swapchainBuffer);
-
-			com::TPoolToken<bool> l_test;
-			p_staging_commands.allocate_texturelayouttransitioncommand(l_image, l_image_subresource, vk::ImageLayout::eUndefined, vk::ImageLayout::ePresentSrcKHR,
-				TransitionBarrierConfigurationBuilder<vk::ImageLayout::eUndefined, vk::ImageLayout::ePresentSrcKHR>::build(), l_test);
 		}
 	}
 
@@ -1654,7 +1724,7 @@ private:
 		l_depth_image_create_info.setArrayLayers(1);
 		l_depth_image_create_info.setSamples(vk::SampleCountFlagBits::e1);
 		l_depth_image_create_info.setTiling(vk::ImageTiling::eOptimal);
-		l_depth_image_create_info.setUsage(vk::ImageUsageFlagBits::eColorAttachment);
+		l_depth_image_create_info.setUsage(vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eSampled);
 		l_depth_image_create_info.setInitialLayout(vk::ImageLayout::eUndefined);
 
 		this->rendertarget_image.allocate(p_staging_commands, l_depth_image_create_info, *this->device);
@@ -1665,18 +1735,17 @@ private:
 		l_depth_view_create_info.setFormat(this->rendertarget_format);
 		l_depth_view_create_info.setComponents(vk::ComponentMapping());
 
-		vk::ImageSubresourceRange l_image_subresource;
-		l_image_subresource.setBaseMipLevel(0);
-		l_image_subresource.setLevelCount(1);
-		l_image_subresource.setBaseArrayLayer(0);
-		l_image_subresource.setLayerCount(1);
-		l_image_subresource.setAspectMask(vk::ImageAspectFlagBits::eColor);
-		l_depth_view_create_info.setSubresourceRange(l_image_subresource);
+		this->rendertarget_image_subresource_range.setBaseMipLevel(0);
+		this->rendertarget_image_subresource_range.setLevelCount(1);
+		this->rendertarget_image_subresource_range.setBaseArrayLayer(0);
+		this->rendertarget_image_subresource_range.setLayerCount(1);
+		this->rendertarget_image_subresource_range.setAspectMask(vk::ImageAspectFlagBits::eColor);
+		l_depth_view_create_info.setSubresourceRange(this->rendertarget_image_subresource_range);
 
 		this->rendertarget_image_view = this->device->device.createImageView(l_depth_view_create_info);
-		this->rendertarget_image_layers.aspectMask = l_image_subresource.aspectMask;
-		this->rendertarget_image_layers.baseArrayLayer = l_image_subresource.baseArrayLayer;
-		this->rendertarget_image_layers.layerCount = l_image_subresource.layerCount;
+		this->rendertarget_image_layers.aspectMask = this->rendertarget_image_subresource_range.aspectMask;
+		this->rendertarget_image_layers.baseArrayLayer = this->rendertarget_image_subresource_range.baseArrayLayer;
+		this->rendertarget_image_layers.layerCount = this->rendertarget_image_subresource_range.layerCount;
 		this->rendertarget_image_layers.mipLevel = 0;
 	}
 
@@ -1729,41 +1798,57 @@ private:
 
 	inline void createRenderPass(const Device& p_device)
 	{
-		this->renderpass.create_color_depth(p_device, this->rendertarget_format, this->depth_format);
+		this->rendertarget_draw_renderpass.create_color_depth(p_device, this->rendertarget_format, this->depth_format);
+		this->khr_pass.create_khr_draw(p_device, this->surface_format.format);
 	}
 
 	inline void destroyRenderPass()
 	{
-		this->renderpass.dispose(*this->device);
+		this->rendertarget_draw_renderpass.dispose(*this->device);
+		this->khr_pass.dispose(*this->device);
 	}
 
 	inline void create_framebuffers(const Device& p_device)
 	{
-		this->framebuffers.allocate(this->image_count);
-		this->framebuffers.Size = this->framebuffers.Capacity;
-
-		com::Vector<vk::ImageView> l_attachments;
-		l_attachments.allocate(2);
-		l_attachments.Size = l_attachments.Capacity;
-		l_attachments[0] = this->rendertarget_image_view;
-		l_attachments[1] = this->depth_image_view;
-
-		for (size_t i = 0; i < this->framebuffers.Size; i++)
 		{
-			FrameBuffer l_frame_buffer;
-			l_frame_buffer.allocate(p_device, l_attachments, this->renderpass, this->rendertarget_extend);
-			this->framebuffers[i] = l_frame_buffer;
+
+			com::Vector<vk::ImageView> l_attachments;
+			l_attachments.allocate(2);
+			l_attachments.Size = l_attachments.Capacity;
+			l_attachments[0] = this->rendertarget_image_view;
+			l_attachments[1] = this->depth_image_view;
+
+			this->rendertarget_draw_framebuffers.allocate(p_device, l_attachments, this->rendertarget_draw_renderpass, this->rendertarget_extend);
+			l_attachments.free();
 		}
-		l_attachments.free();
+
+		{
+			this->khr_framebuffers.allocate(this->image_count);
+			this->khr_framebuffers.Size = this->khr_framebuffers.Capacity;
+
+			com::Vector<vk::ImageView> l_attachments;
+			l_attachments.allocate(1);
+			l_attachments.Size = l_attachments.Capacity;
+
+			for (size_t i = 0; i < this->image_count; i++)
+			{
+				l_attachments[0] = this->buffers[i].view;
+				this->khr_framebuffers[i].allocate(p_device, l_attachments, this->khr_pass, vk::Extent2D(this->window->Width, this->window->Height));
+			}
+
+			l_attachments.free();
+
+		}
 	}
 
 	inline void destroy_framebuffers()
 	{
-		for (size_t i = 0; i < this->framebuffers.Size; i++)
+		for (size_t i = 0; i < this->khr_framebuffers.Size; i++)
 		{
-			this->framebuffers[i].free(*this->device);
+			this->khr_framebuffers[i].free(*this->device);
 		}
-		this->framebuffers.free();
+		this->khr_framebuffers.free();
+		this->rendertarget_draw_framebuffers.free(*this->device);
 	}
 };
 
@@ -2097,7 +2182,7 @@ private:
 
 	inline void create_draw_commandbuffers()
 	{
-		this->draw_commandbuffers.allocate(this->swap_chain.framebuffers.Size);
+		this->draw_commandbuffers.allocate(this->swap_chain.khr_framebuffers.Size);
 		this->draw_commandbuffers.Size = this->draw_commandbuffers.Capacity;
 		for (int i = 0; i < this->draw_commandbuffers.Size; i++)
 		{
@@ -2245,6 +2330,7 @@ struct Shader
 
 private:
 
+	//TODO -> making the shader inputs dynamic (draw Shader, ui shader, image processing shader)
 	inline void createPipelineLayout(const RenderAPI& p_render_api)
 	{
 		vk::DescriptorSetLayout l_descriptorset_layouts[4];
@@ -2319,17 +2405,22 @@ private:
 			l_dynamicstates.setPDynamicStates(l_dynamicstates_enabled.Memory);
 
 			vk::PipelineDepthStencilStateCreateInfo l_depthstencil_state;
-			l_depthstencil_state.setDepthTestEnable(true);
-			l_depthstencil_state.setDepthWriteEnable(p_shader_config.zwrite);
-			l_depthstencil_state.setDepthCompareOp((vk::CompareOp)p_shader_config.ztest);
-			l_depthstencil_state.setDepthBoundsTestEnable(false);
-			vk::StencilOpState l_back;
-			l_back.setCompareOp(vk::CompareOp::eAlways);
-			l_back.setFailOp(vk::StencilOp::eKeep);
-			l_back.setPassOp(vk::StencilOp::eKeep);
-			l_depthstencil_state.setBack(l_back);
-			l_depthstencil_state.setFront(l_back);
-			l_depthstencil_state.setStencilTestEnable(false);
+			if (p_shader_config.ztest != ShaderCompareOp::Type::Invalid)
+			{
+				l_depthstencil_state.setDepthTestEnable(true);
+				l_depthstencil_state.setDepthWriteEnable(p_shader_config.zwrite);
+				l_depthstencil_state.setDepthCompareOp((vk::CompareOp)p_shader_config.ztest);
+				l_depthstencil_state.setDepthBoundsTestEnable(false);
+				vk::StencilOpState l_back;
+				l_back.setCompareOp(vk::CompareOp::eAlways);
+				l_back.setFailOp(vk::StencilOp::eKeep);
+				l_back.setPassOp(vk::StencilOp::eKeep);
+				l_depthstencil_state.setBack(l_back);
+				l_depthstencil_state.setFront(l_back);
+				l_depthstencil_state.setStencilTestEnable(false);
+			}
+			
+			
 
 			vk::PipelineMultisampleStateCreateInfo l_multisample_state;
 			l_multisample_state.setRasterizationSamples(vk::SampleCountFlagBits::e1);
@@ -2395,7 +2486,10 @@ private:
 			l_pipeline_graphcis_create_info.setPColorBlendState(&l_blendattachment_state_create);
 			l_pipeline_graphcis_create_info.setPMultisampleState(&l_multisample_state);
 			l_pipeline_graphcis_create_info.setPViewportState(&l_viewport_state);
-			l_pipeline_graphcis_create_info.setPDepthStencilState(&l_depthstencil_state);
+			if (p_shader_config.ztest != ShaderCompareOp::Type::Invalid)
+			{
+				l_pipeline_graphcis_create_info.setPDepthStencilState(&l_depthstencil_state);
+			}
 			l_pipeline_graphcis_create_info.setPDynamicState(&l_dynamicstates);
 
 			this->pipeline = p_device.device.createGraphicsPipeline(vk::PipelineCache(), l_pipeline_graphcis_create_info);
@@ -2748,34 +2842,29 @@ struct TShaderUniformBufferParameter : public ShaderUniformBufferParameter
 	}
 };
 
-struct ShaderCombinedImageSamplerParameter
+struct ShaderCombinedImageSamplerDescriptorSet
 {
 	vk::DescriptorSet descriptor_set;
-	com::TPoolToken<Texture> texture;
 
-	inline void create(const com::TPoolToken<Texture>& p_texture, RenderAPI& p_renderapi)
+	inline void create(RenderAPI& p_renderapi)
 	{
 		vk::DescriptorSetAllocateInfo l_allocate_info;
 		l_allocate_info.setDescriptorPool(p_renderapi.descriptor_pool);
 		l_allocate_info.setDescriptorSetCount(1);
 		l_allocate_info.setPSetLayouts(&p_renderapi.shaderparameter_layouts.texture_fragment_layout);
 		this->descriptor_set = p_renderapi.device.device.allocateDescriptorSets(l_allocate_info)[0];
-		this->texture = p_texture;
-	}
+	};
 
 	inline void dispose(RenderAPI& p_renderapi)
 	{
 		p_renderapi.device.device.freeDescriptorSets(p_renderapi.descriptor_pool, 1, &this->descriptor_set);
 		this->descriptor_set = nullptr;
-		this->texture = com::TPoolToken<Texture>();
-	}
+	};
 
-	inline void bind(const uint32_t p_dst_binding, const Device& p_device, const TextureSamplers& p_texutre_samplers, com::Pool<Texture>& p_texutre_heap)
+	inline void bind(const uint32_t p_dst_binding, const Device& p_device, const TextureSamplers& p_texutre_samplers, vk::ImageView& p_image_view)
 	{
-		Texture& l_texture = p_texutre_heap[this->texture];
-
 		vk::DescriptorImageInfo l_descriptor_image_info;
-		l_descriptor_image_info.setImageView(l_texture.image_view);
+		l_descriptor_image_info.setImageView(p_image_view);
 		l_descriptor_image_info.setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal);
 		l_descriptor_image_info.setSampler(p_texutre_samplers.Default);
 
@@ -2787,12 +2876,42 @@ struct ShaderCombinedImageSamplerParameter
 		l_write_descriptor_set.setPImageInfo(&l_descriptor_image_info);
 
 		p_device.device.updateDescriptorSets(1, &l_write_descriptor_set, 0, nullptr);
-	}
+	};
 
 	inline void bind_command(CommandBuffer& p_commandbuffer, uint32_t p_set_index, vk::PipelineLayout& p_pipeline_layout)
 	{
 		p_commandbuffer.command_buffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, p_pipeline_layout,
 			p_set_index, 1, &this->descriptor_set, 0, nullptr);
+	}
+};
+
+struct ShaderCombinedImageSamplerParameter
+{
+	ShaderCombinedImageSamplerDescriptorSet descriptor_set;
+	com::TPoolToken<Texture> texture;
+
+	inline void create(const com::TPoolToken<Texture>& p_texture, RenderAPI& p_renderapi)
+	{
+		this->descriptor_set.create(p_renderapi);
+		this->texture = p_texture;
+	}
+
+	inline void dispose(RenderAPI& p_renderapi)
+	{
+		this->descriptor_set.dispose(p_renderapi);
+		this->texture = com::TPoolToken<Texture>();
+	}
+
+	inline void bind(const uint32_t p_dst_binding, const Device& p_device, const TextureSamplers& p_texutre_samplers, com::Pool<Texture>& p_texutre_heap)
+	{
+		Texture& l_texture = p_texutre_heap[this->texture];
+
+		this->descriptor_set.bind(p_dst_binding, p_device, p_texutre_samplers, l_texture.image_view);
+	};
+
+	inline void bind_command(CommandBuffer& p_commandbuffer, uint32_t p_set_index, vk::PipelineLayout& p_pipeline_layout)
+	{
+		this->descriptor_set.bind_command(p_commandbuffer, p_set_index, p_pipeline_layout);
 	}
 };
 
@@ -2974,7 +3093,7 @@ struct RenderHeap2
 				this->render_heap->shadermodules.release_element(p_shader_module);
 			};
 
-		private:
+		public:
 			inline static vk::ShaderModule load_shadermodule(const AssetServerHandle& p_asset_server_handle, const Device& p_device, const size_t p_shadermodule_id)
 			{
 				com::Vector<char> l_shader_code = p_asset_server_handle.get_resource(p_shadermodule_id);
@@ -3026,7 +3145,7 @@ struct RenderHeap2
 					this->render_heap->shadermodules[l_vertex_module],
 					this->render_heap->shadermodules[l_fragment_module],
 					l_shader_asset.config,
-					this->render_heap->render_api->swap_chain.renderpass,
+					this->render_heap->render_api->swap_chain.rendertarget_draw_renderpass,
 					*(this->render_heap->render_api)
 				);
 
@@ -3390,6 +3509,116 @@ private:
 
 };
 
+struct KHRPresentStep
+{
+	RenderAPI* renderApi;
+
+	ShaderModule khr_draw_shader_vertex;
+	ShaderModule khr_draw_shader_fragment;
+	Shader khr_draw_shader;
+
+	ShaderCombinedImageSamplerDescriptorSet render_target_parameter;
+	Mesh quad_mesh;
+
+	inline void allocate(RenderAPI* p_render_api, AssetServerHandle p_asset_server)
+	{
+		this->renderApi = p_render_api;
+
+		this->khr_draw_shader_vertex.key = Hash<StringSlice>::hash(StringSlice("shader/QuadDraw.vert"));
+		this->khr_draw_shader_vertex.shader_module = RenderHeap2::Resource::ShaderModuleResourceAllocator::load_shadermodule(p_asset_server, p_render_api->device, khr_draw_shader_vertex.key);
+
+		this->khr_draw_shader_fragment.key = Hash<StringSlice>::hash(StringSlice("shader/QuadDraw.frag"));
+		this->khr_draw_shader_fragment.shader_module = RenderHeap2::Resource::ShaderModuleResourceAllocator::load_shadermodule(p_asset_server, p_render_api->device, khr_draw_shader_fragment.key);
+
+		ShaderAsset::Config l_shader_config;
+		l_shader_config.ztest = ShaderCompareOp::Type::Invalid;
+		l_shader_config.zwrite = false;
+		this->khr_draw_shader = Shader(Hash<StringSlice>::hash(StringSlice("shader/quaddraw_shader.json")), -1, this->khr_draw_shader_vertex, this->khr_draw_shader_fragment, l_shader_config, this->renderApi->swap_chain.khr_pass, *this->renderApi);
+
+		this->render_target_parameter.create(*p_render_api);
+		this->render_target_parameter.bind(0, p_render_api->device, p_render_api->image_samplers, p_render_api->swap_chain.rendertarget_image_view);
+
+		com::Vector<Vertex> l_vertices;
+		l_vertices.allocate(4);
+		l_vertices.Size = l_vertices.Capacity;
+		l_vertices[0] = Vertex(vec3f(-1.0f, 1.0f, 0.0f), vec2f(0.0f, 1.0f));
+		l_vertices[1] = Vertex(vec3f(1.0f, -1.0f, 0.0f), vec2f(1.0f, 0.0f));
+		l_vertices[2] = Vertex(vec3f(-1.0f, -1.0f, 0.0f), vec2f(0.0f, 0.0f));
+		l_vertices[3] = Vertex(vec3f(1.0f, 1.0f, 0.0f), vec2f(1.0f, 1.0f));
+
+		com::Vector<uint32_t> l_indices;
+		l_indices.allocate(6);
+		l_indices.Size = l_indices.Capacity;
+		l_indices[0] = 0;
+		l_indices[1] = 1;
+		l_indices[2] = 2;
+		l_indices[3] = 0;
+		l_indices[4] = 3;
+		l_indices[5] = 1;
+		this->quad_mesh = Mesh(Hash<StringSlice>::hash(StringSlice("::internal/quad")), l_vertices, l_indices, *p_render_api);
+	};
+
+	inline void free()
+	{
+		this->render_target_parameter.dispose(*this->renderApi);
+		this->khr_draw_shader.dispose(this->renderApi->device);
+		RenderHeap2::Resource::ShaderModuleResourceAllocator::dispose_shaderModule(this->renderApi->device, this->khr_draw_shader_fragment.shader_module);
+		RenderHeap2::Resource::ShaderModuleResourceAllocator::dispose_shaderModule(this->renderApi->device, this->khr_draw_shader_vertex.shader_module);
+		this->quad_mesh.dispose(*this->renderApi, this->renderApi->device);
+	};
+
+	inline void bind_command(CommandBuffer& p_command_buffer, size_t p_image_count)
+	{
+
+		//vk::ImageLayout::eColorAttachmentOptimal
+		TextureLayoutTransitionCommand::execute_transition(p_command_buffer, vk::ImageLayout::eColorAttachmentOptimal, vk::ImageLayout::eShaderReadOnlyOptimal, 
+			TransitionBarrierConfigurationBuilder<vk::ImageLayout::eColorAttachmentOptimal, vk::ImageLayout::eShaderReadOnlyOptimal>::build(),
+			this->renderApi->swap_chain.rendertarget_image.buffer, this->renderApi->swap_chain.rendertarget_image_subresource_range);
+
+		vk::ClearValue l_clear[1];
+		l_clear[0].color.setFloat32({ 0.0f, 0.0f, 0.0f, 1.0f });
+
+		vk::RenderPassBeginInfo l_renderpass_begin;
+		l_renderpass_begin.setPNext(nullptr);
+		l_renderpass_begin.setRenderPass(this->renderApi->swap_chain.khr_pass.l_render_pass);
+		vk::Rect2D l_renderArea;
+		l_renderArea.setOffset(vk::Offset2D(0, 0));
+		l_renderArea.setExtent(this->renderApi->swap_chain.window_extend);
+		l_renderpass_begin.setRenderArea(l_renderArea);
+		l_renderpass_begin.setClearValueCount(1);
+		l_renderpass_begin.setPClearValues(l_clear);
+		l_renderpass_begin.setFramebuffer(this->renderApi->swap_chain.khr_framebuffers[p_image_count].frame_buffer);
+
+		vk::Viewport l_viewport;
+		l_viewport.setHeight((float)this->renderApi->swap_chain.window_extend.height);
+		l_viewport.setWidth((float)this->renderApi->swap_chain.window_extend.width);
+		l_viewport.setMinDepth(0.0f);
+		l_viewport.setMaxDepth(1.0f);
+
+		vk::Rect2D l_windowarea;
+		l_windowarea.setOffset(vk::Offset2D(0, 0));
+		l_windowarea.setExtent(vk::Extent2D(this->renderApi->swap_chain.window_extend.width, this->renderApi->swap_chain.window_extend.height));
+
+
+		p_command_buffer.command_buffer.beginRenderPass(l_renderpass_begin, vk::SubpassContents::eInline);
+		p_command_buffer.command_buffer.setViewport(0, 1, &l_viewport);
+		p_command_buffer.command_buffer.setScissor(0, 1, &l_windowarea);
+
+		p_command_buffer.command_buffer.bindPipeline(vk::PipelineBindPoint::eGraphics, this->khr_draw_shader.pipeline);
+
+		this->render_target_parameter.bind_command(p_command_buffer, 2, this->khr_draw_shader.pipeline_layout);
+
+		vk::DeviceSize l_offsets[1] = { 0 };
+		p_command_buffer.command_buffer.bindVertexBuffers(0, 1, &this->quad_mesh.vertices.buffer, l_offsets);
+		p_command_buffer.command_buffer.bindIndexBuffer(this->quad_mesh.indices.buffer, 0, vk::IndexType::eUint32);
+		p_command_buffer.command_buffer.drawIndexed((uint32_t)this->quad_mesh.indices_length, (uint32_t)1, (uint32_t)0, (uint32_t)0, (uint32_t)1);
+
+		p_command_buffer.command_buffer.endRenderPass();
+		
+	};
+
+};
+
 struct Render
 {
 	RenderWindow window;
@@ -3398,6 +3627,7 @@ struct Render
 	GlobalUniformBuffer<CameraMatrices> camera_matrices_globalbuffer;
 
 	RenderHeap2 heap;
+	KHRPresentStep khr_present_step;
 
 	inline Render(const AssetServerHandle p_asset_server)
 	{
@@ -3405,10 +3635,12 @@ struct Render
 		this->renderApi.init(window);
 		this->create_global_buffers();
 		this->heap.allocate(p_asset_server, this->renderApi);
+		this->khr_present_step.allocate(&this->renderApi, p_asset_server);
 	};
 
 	inline void dispose()
 	{
+		this->khr_present_step.free();
 		this->heap.free();
 		this->destroy_global_buffers();
 		this->renderApi.dispose();
@@ -3436,18 +3668,18 @@ struct Render
 
 		vk::RenderPassBeginInfo l_renderpass_begin;
 		l_renderpass_begin.setPNext(nullptr);
-		l_renderpass_begin.setRenderPass(this->renderApi.swap_chain.renderpass.l_render_pass);
+		l_renderpass_begin.setRenderPass(this->renderApi.swap_chain.rendertarget_draw_renderpass.l_render_pass);
 		vk::Rect2D l_renderArea;
 		l_renderArea.setOffset(vk::Offset2D(0, 0));
 		l_renderArea.setExtent(this->renderApi.swap_chain.rendertarget_extend);
 		l_renderpass_begin.setRenderArea(l_renderArea);
 		l_renderpass_begin.setClearValueCount(2);
 		l_renderpass_begin.setPClearValues(l_clear);
-		l_renderpass_begin.setFramebuffer(this->renderApi.swap_chain.framebuffers[l_render_image_index].frame_buffer);
+		l_renderpass_begin.setFramebuffer(this->renderApi.swap_chain.rendertarget_draw_framebuffers.frame_buffer);
 
 		vk::Viewport l_viewport;
-		l_viewport.setHeight(this->renderApi.swap_chain.rendertarget_extend.height);
-		l_viewport.setWidth(this->renderApi.swap_chain.rendertarget_extend.width);
+		l_viewport.setHeight((float)this->renderApi.swap_chain.rendertarget_extend.height);
+		l_viewport.setWidth((float)this->renderApi.swap_chain.rendertarget_extend.width);
 		l_viewport.setMinDepth(0.0f);
 		l_viewport.setMaxDepth(1.0f);
 
@@ -3490,19 +3722,8 @@ struct Render
 
 		l_command_buffer.command_buffer.endRenderPass();
 
+		this->khr_present_step.bind_command(l_command_buffer, l_render_image_index);
 
-		/*
-		vk::ImageCopy l_copy_region;
-		l_copy_region.setSrcOffset(vk::Offset3D(0, 0, 0));
-		l_copy_region.setSrcSubresource(this->renderApi.swap_chain.rendertarget_image_layers);
-
-		l_copy_region.setDstOffset(vk::Offset3D(0, 0.0f, 0.0f));
-		l_copy_region.setDstSubresource(this->renderApi.swap_chain.buffers[l_render_image_index].image_layers);
-
-		l_copy_region.setExtent(vk::Extent3D(this->renderApi.swap_chain.window_extend.width, this->renderApi.swap_chain.window_extend.height, 1));
-		l_command_buffer.command_buffer.copyImage(this->renderApi.swap_chain.rendertarget_image.buffer, vk::ImageLayout::eColorAttachmentOptimal, this->renderApi.swap_chain.images[l_render_image_index],
-			vk::ImageLayout::ePresentSrcKHR, l_copy_region);
-			*/
 		l_command_buffer.end();
 
 

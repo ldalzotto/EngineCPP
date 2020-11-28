@@ -23,7 +23,7 @@ struct ToString<size_t>
 	inline static String<> to_str(const size_t& p_element)
 	{
 		String<> l_str; l_str.allocate(30);
-		sprintf(l_str.Memory.Memory, "%lld", p_element);
+		sprintf_s(l_str.Memory.Memory, l_str.Memory.size_in_bytes(), "%lld", p_element);
 		return l_str;
 	};
 };
