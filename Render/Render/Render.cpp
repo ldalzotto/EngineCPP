@@ -40,20 +40,80 @@ struct Vertex
 
 struct RenderWindow
 {
+	struct ByHandle
+	{
+		WindowHandle handle;
+		RenderWindow* window;
+
+		inline ByHandle(const WindowHandle p_handle, RenderWindow* p_window) {
+			this->handle = p_handle;
+			this->window = p_window;
+		}
+	};
+	inline static com::Vector<ByHandle> program_windows;
+
 	WindowHandle Handle;
 	short int Width;
 	short int Height;
 
+	struct ResizeEvent
+	{
+		bool ask = false;
+		int new_width;
+		int new_height;
+	} resize_event;
+
+
 	RenderWindow() = default;
-	inline RenderWindow(const short int p_width, const short int p_height, const std::string& p_title)
+	inline void allocate(const short int p_width, const short int p_height, const std::string& p_title)
 	{
 		this->Handle = rdwindow::create_window(p_width, p_height, p_title);
 		this->Width = p_width;
 		this->Height = p_height;
+		program_windows.push_back(ByHandle(this->Handle, this));
+		rdwindow::window_register_resize_callback(this->Handle, RenderWindow::on_window_resized);
 	};
+
 	inline void dispose()
 	{
 		rdwindow::free_window(this->Handle);
+	};
+
+	inline bool asks_for_resize()
+	{
+		return this->resize_event.ask;
+	};
+
+	inline ResizeEvent consume_event()
+	{
+		ResizeEvent l_return = this->resize_event;
+		this->resize_event.ask = false;
+
+		this->Width = l_return.new_width;
+		this->Height = l_return.new_height;
+
+		return l_return;
+	};
+
+private:
+	inline static void on_window_resized(WindowHandle p_window, int p_width, int p_height)
+	{
+		RenderWindow* l_window = nullptr;
+		for (short i = 0; i < program_windows.Size; i++)
+		{
+			if (program_windows[i].handle == p_window)
+			{
+				l_window = program_windows[i].window;
+				break;
+			}
+		}
+
+		if (l_window)
+		{
+			l_window->resize_event.ask = true;
+			l_window->resize_event.new_width = p_width;
+			l_window->resize_event.new_height = p_height;
+		}
 	};
 };
 
@@ -1484,9 +1544,8 @@ public:
 
 	vk::SwapchainKHR handle;
 
+
 	vk::SurfaceFormatKHR surface_format;
-	vk::Format rendertarget_format;
-	vk::Format depth_format;
 
 	vk::PresentModeKHR present_mode;
 	vk::Extent2D window_extend;
@@ -1495,6 +1554,12 @@ public:
 	std::vector<vk::Image> images;
 	com::Vector<SwapChainBuffer> buffers;
 
+	RenderPass khr_pass;
+	com::Vector<FrameBuffer> khr_framebuffers;
+
+
+	vk::Format rendertarget_format;
+	vk::Format depth_format;
 
 	vk::Extent2D rendertarget_extend;
 	GPUOnlyImageMemory rendertarget_image;
@@ -1505,12 +1570,9 @@ public:
 	GPUOnlyImageMemory depth_image;
 	vk::ImageView depth_image_view;
 
-
 	RenderPass rendertarget_draw_renderpass;
 	FrameBuffer rendertarget_draw_framebuffers;
 
-	RenderPass khr_pass;
-	com::Vector<FrameBuffer> khr_framebuffers;
 
 
 private:
@@ -1537,42 +1599,52 @@ public:
 
 		this->pick_surface_format();
 		this->pick_presentation_mode();
-		this->pick_extent();
+		
+		this->pick_window_extend();
 		this->pick_image_count();
 
-		vk::SwapchainCreateInfoKHR l_swapchain_create_info;
-		l_swapchain_create_info.setSurface(*this->surface);
-		l_swapchain_create_info.setMinImageCount(this->image_count);
-		l_swapchain_create_info.setImageFormat(this->surface_format.format);
-		l_swapchain_create_info.setImageColorSpace(this->surface_format.colorSpace);
-		l_swapchain_create_info.setImageExtent(this->window_extend);
-		l_swapchain_create_info.setImageArrayLayers(1);
-		l_swapchain_create_info.setImageUsage(vk::ImageUsageFlags(vk::ImageUsageFlagBits::eColorAttachment));
-		l_swapchain_create_info.setImageSharingMode(vk::SharingMode::eExclusive);
-		l_swapchain_create_info.setQueueFamilyIndexCount(0);
-		l_swapchain_create_info.setPQueueFamilyIndices(nullptr);
-		l_swapchain_create_info.setPreTransform(this->surface_capabilities.currentTransform);
-		l_swapchain_create_info.setCompositeAlpha(vk::CompositeAlphaFlagBitsKHR::eOpaque);
-		l_swapchain_create_info.setPresentMode(this->present_mode);
-		l_swapchain_create_info.setClipped(true);
-		l_swapchain_create_info.setOldSwapchain(nullptr);
-		this->handle = this->device->device.createSwapchainKHR(l_swapchain_create_info);
+		this->create_swapchain();
 
-		this->create_images(p_staging_commands);
+		this->create_window_images(p_staging_commands);
+		this->create_khr_renderpass(p_device);
+		this->create_khr_framebuffers(p_device);
+
+		this->pick_rendertarget_extent();
 		this->create_rendertarget_image(p_staging_commands);
 		this->create_depth_image(p_staging_commands);
-		this->createRenderPass(p_device);
-		this->create_framebuffers(p_device);
+		this->create_rendertarget_renderPass(p_device);
+		this->create_rendertarget_framebuffers(p_device);
 	}
+
+	inline void resize(DeferredCommandBufferExecution& p_staging_commands)
+	{
+		this->destroy_khr_framebuffers();
+		this->destroy_khr_renderpass();
+		this->destroy_window_images();
+
+		this->device->device.destroySwapchainKHR(this->handle);
+
+
+		this->pick_window_extend();
+
+		this->create_swapchain();
+
+		this->create_window_images(p_staging_commands);
+		this->create_khr_renderpass(*this->device);
+		this->create_khr_framebuffers(*this->device);
+	};
 
 	inline void dispose(DeferredCommandBufferExecution& p_staging_commands)
 	{
-		this->destroy_framebuffers();
-		this->destroyRenderPass();
+		this->destroy_khr_framebuffers();
+		this->destroy_khr_renderpass();
+		this->destroy_window_images();
+		this->device->device.destroySwapchainKHR(this->handle);
+
+		this->destroy_rednertarget_framebuffers();
+		this->destroy_rendertarget_renderPass();
 		this->free_rendertarget_image(p_staging_commands);
 		this->destroy_depth_image(p_staging_commands);
-		this->destroy_images();
-		this->device->device.destroySwapchainKHR(this->handle);
 	}
 
 	inline uint32_t getNextImage(vk::Semaphore p_presentcomplete_semaphore)
@@ -1623,11 +1695,10 @@ private:
 		this->present_mode = vk::PresentModeKHR::eFifo;
 	}
 
-	inline void pick_extent()
+	inline void pick_window_extend()
 	{
 		this->surface_capabilities = this->physicalDevice->getSurfaceCapabilitiesKHR(*this->surface);
-		this->rendertarget_extend = vk::Extent2D(256, 224);
-
+		
 		if (this->surface_capabilities.currentExtent.width != UINT32_MAX)
 		{
 			this->window_extend = this->surface_capabilities.currentExtent;
@@ -1656,6 +1727,11 @@ private:
 			}
 		}
 
+	}
+
+	inline void pick_rendertarget_extent()
+	{
+		this->rendertarget_extend = vk::Extent2D(256, 224);
 
 	}
 
@@ -1668,7 +1744,28 @@ private:
 		}
 	}
 
-	inline void create_images(DeferredCommandBufferExecution& p_staging_commands)
+	inline void create_swapchain()
+	{
+		vk::SwapchainCreateInfoKHR l_swapchain_create_info;
+		l_swapchain_create_info.setSurface(*this->surface);
+		l_swapchain_create_info.setMinImageCount(this->image_count);
+		l_swapchain_create_info.setImageFormat(this->surface_format.format);
+		l_swapchain_create_info.setImageColorSpace(this->surface_format.colorSpace);
+		l_swapchain_create_info.setImageExtent(this->window_extend);
+		l_swapchain_create_info.setImageArrayLayers(1);
+		l_swapchain_create_info.setImageUsage(vk::ImageUsageFlags(vk::ImageUsageFlagBits::eColorAttachment));
+		l_swapchain_create_info.setImageSharingMode(vk::SharingMode::eExclusive);
+		l_swapchain_create_info.setQueueFamilyIndexCount(0);
+		l_swapchain_create_info.setPQueueFamilyIndices(nullptr);
+		l_swapchain_create_info.setPreTransform(this->surface_capabilities.currentTransform);
+		l_swapchain_create_info.setCompositeAlpha(vk::CompositeAlphaFlagBitsKHR::eOpaque);
+		l_swapchain_create_info.setPresentMode(this->present_mode);
+		l_swapchain_create_info.setClipped(true);
+		l_swapchain_create_info.setOldSwapchain(nullptr);
+		this->handle = this->device->device.createSwapchainKHR(l_swapchain_create_info);
+	};
+
+	inline void create_window_images(DeferredCommandBufferExecution& p_staging_commands)
 	{
 		this->images = this->device->device.getSwapchainImagesKHR(this->handle);
 		this->buffers.resize(this->images.size());
@@ -1703,7 +1800,7 @@ private:
 		}
 	}
 
-	inline void destroy_images()
+	inline void destroy_window_images()
 	{
 		for (int i = 0; i < this->buffers.Size; i++)
 		{
@@ -1796,22 +1893,56 @@ private:
 		this->depth_image.dispose(*this->device, p_staging_commands);
 	}
 
-	inline void createRenderPass(const Device& p_device)
+	inline void create_khr_renderpass(const Device& p_device)
+	{
+		this->khr_pass.create_khr_draw(p_device, this->surface_format.format);
+	};
+
+	inline void destroy_khr_renderpass()
+	{
+		this->khr_pass.dispose(*this->device);
+	};
+
+	inline void create_rendertarget_renderPass(const Device& p_device)
 	{
 		this->rendertarget_draw_renderpass.create_color_depth(p_device, this->rendertarget_format, this->depth_format);
-		this->khr_pass.create_khr_draw(p_device, this->surface_format.format);
 	}
 
-	inline void destroyRenderPass()
+	inline void destroy_rendertarget_renderPass()
 	{
 		this->rendertarget_draw_renderpass.dispose(*this->device);
-		this->khr_pass.dispose(*this->device);
 	}
 
-	inline void create_framebuffers(const Device& p_device)
+	inline void create_khr_framebuffers(const Device& p_device)
 	{
-		{
+		this->khr_framebuffers.allocate(this->image_count);
+		this->khr_framebuffers.Size = this->khr_framebuffers.Capacity;
 
+		com::Vector<vk::ImageView> l_attachments;
+		l_attachments.allocate(1);
+		l_attachments.Size = l_attachments.Capacity;
+
+		for (size_t i = 0; i < this->image_count; i++)
+		{
+			l_attachments[0] = this->buffers[i].view;
+			this->khr_framebuffers[i].allocate(p_device, l_attachments, this->khr_pass, vk::Extent2D(this->window->Width, this->window->Height));
+		}
+
+		l_attachments.free();
+	};
+
+	inline void destroy_khr_framebuffers()
+	{
+		for (size_t i = 0; i < this->khr_framebuffers.Size; i++)
+		{
+			this->khr_framebuffers[i].free(*this->device);
+		}
+		this->khr_framebuffers.free();
+	};
+
+
+	inline void create_rendertarget_framebuffers(const Device& p_device)
+	{
 			com::Vector<vk::ImageView> l_attachments;
 			l_attachments.allocate(2);
 			l_attachments.Size = l_attachments.Capacity;
@@ -1820,34 +1951,10 @@ private:
 
 			this->rendertarget_draw_framebuffers.allocate(p_device, l_attachments, this->rendertarget_draw_renderpass, this->rendertarget_extend);
 			l_attachments.free();
-		}
-
-		{
-			this->khr_framebuffers.allocate(this->image_count);
-			this->khr_framebuffers.Size = this->khr_framebuffers.Capacity;
-
-			com::Vector<vk::ImageView> l_attachments;
-			l_attachments.allocate(1);
-			l_attachments.Size = l_attachments.Capacity;
-
-			for (size_t i = 0; i < this->image_count; i++)
-			{
-				l_attachments[0] = this->buffers[i].view;
-				this->khr_framebuffers[i].allocate(p_device, l_attachments, this->khr_pass, vk::Extent2D(this->window->Width, this->window->Height));
-			}
-
-			l_attachments.free();
-
-		}
 	}
 
-	inline void destroy_framebuffers()
+	inline void destroy_rednertarget_framebuffers()
 	{
-		for (size_t i = 0; i < this->khr_framebuffers.Size; i++)
-		{
-			this->khr_framebuffers[i].free(*this->device);
-		}
-		this->khr_framebuffers.free();
 		this->rendertarget_draw_framebuffers.free(*this->device);
 	}
 };
@@ -2281,7 +2388,7 @@ private:
 	{
 		this->image_samplers.free(this->device);
 	}
-};
+	};
 
 
 struct ShaderModule
@@ -2419,8 +2526,8 @@ private:
 				l_depthstencil_state.setFront(l_back);
 				l_depthstencil_state.setStencilTestEnable(false);
 			}
-			
-			
+
+
 
 			vk::PipelineMultisampleStateCreateInfo l_multisample_state;
 			l_multisample_state.setRasterizationSamples(vk::SampleCountFlagBits::e1);
@@ -3571,7 +3678,7 @@ struct KHRPresentStep
 	{
 
 		//vk::ImageLayout::eColorAttachmentOptimal
-		TextureLayoutTransitionCommand::execute_transition(p_command_buffer, vk::ImageLayout::eColorAttachmentOptimal, vk::ImageLayout::eShaderReadOnlyOptimal, 
+		TextureLayoutTransitionCommand::execute_transition(p_command_buffer, vk::ImageLayout::eColorAttachmentOptimal, vk::ImageLayout::eShaderReadOnlyOptimal,
 			TransitionBarrierConfigurationBuilder<vk::ImageLayout::eColorAttachmentOptimal, vk::ImageLayout::eShaderReadOnlyOptimal>::build(),
 			this->renderApi->swap_chain.rendertarget_image.buffer, this->renderApi->swap_chain.rendertarget_image_subresource_range);
 
@@ -3614,7 +3721,7 @@ struct KHRPresentStep
 		p_command_buffer.command_buffer.drawIndexed((uint32_t)this->quad_mesh.indices_length, (uint32_t)1, (uint32_t)0, (uint32_t)0, (uint32_t)1);
 
 		p_command_buffer.command_buffer.endRenderPass();
-		
+
 	};
 
 };
@@ -3631,7 +3738,7 @@ struct Render
 
 	inline Render(const AssetServerHandle p_asset_server)
 	{
-		this->window = RenderWindow(1280, 720, "MyGame");
+		this->window.allocate(1280, 720, "MyGame");
 		this->renderApi.init(window);
 		this->create_global_buffers();
 		this->heap.allocate(p_asset_server, this->renderApi);
@@ -3651,6 +3758,12 @@ struct Render
 	inline void draw()
 	{
 		OPTICK_EVENT();
+
+		if (this->window.asks_for_resize())
+		{
+			RenderWindow::ResizeEvent l_resize_event = this->window.consume_event();
+			this->renderApi.swap_chain.resize(this->renderApi.stagedbuffer_commands);
+		}
 
 		uint32_t l_render_image_index = this->renderApi.swap_chain.getNextImage(this->renderApi.synchronization.present_complete_semaphore);
 

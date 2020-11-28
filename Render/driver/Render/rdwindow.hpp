@@ -17,6 +17,11 @@ struct rdwindow
 		glfwDestroyWindow(p_windowHandle);
 	}
 
+	inline static void window_register_resize_callback(const WindowHandle& p_windowHandle, void(*p_callback)(WindowHandle, int, int))
+	{
+		glfwSetWindowSizeCallback((GLFWwindow*)p_windowHandle, p_callback);
+	}
+
 	inline static bool window_should_close(const WindowHandle& p_windowHandle)
 	{
 		return glfwWindowShouldClose(p_windowHandle);
