@@ -31,6 +31,8 @@ struct Vertex
 	vec3f position;
 	vec2f uv;
 
+	inline Vertex() {};
+
 	inline Vertex(const vec3f& p_position, const vec2f& p_uv)
 	{
 		this->position = p_position;
@@ -1536,8 +1538,6 @@ struct DeferredCommandbufferExecutionToken
 	};
 };
 
-
-//TODO -> dissociating the present image (which is the final texture displayed to the application) with render render target image (which is the internal image buffer that is used to render models onto)
 struct SwapChain
 {
 public:

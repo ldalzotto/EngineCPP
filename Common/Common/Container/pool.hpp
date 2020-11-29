@@ -143,7 +143,7 @@ namespace com
 	};
 
 	template<class TYPE, class Allocator>
-	inline Optional<TYPE>& resolve(const TPoolToken<Optional<TYPE>> i)
+	inline Optional<TYPE>& OptionalPool<TYPE, Allocator>::resolve(const TPoolToken<Optional<TYPE>> i)
 	{
 		return this->pool[i];
 	};

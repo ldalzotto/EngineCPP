@@ -5,6 +5,8 @@
 #include <cstdio>
 #include <fstream>
 
+#include "Common/File/file.hpp"
+
 struct AssetDatabaseConnection
 {
 	sqlite3* connection = nullptr;
@@ -44,9 +46,33 @@ struct AssetDatabaseConnection
 		return p_step_return;
 	}
 
-	inline void allocate(const char* p_databasepath)
+	enum class Allocate_Step
 	{
+		UNKNOWN = 0,
+		FILE_CREATED = 1
+	};
+
+	inline Allocate_Step allocate(const char* p_databasepath)
+	{
+		File<FilePathMemoryLayout::SLICE> l_database_file;
+		bool l_database_file_created = false;
+		FilePath<FilePathMemoryLayout::SLICE> l_database_file_path = FilePath<FilePathMemoryLayout::SLICE>(StringSlice(p_databasepath));
+		l_database_file.allocate(FileType::CONTENT, l_database_file_path);
+		if(!l_database_file.exists())
+		{
+			l_database_file.create();
+			l_database_file_created = true;
+		}
+		l_database_file.free();
+
 		this->handleSQLiteError(sqlite3_open(p_databasepath, &this->connection));
+
+		if (l_database_file_created)
+		{
+			return Allocate_Step::FILE_CREATED;
+		}
+		
+		return Allocate_Step::UNKNOWN;
 	}
 
 	inline void free()

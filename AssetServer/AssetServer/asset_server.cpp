@@ -13,7 +13,13 @@ struct AssetServer
 	inline void allocate(const std::string& p_executable_path)
 	{
 		this->asset_path.initialize(p_executable_path);
-		this->connection.allocate((this->asset_path.asset_folder_path + AssetServer::DatabasePath).c_str());
+		if (this->connection.allocate((this->asset_path.asset_folder_path + AssetServer::DatabasePath).c_str()) == AssetDatabaseConnection::Allocate_Step::FILE_CREATED)
+		{
+			AssetQuery l_table_initialization_query;
+			l_table_initialization_query.allocate(this->connection, "CREATE TABLE resource(id integer not null primary key, path text not null, data blob)");
+			l_table_initialization_query.insert(this->connection);
+			l_table_initialization_query.free(this->connection);
+		}
 		this->resource_query.allocate(this->asset_path, this->connection);
 	}
 
