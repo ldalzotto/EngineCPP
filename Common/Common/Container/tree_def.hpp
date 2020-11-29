@@ -47,6 +47,7 @@ struct NTree
 	com::Pool<NTreeNode, Allocator> Indices;
 
 	void allocate(size_t p_initialSize, const Allocator& p_allocator = Allocator());
+	NTree<ElementType, Allocator> clone();
 	void free();
 
 	NTree<ElementType, Allocator> move();

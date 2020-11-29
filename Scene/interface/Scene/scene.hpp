@@ -15,7 +15,7 @@ typedef com::TPoolToken<GeneralPurposeHeapMemoryChunk> SceneNodeComponentToken;
 
 struct SceneNodeComponentHeader
 {
-	size_t id;
+	size_t id = -1;
 	
 	template<class ComponentType>
 	inline ComponentType* cast()
@@ -28,13 +28,13 @@ struct SceneNode
 {
 	NTree<SceneNode>* scenetree_ptr;
 
-	// bool haschanged_this_frame;
-	
 	struct State
 	{
 		bool matrices_mustBe_recalculated = true;
 		bool haschanged_thisframe = false;
 	} state;
+
+	com::TPoolToken<com::Vector<SceneNodeComponentToken>> components;
 
 private:
 	//transform
@@ -46,23 +46,22 @@ private:
 	//Childs
 	com::PoolToken scenetree_entry;
 
-	com::Vector<SceneNodeComponentToken> components;
 
 public:
 	inline SceneNode() {};
 
-	inline SceneNode(const Math::Transform& p_transform, NTree<SceneNode>* p_owned_tree, const com::PoolToken& p_scenetree_entry)
+	inline SceneNode(const Math::Transform& p_transform, NTree<SceneNode>* p_owned_tree, const com::PoolToken& p_scenetree_entry, 
+		com::TPoolToken<com::Vector<SceneNodeComponentToken>> p_scenecomponents_token)
 	{
 		this->transform = p_transform;
 		this->scenetree_ptr = p_owned_tree;
 		this->scenetree_entry = p_scenetree_entry;
-
+		this->components = p_scenecomponents_token;
 		this->mark_for_recalculation();
 	}
 
 	inline void free()
 	{
-		this->components.free();
 	};
 
 	inline void addchild(com::PoolToken& p_newchild)
@@ -93,28 +92,6 @@ public:
 		}
 
 	}
-
-	inline void addcomponent(const SceneNodeComponentToken p_component)
-	{
-		this->components.push_back(p_component);
-	};
-
-	inline void removecomponent(const SceneNodeComponentToken p_component)
-	{
-		for (size_t i = 0; i < this->components.Size; i++)
-		{
-			if (this->components[i].Index == p_component.Index)
-			{
-				this->components.erase_at(i);
-				return;
-			}
-		}
-	};
-
-	inline com::Vector<SceneNodeComponentToken>& get_components()
-	{
-		return this->components;
-	};
 
 	inline Math::vec3f& get_localposition()
 	{
@@ -308,6 +285,7 @@ struct ComponentAssetPushParameter
 	com::PoolToken node;
 	ComponentAsset* component_asset;
 	void* component_asset_object;
+	SceneNodeComponentToken inserted_component;
 
 	ComponentAssetPushParameter() {};
 };

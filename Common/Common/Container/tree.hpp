@@ -67,6 +67,16 @@ inline void NTree<ElementType, Allocator>::allocate(size_t p_initialSize, const 
 };
 
 template<class ElementType, class Allocator>
+inline NTree<ElementType, Allocator> NTree<ElementType, Allocator>::clone()
+{
+	NTree<ElementType, Allocator> l_return;
+	l_return.Memory = this->Memory.clone();
+	l_return.Indices = this->Indices.clone();
+	return l_return;
+};
+
+
+template<class ElementType, class Allocator>
 inline void NTree<ElementType, Allocator>::free()
 {
 	this->Memory.free();

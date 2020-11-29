@@ -36,7 +36,7 @@ namespace com
 	};
 
 	template <class TYPE, class Allocator>
-	inline Vector<size_t, HeapAllocator> Pool<TYPE, Allocator>::clone_freeblocks()
+	inline Vector<size_t, Allocator> Pool<TYPE, Allocator>::clone_freeblocks()
 	{
 		return this->FreeBlocks.clone();
 	};

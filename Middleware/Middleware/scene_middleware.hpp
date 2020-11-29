@@ -106,7 +106,7 @@ struct SceneComponentCallbacks
 			l_mesh_renderer.initialize(l_asset->material, l_asset->mesh);
 			SceneHandle l_scene_handle;
 			l_scene_handle.handle = p_parameter->scene;
-			l_scene_handle.add_component<MeshRenderer>(p_parameter->node, l_mesh_renderer);
+			p_parameter->inserted_component = l_scene_handle.add_component<MeshRenderer>(p_parameter->node, l_mesh_renderer);
 		}
 		break;
 		case Camera::Id:
@@ -115,10 +115,11 @@ struct SceneComponentCallbacks
 
 			SceneHandle l_scene_handle;
 			l_scene_handle.handle = p_parameter->scene;
-			l_scene_handle.add_component<Camera>(p_parameter->node, Camera(*l_asset));
+			p_parameter->inserted_component = l_scene_handle.add_component<Camera>(p_parameter->node, Camera(*l_asset));
 		}
 		break;
 		}
+
 	};
 };
 

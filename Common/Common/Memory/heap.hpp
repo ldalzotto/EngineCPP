@@ -66,6 +66,15 @@ struct GeneralPurposeHeap
 		}
 	}
 
+	inline GeneralPurposeHeap<Allocator> clone()
+	{
+		GeneralPurposeHeap<Allocator> l_return;
+		l_return.memory = this->memory.clone();
+		l_return.allocated_chunks = this->allocated_chunks.clone();
+		l_return.free_chunks = this->free_chunks.clone();
+		return l_return;
+	};
+
 	inline void dispose()
 	{
 		this->memory.free();

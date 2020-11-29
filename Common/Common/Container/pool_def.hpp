@@ -40,14 +40,14 @@ namespace com
 		static_assert(std::is_base_of<IAllocator, Allocator>::value, "Allocator must implements IAllocator.");
 
 		Vector<TYPE, Allocator> Memory;
-		Vector<size_t, HeapAllocator> FreeBlocks;
+		Vector<size_t, Allocator> FreeBlocks;
 
 		Pool() = default;
 		void allocate(size_t p_initialSize, const Allocator& p_allocator = Allocator());
 		void free();
 		Pool<TYPE, Allocator> clone();
 		Pool<TYPE, Allocator> move();
-		Vector<size_t, HeapAllocator> clone_freeblocks();
+		Vector<size_t, Allocator> clone_freeblocks();
 		size_t size();
 		TYPE& operator[](size_t i);
 		TYPE& operator[](const TPoolToken<TYPE> i);
