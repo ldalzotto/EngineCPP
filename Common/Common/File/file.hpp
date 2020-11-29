@@ -105,14 +105,13 @@ struct FilePath<FilePathMemoryLayout::SLICE>
 
 	StringSlice path;
 
-	/*
 	inline String<> get_as_string()
 	{
 		String<> l_path; l_path.allocate(this->path.size());
 		l_path.append(this->path);
 		return l_path;
 	};
-	*/
+
 };
 
 enum FileType
@@ -170,12 +169,12 @@ struct File
 		inline void foreach(const File<FilePathMemoryLayout::STRING>& p_file, size_t p_depth) {};
 	};
 
-	/*
 	inline bool exists()
 	{
 		String<> l_path = this->path.get_as_string();
 		bool l_found = false;
 		{
+			WIN32_FIND_DATAA l_find_data;
 			HANDLE l_file = FindFirstFile(l_path.c_str(), &l_find_data);
 			if (l_file != INVALID_HANDLE_VALUE)
 			{
@@ -186,7 +185,6 @@ struct File
 		l_path.free();
 		return l_found;
 	};
-	*/
 
 	inline void create()
 	{

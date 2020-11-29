@@ -34,7 +34,12 @@ struct SceneKernel
 
 		for (size_t i = 0; i < l_return.node_to_components.size(); i++)
 		{
-			l_return.node_to_components[i] = l_return.node_to_components[i].clone();
+			auto& l_node_to_components = l_return.node_to_components[i];
+			if (l_node_to_components.hasValue)
+			{
+				l_node_to_components.value = l_node_to_components.value.clone();
+			}
+			
 		}
 
 		l_return.component_added_callback = thiz->component_added_callback;
@@ -52,7 +57,11 @@ struct SceneKernel
 		thiz->tree.free();
 		for (size_t i = 0; i < thiz->node_to_components.size(); i++)
 		{
-			thiz->node_to_components[i].free();
+			auto& l_node_to_components = thiz->node_to_components[i];
+			if (l_node_to_components.hasValue)
+			{
+				l_node_to_components.value.free();
+			}
 		}
 		thiz->node_to_components.free();
 	};
@@ -119,7 +128,7 @@ struct SceneKernel
 	{
 		SceneNodeComponentToken l_component = allocate_component(thiz, p_component_type_info, p_initial_value);
 		NTreeResolve<SceneNode> l_node = resolve_node(thiz, p_node);
-		thiz->node_to_components[l_node.element->components].push_back(l_component);
+		thiz->node_to_components[l_node.element->components].value.push_back(l_component);
 		ComponentAddedParameter l_param = ComponentAddedParameter(p_node, l_node, l_component, resolve_component(thiz, l_component));
 		thiz->component_added_callback.call(&l_param);
 		return l_component;
@@ -134,7 +143,7 @@ struct SceneKernel
 
 	inline static void remove_component(Scene* thiz, const SceneNodeToken p_node, const SceneNodeComponent_TypeInfo& p_component_type_info)
 	{
-		com::Vector<SceneNodeComponentToken>& l_components = thiz->node_to_components[resolve_node(thiz, p_node).element->components];
+		com::Vector<SceneNodeComponentToken>& l_components = thiz->node_to_components[resolve_node(thiz, p_node).element->components].value;
 		for (size_t i = 0; i < l_components.Size; i++)
 		{
 			SceneNodeComponentHeader* l_component_header = resolve_component(thiz, l_components[i]);
@@ -148,7 +157,7 @@ struct SceneKernel
 
 	inline static void remove_component(Scene* thiz, NTreeResolve<SceneNode>& p_node, SceneNodeComponentToken& p_component_token)
 	{
-		com::Vector<SceneNodeComponentToken>& l_components = thiz->node_to_components[p_node.element->components];
+		com::Vector<SceneNodeComponentToken>& l_components = thiz->node_to_components[p_node.element->components].value;
 		for (size_t i = 0; i < l_components.Size; i++)
 		{
 			if (l_components[i].Index == p_component_token.Index)
@@ -184,7 +193,7 @@ struct SceneKernel
 
 	inline static SceneNodeComponentHeader* get_component(Scene* thiz, const SceneNodeToken p_node, const SceneNodeComponent_TypeInfo& p_component_type_info)
 	{
-		com::Vector<SceneNodeComponentToken>& l_components = thiz->node_to_components[resolve_node(thiz, p_node).element->components];
+		com::Vector<SceneNodeComponentToken>& l_components = thiz->node_to_components[resolve_node(thiz, p_node).element->components].value;
 		for (size_t i = 0; i < l_components.Size; i++)
 		{
 			SceneNodeComponentHeader* l_component_header = resolve_component(thiz, l_components[i]);
@@ -223,7 +232,7 @@ struct SceneKernel
 			};
 			inline void foreach(NTreeResolve<SceneNode>& p_node)
 			{
-				com::Vector<SceneNodeComponentToken>& l_node_components = this->scene->node_to_components[p_node.element->components];
+				com::Vector<SceneNodeComponentToken>& l_node_components = this->scene->node_to_components[p_node.element->components].value;
 				for (size_t i = 0; i < l_node_components.Size; i++)
 				{
 					if (SceneKernel::resolve_component(this->scene, l_node_components[i])->id == this->component_type->id)
@@ -255,7 +264,7 @@ struct SceneKernel
 
 
 	inline static void allocate_node(NodeKernel_InputParams, const Math::Transform& p_transform, const SceneNodeToken& p_scenetree_entry,
-		com::TPoolToken<com::Vector<SceneNodeComponentToken>> p_scenecomponents_token)
+		com::TPoolToken<Optional<com::Vector<SceneNodeComponentToken>>> p_scenecomponents_token)
 	{
 		thiz->transform = p_transform;
 		thiz->scenetree_entry = p_scenetree_entry;
@@ -292,7 +301,7 @@ struct SceneKernel
 
 			inline void foreach(NTreeResolve<SceneNode>& p_node)
 			{
-				com::Vector<SceneNodeComponentToken>& l_components = this->scene->node_to_components.resolve(p_node.element->components);
+				com::Vector<SceneNodeComponentToken>& l_components = this->scene->node_to_components.resolve(p_node.element->components).value;
 				for (size_t i = l_components.Size - 1; i < l_components.Size; i--)
 				{
 					SceneKernel::remove_component(this->scene, p_node, l_components[i]);

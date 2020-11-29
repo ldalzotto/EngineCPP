@@ -49,7 +49,7 @@ struct SceneNode
 		bool haschanged_thisframe = false;
 	} state;
 
-	com::TPoolToken<com::Vector<SceneNodeComponentToken>> components;
+	com::TPoolToken<Optional<com::Vector<SceneNodeComponentToken>>> components;
 
 	//transform
 	Math::Transform transform;
@@ -170,7 +170,7 @@ struct SceneHeap
 struct Scene
 {
 	NTree<SceneNode> tree;
-	com::Pool<com::Vector<SceneNodeComponentToken>, HeapZeroingAllocator> node_to_components;
+	com::OptionalPool<com::Vector<SceneNodeComponentToken>, HeapZeroingAllocator> node_to_components;
 	SceneHeap heap;
 
 	Callback<void, ComponentAddedParameter> component_added_callback;
