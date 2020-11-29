@@ -111,7 +111,7 @@ namespace com
 	inline OptionalPool<TYPE, Allocator> OptionalPool<TYPE, Allocator>::clone()
 	{
 		OptionalPool<TYPE, Allocator> l_return;
-		l_return.pool = l_return.pool.clone();
+		l_return.pool = this->pool.clone();
 		return l_return;
 	};
 

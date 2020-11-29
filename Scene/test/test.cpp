@@ -102,7 +102,7 @@ int main()
 
 
 
-		// l_editor_scene.free();
+		 l_editor_scene.free();
 	}
 
 	SceneKernel::free_scene(&l_scene);
