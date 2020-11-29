@@ -5,7 +5,8 @@
 #include "Common/File/file.hpp"
 #include "Engine/engine.hpp"
 #include "Common/Functional/ToString.hpp"
-#include "Scene/../../Scene/Scene/scene.cpp"
+#include "Scene/scene.hpp"
+#include "Scene/kernel/scene.hpp"
 #include "Input/input.hpp"
 #include "Common/Clock/clock.hpp"
 #include "Math/math.hpp"
@@ -245,20 +246,20 @@ private:
 		com::PoolToken node;
 		Math::vec4f original_color;
 
-		inline void set_original_meshrenderer(SceneHandle& p_scene, RenderMiddlewareHandle p_render_middleware)
+		inline void set_original_meshrenderer(Scene* p_scene, RenderMiddlewareHandle p_render_middleware)
 		{
-			p_render_middleware->get_renderable_object(p_scene.get_component<MeshRenderer>(this->node))->default_material.set_color(p_render_middleware->render, this->original_color);
+			p_render_middleware->get_renderable_object(SceneKernel::get_component<MeshRenderer>(p_scene, this->node))->default_material.set_color(p_render_middleware->render, this->original_color);
 			//	p_render_middleware->set_material(p_scene.get_component<MeshRenderer>(this->node), this->original_material);
 		};
 	};
 
 	com::PoolToken root_selected_node;
 	com::Vector<SelectedNodeRenderer> selected_nodes_renderer;
-	SceneHandle selected_node_scene;
+	Scene* selected_node_scene;
 
 public:
 
-	inline void set_selected_node(SceneHandle& p_scene, com::PoolToken& p_node, RenderMiddlewareHandle p_render_middleware)
+	inline void set_selected_node(Scene* p_scene, com::PoolToken& p_node, RenderMiddlewareHandle p_render_middleware)
 	{
 		for (size_t i = 0; i < this->selected_nodes_renderer.Size; i++)
 		{
@@ -267,7 +268,7 @@ public:
 		this->selected_nodes_renderer.clear();
 
 		this->root_selected_node = com::PoolToken();
-		this->selected_node_scene = SceneHandle();
+		this->selected_node_scene = p_scene;
 
 		if (p_node.Index == -1)
 		{
@@ -281,10 +282,10 @@ public:
 			struct SceneForeach
 			{
 				com::Vector<SelectedNodeRenderer>* out_selected_node_renderers;
-				SceneHandle scene;
+				Scene* scene = nullptr;
 				RenderMiddleware* render_middleware;
 
-				inline SceneForeach(com::Vector<SelectedNodeRenderer>* p_selected_node_renderers, SceneHandle p_scene, RenderMiddleware* p_render_middleware) {
+				inline SceneForeach(com::Vector<SelectedNodeRenderer>* p_selected_node_renderers, Scene* p_scene, RenderMiddleware* p_render_middleware) {
 					this->out_selected_node_renderers = p_selected_node_renderers;
 					this->scene = p_scene;
 					this->render_middleware = p_render_middleware;
@@ -293,7 +294,7 @@ public:
 				inline void foreach(NTreeResolve<SceneNode>& p_node)
 				{
 
-					MeshRenderer* l_mesh_renderer = this->scene.get_component<MeshRenderer>(p_node.node->index);
+					MeshRenderer* l_mesh_renderer = SceneKernel::get_component<MeshRenderer>(this->scene, p_node.node->index);
 					if (l_mesh_renderer)
 					{
 						DefaultMaterial* l_renderableobject_material = &this->render_middleware->get_renderable_object(l_mesh_renderer)->default_material;
@@ -309,7 +310,7 @@ public:
 				};
 			};
 
-			((Scene*)p_scene.handle)->tree.traverse(this->root_selected_node, SceneForeach(&this->selected_nodes_renderer, p_scene, p_render_middleware));
+			p_scene->tree.traverse(this->root_selected_node, SceneForeach(&this->selected_nodes_renderer, p_scene, p_render_middleware));
 		}
 
 
@@ -365,8 +366,8 @@ public:
 				this->state != NodeMovement::State::UNDEFINED)
 			{
 
-				Scene* p_scene = (Scene*)engine_scene(p_engine).handle;
-				NTreeResolve<SceneNode> l_node = p_scene->resolve_node(this->root_selected_node);
+				Scene* p_scene = engine_scene(p_engine);
+				NTreeResolve<SceneNode> l_node = SceneKernel::resolve_node(p_scene, this->root_selected_node);
 
 				switch (this->state)
 				{
@@ -406,11 +407,9 @@ public:
 					break;
 					}
 
-					l_delta = mul(l_node.element->get_worldtolocal(), l_delta);
+					l_delta = mul(SceneKernel::get_worldtolocal(l_node.element, p_scene), l_delta);
 
-
-
-					l_node.element->set_localposition(l_node.element->get_localposition() + l_delta.Vec3);
+					SceneKernel::set_localposition(l_node.element, p_scene, SceneKernel::get_localposition(l_node.element) + l_delta.Vec3);
 				}
 				break;
 				case NodeMovement::State::ROTATION_LOCAL:
@@ -448,7 +447,7 @@ public:
 					break;
 					}
 
-					l_node.element->set_localrotation(mul(l_node.element->get_localrotation(), Math::rotateAround(l_axis, l_value)));
+					SceneKernel::set_localrotation(l_node.element, p_scene, mul(SceneKernel::get_localrotation(l_node.element), Math::rotateAround(l_axis, l_value)));
 				}
 				break;
 				}
@@ -467,7 +466,7 @@ public:
 		this->selected_nodes_renderer.clear();
 
 		this->root_selected_node = com::PoolToken();
-		this->selected_node_scene = SceneHandle();
+		this->selected_node_scene = nullptr;
 
 		this->state = State::UNDEFINED;
 	}
@@ -545,7 +544,7 @@ struct CommandHandler
 				com::Vector<char> l_scene = engine_assetserver(p_tool_state.engine_runner.engines[p_tool_state.selectged_engine].value.running_engine).get_resource(Hash<StringSlice>::hash(p_command_stack[p_depth + 1]));
 				SceneAsset l_deserialized_scene = SceneSerializer::deserialize_from_binary(l_scene);
 				{
-					engine_scene(p_tool_state.engine_runner.engines[p_tool_state.selectged_engine].value.running_engine).feed_with_asset(l_deserialized_scene);
+				 SceneKernel::feed_with_asset(engine_scene(p_tool_state.engine_runner.engines[p_tool_state.selectged_engine].value.running_engine), l_deserialized_scene);
 				}
 				l_scene.free();
 				p_tool_state.engine_runner.engines[p_tool_state.selectged_engine].value.update(0);
@@ -555,7 +554,7 @@ struct CommandHandler
 		{
 			if (p_tool_state.engine_runner.engines[p_tool_state.selectged_engine].hasValue)
 			{
-				Scene* p_scene = (Scene*)engine_scene(p_tool_state.engine_runner.engines[p_tool_state.selectged_engine].value.running_engine).handle;
+				Scene* p_scene = engine_scene(p_tool_state.engine_runner.engines[p_tool_state.selectged_engine].value.running_engine);
 
 				struct ScenePrintForeach
 				{

@@ -11,6 +11,7 @@
 #include "Math/serialization.hpp"
 #include "Input/input.hpp"
 #include "Middleware/RenderMiddleware.hpp"
+#include "Scene/kernel/scene.hpp"
 
 using namespace Math;
 
@@ -25,7 +26,7 @@ struct TestContext
 void update(void* p_engine, float p_delta)
 {
 	EngineHandle* l_engine = (EngineHandle*)p_engine;
-	SceneHandle l_scenehandle = engine_scene(*l_engine);
+	Scene* l_scenehandle = engine_scene(*l_engine);
 	InputHandle l_input = engine_input(*l_engine);
 
 
@@ -34,10 +35,11 @@ void update(void* p_engine, float p_delta)
 	{
 		com::Vector<char> l_scene_binary = engine_assetserver(*l_engine).get_resource("scenes/test_scene.json");
 		SceneAsset l_scene_asset = SceneSerializer::deserialize_from_binary(l_scene_binary);
-		l_scenehandle.feed_with_asset(l_scene_asset);
+		SceneKernel::feed_with_asset(l_scenehandle, l_scene_asset);
+		
 		l_scene_binary.free();
 
-		com::Vector<NTreeResolve<SceneNode>> l_nodes = l_scenehandle.get_nodes_with_component<MeshRenderer>();
+		com::Vector<NTreeResolve<SceneNode>> l_nodes = SceneKernel::get_nodes_with_component<MeshRenderer>(l_scenehandle);
 		for (size_t i = 0; i < l_nodes.Size; i++)
 		{
 			testContext.moving_nodes.push_back(com::PoolToken(l_nodes[i].node->index));
@@ -46,27 +48,26 @@ void update(void* p_engine, float p_delta)
 
 	if (l_input.get_state(InputKey::InputKey_B, KeyState::KeyStateFlag_PRESSED_THIS_FRAME))
 	{
-		com::Vector<NTreeResolve<SceneNode>> l_nodes = l_scenehandle.get_nodes_with_component<MeshRenderer>();
-		MeshRenderer* l_mesh_renderer = l_scenehandle.get_component<MeshRenderer>(l_nodes[0].node->index);
+		com::Vector<NTreeResolve<SceneNode>> l_nodes = SceneKernel::get_nodes_with_component<MeshRenderer>(l_scenehandle);
+		MeshRenderer* l_mesh_renderer = SceneKernel::get_component<MeshRenderer>(l_scenehandle, l_nodes[0].node->index);
 		engine_render_middleware(*l_engine)->set_material(l_mesh_renderer, Hash<StringSlice>::hash(StringSlice("materials/editor_selected.json")));
 	}
 	else if (l_input.get_state(InputKey::InputKey_V, KeyState::KeyStateFlag_PRESSED_THIS_FRAME))
 	{
-		com::Vector<NTreeResolve<SceneNode>> l_nodes = l_scenehandle.get_nodes_with_component<MeshRenderer>();
-		MeshRenderer* l_mesh_renderer = l_scenehandle.get_component<MeshRenderer>(l_nodes[0].node->index);
+		com::Vector<NTreeResolve<SceneNode>> l_nodes = SceneKernel::get_nodes_with_component<MeshRenderer>(l_scenehandle);
+		MeshRenderer* l_mesh_renderer = SceneKernel::get_component<MeshRenderer>(l_scenehandle, l_nodes[0].node->index);
 		engine_render_middleware(*l_engine)->set_material(l_mesh_renderer, Hash<StringSlice>::hash(StringSlice("materials/test.json")));
 	}
 	else if (l_input.get_state(InputKey::InputKey_C, KeyState::KeyStateFlag_PRESSED_THIS_FRAME))
 	{
-		com::Vector<NTreeResolve<SceneNode>> l_nodes = l_scenehandle.get_nodes_with_component<MeshRenderer>();
-		l_scenehandle.free_node(com::PoolToken(l_nodes[0].node->index));
+		com::Vector<NTreeResolve<SceneNode>> l_nodes = SceneKernel::get_nodes_with_component<MeshRenderer>(l_scenehandle);
+		SceneKernel::free_node(l_scenehandle, com::PoolToken(l_nodes[0].node->index));
 	}
 
 	for (size_t i = 0; i < testContext.moving_nodes.Size; i++)
 	{
-		SceneNode* l_node = l_scenehandle.resolve_node(testContext.moving_nodes[i]).element;
-
-		l_node->set_localrotation(mul(l_node->get_localrotation(), rotateAround(vec3f(0.0f, 1.0f, 0.0f), p_delta)));
+		SceneNode* l_node = SceneKernel::resolve_node(l_scenehandle, testContext.moving_nodes[i]).element;
+		SceneKernel::set_localrotation(l_node, l_scenehandle, mul(SceneKernel::get_localrotation(l_node), rotateAround(vec3f(0.0f, 1.0f, 0.0f), p_delta)));
 	}
 
 	/*

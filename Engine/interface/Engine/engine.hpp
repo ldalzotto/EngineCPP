@@ -26,7 +26,7 @@ void engine_singleframe(const EngineHandle& p_engine);
 void engine_singleframe(const EngineHandle& p_engine, float p_delta);
 void engine_destroy(const EngineHandle& p_engine);
 void engine_exit(const EngineHandle& p_engine);
-SceneHandle engine_scene(const EngineHandle& p_engine);
+Scene* engine_scene(const EngineHandle& p_engine);
 AssetServerHandle engine_assetserver(const EngineHandle& p_engine);
 WindowHandle engine_window(const EngineHandle& p_engine);
 InputHandle engine_input(const EngineHandle& p_engine);

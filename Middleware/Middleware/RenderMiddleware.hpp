@@ -3,6 +3,7 @@
 #include "Common/Container/pool.hpp"
 #include "SceneComponents/components.hpp"
 #include "Scene/scene.hpp"
+#include "Scene/kernel/scene.hpp"
 #include "Render/render.hpp"
 #include <optick.h>
 
@@ -152,19 +153,19 @@ struct RenderMiddleware
 		}
 	};
 
-	inline void pre_render(SceneHandle p_scene)
+	inline void pre_render(Scene* p_scene)
 	{
 		OPTICK_EVENT();
 
 		{
 			if (this->allocated_camera.node.Index != -1)
 			{
-				NTreeResolve<SceneNode> l_camera_scene_node = p_scene.resolve_node(this->allocated_camera.node);
+				NTreeResolve<SceneNode> l_camera_scene_node = SceneKernel::resolve_node(p_scene, this->allocated_camera.node);
 				if (l_camera_scene_node.element->state.haschanged_thisframe)
 				{
-					Camera* l_camera = p_scene.get_component<Camera>(this->allocated_camera.node);
-					Math::mat4f& l_localtoworld = l_camera_scene_node.element->get_localtoworld();
-					render_push_camera_buffer(this->render, l_camera->fov, l_camera->near_, l_camera->far_, l_camera_scene_node.element->get_worldposition(), l_localtoworld.Forward.Vec3, l_localtoworld.Up.Vec3);
+					Camera* l_camera = SceneKernel::get_component<Camera>(p_scene, this->allocated_camera.node);
+					Math::mat4f& l_localtoworld = SceneKernel::get_localtoworld(l_camera_scene_node.element, p_scene);
+					render_push_camera_buffer(this->render, l_camera->fov, l_camera->near_, l_camera->far_, SceneKernel::get_worldposition(l_camera_scene_node.element, p_scene), l_localtoworld.Forward.Vec3, l_localtoworld.Up.Vec3);
 				}
 			}
 		}
@@ -175,10 +176,10 @@ struct RenderMiddleware
 			Optional<RenderableObjectEntry>& l_entry = this->allocated_renderableobjects[i];
 			if (l_entry.hasValue)
 			{
-				NTreeResolve<SceneNode> l_scenenode = p_scene.resolve_node(l_entry.value.node);
+				NTreeResolve<SceneNode> l_scenenode = SceneKernel::resolve_node(p_scene, l_entry.value.node);
 				if (l_scenenode.element->state.haschanged_thisframe || l_entry.value.force_update)
 				{
-					l_entry.value.renderableobject.push_trs(this->render, l_scenenode.element->get_localtoworld());
+					l_entry.value.renderableobject.push_trs(this->render, SceneKernel::get_localtoworld(l_scenenode.element, p_scene));
 					l_entry.value.force_update = false;
 				}
 			}

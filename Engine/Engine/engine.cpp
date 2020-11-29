@@ -3,6 +3,7 @@
 #include <GLFW/glfwinclude.h>
 #include <optick.h>
 #include <Scene/scene.hpp>
+#include <Scene/kernel/scene.hpp>
 #include <AssetServer/asset_server.hpp>
 #include "engine_loop.hpp"
 #include "Input/input.hpp"
@@ -41,7 +42,7 @@ struct Engine
 	Clock clock;
 	AssetServerHandle asset_server;
 	EngineLoop<EngineCallbacks> loop;
-	SceneHandle scene;
+	Scene scene;
 	RenderHandle render;
 	InputHandle input;
 
@@ -61,7 +62,7 @@ inline Engine::Engine(const std::string& p_executeable_path, const ExternalHooks
 {
 	this->asset_server.allocate(p_executeable_path);
 	this->loop = EngineLoop<EngineCallbacks>(EngineCallbacks(this, p_hooks), 16000);
-	this->scene.allocate(*(Callback<void, ComponentAddedParameter>*) & Callback<ComponentMiddlewares, ComponentAddedParameter>(&this->all_middlewares, SceneComponentCallbacks::on_component_added),
+	SceneKernel::allocate_scene(&this->scene, *(Callback<void, ComponentAddedParameter>*) & Callback<ComponentMiddlewares, ComponentAddedParameter>(&this->all_middlewares, SceneComponentCallbacks::on_component_added),
 		*(Callback<void, ComponentRemovedParameter>*) & Callback<ComponentMiddlewares, ComponentRemovedParameter>(&this->all_middlewares, SceneComponentCallbacks::on_component_removed),
 		*(Callback<void, ComponentAssetPushParameter>*) & Callback<void, ComponentAssetPushParameter>(nullptr, SceneComponentCallbacks::push_componentasset));
 	this->render = create_render(this->asset_server);
@@ -72,7 +73,7 @@ inline Engine::Engine(const std::string& p_executeable_path, const ExternalHooks
 
 inline void Engine::dispose()
 {
-	this->scene.free();
+	SceneKernel::free_scene(&this->scene);
 	this->render_middleware.free();
 	this->input.free();
 	destroy_render(this->render);
@@ -160,7 +161,7 @@ inline void EngineCallbacks::endupdate_callback()
 
 inline void EngineCallbacks::render_callback()
 {
-	this->closure->render_middleware.pre_render(this->closure->scene);
+	this->closure->render_middleware.pre_render(&this->closure->scene);
 	render_draw(this->closure->render);
 }
 
@@ -184,9 +185,9 @@ void engine_exit(const EngineHandle& p_engine)
 	glfwTerminate();
 }
 
-SceneHandle engine_scene(const EngineHandle& p_engine)
+Scene* engine_scene(const EngineHandle& p_engine)
 {
-	return ((Engine*)p_engine)->scene;
+	return &((Engine*)p_engine)->scene;
 };
 
 AssetServerHandle engine_assetserver(const EngineHandle& p_engine)

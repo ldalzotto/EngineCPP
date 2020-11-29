@@ -10,6 +10,9 @@
 #include "Math/transform_def.hpp"
 #include "Math/math.hpp"
 
+#include "Common/Container/vector.hpp"
+#include "Common/Memory/heap.hpp"
+
 typedef com::TPoolToken<GeneralPurposeHeapMemoryChunk> SceneNodeComponentToken;
 
 
@@ -26,7 +29,6 @@ struct SceneNodeComponentHeader
 
 struct SceneNode
 {
-	NTree<SceneNode>* scenetree_ptr;
 
 	struct State
 	{
@@ -36,7 +38,6 @@ struct SceneNode
 
 	com::TPoolToken<com::Vector<SceneNodeComponentToken>> components;
 
-private:
 	//transform
 	Math::Transform transform;
 
@@ -49,203 +50,12 @@ private:
 
 public:
 	inline SceneNode() {};
-
-	inline SceneNode(const Math::Transform& p_transform, NTree<SceneNode>* p_owned_tree, const com::PoolToken& p_scenetree_entry, 
-		com::TPoolToken<com::Vector<SceneNodeComponentToken>> p_scenecomponents_token)
-	{
-		this->transform = p_transform;
-		this->scenetree_ptr = p_owned_tree;
-		this->scenetree_entry = p_scenetree_entry;
-		this->components = p_scenecomponents_token;
-		this->mark_for_recalculation();
-	}
-
-	inline void free()
-	{
-	};
-
-	inline void addchild(com::PoolToken& p_newchild)
-	{
-		NTreeResolve<SceneNode> l_current = this->scenetree_ptr->resolve(this->scenetree_entry);
-		NTreeResolve<SceneNode> l_newchild = this->scenetree_ptr->resolve(p_newchild);
-
-
-		if (l_newchild.node->parent != this->scenetree_entry.Index)
-		{
-			if (l_newchild.node->has_parent())
-			{
-				NTreeResolve<SceneNode> l_newchild_parent = this->scenetree_ptr->resolve(l_newchild.node->parent);
-				for (size_t i = 0; i < l_newchild_parent.node->childs.Size; i++)
-				{
-					if (l_newchild_parent.node->childs[i] == l_newchild.node->parent)
-					{
-						l_newchild_parent.node->childs.erase_at(i);
-						break;
-					}
-				}
-			}
-
-			l_newchild.node->parent = this->scenetree_entry.Index;
-			l_current.node->childs.push_back(l_newchild.element->scenetree_entry.Index);
-
-			l_newchild.element->mark_for_recalculation();
-		}
-
-	}
-
-	inline Math::vec3f& get_localposition()
-	{
-		return this->transform.local_position;
-	};
-
-	inline Math::quat& get_localrotation()
-	{
-		return this->transform.local_rotation;
-	};
-
-	inline void set_localposition(const Math::vec3f& p_position)
-	{
-		if (!Math::EqualsVec(this->transform.local_position, p_position))
-		{
-			this->mark_for_recalculation();
-			this->transform.local_position = p_position;
-		}
-	};
-
-	inline void set_localrotation(const Math::quat& p_rotation)
-	{
-		if (!Equals(this->transform.local_rotation, p_rotation))
-		{
-			this->mark_for_recalculation();
-			this->transform.local_rotation = p_rotation;
-		}
-	};
-
-	inline void set_localscale(const Math::vec3f& p_scale)
-	{
-		if (!Math::EqualsVec(this->transform.local_scale, p_scale))
-		{
-			this->mark_for_recalculation();
-			this->transform.local_scale = p_scale;
-		}
-	};
-
-	inline void set_worldposition(const Math::vec3f& p_worldposition)
-	{
-		NTreeResolve<SceneNode> l_current = this->scenetree_ptr->resolve(this->scenetree_entry);
-		if (!l_current.node->has_parent())
-		{
-			this->set_localposition(p_worldposition);
-		}
-		else
-		{
-			NTreeResolve<SceneNode> l_parent = this->scenetree_ptr->resolve(l_current.node->parent);
-			this->set_localposition(Math::mul(l_parent.element->get_worldtolocal(), Math::vec4f(p_worldposition, 1.0f)).Vec3);
-		}
-	};
-
-	inline void set_worldrotation(const Math::quat& p_worldrotation)
-	{
-		NTreeResolve<SceneNode> l_current = this->scenetree_ptr->resolve(this->scenetree_entry);
-		if (!l_current.node->has_parent())
-		{
-			this->set_localrotation(p_worldrotation);
-		}
-		else
-		{
-			NTreeResolve<SceneNode> l_parent = this->scenetree_ptr->resolve(l_current.node->parent);
-			this->set_localrotation(Math::mul(Math::inv(l_parent.element->get_worldrotation()), p_worldrotation));
-		}
-	};
-
-	inline void set_worldscale(const Math::vec3f& p_worldscale)
-	{
-		NTreeResolve<SceneNode> l_current = this->scenetree_ptr->resolve(this->scenetree_entry);
-		if (!l_current.node->has_parent())
-		{
-			this->set_localscale(p_worldscale);
-		}
-		else
-		{
-			NTreeResolve<SceneNode> l_parent = this->scenetree_ptr->resolve(l_current.node->parent);
-			this->set_localscale(Math::mul(p_worldscale, Math::inv(l_parent.element->get_worldscalefactor())));
-		}
-	};
-
-	inline Math::vec3f get_worldposition()
-	{
-		return translationVector(this->get_localtoworld());
-	};
-
-	inline Math::quat get_worldrotation()
-	{
-		NTreeResolve<SceneNode> l_current = this->scenetree_ptr->resolve(this->scenetree_entry);
-		if (!l_current.node->has_parent())
-		{
-			return this->transform.local_rotation;
-		}
-		else
-		{
-			NTreeResolve<SceneNode> l_parent = this->scenetree_ptr->resolve(l_current.node->parent);
-			return mul(l_parent.element->get_worldrotation(), this->transform.local_rotation);
-		}
-	};
-
-	inline Math::vec3f get_worldscalefactor()
-	{
-		NTreeResolve<SceneNode> l_current = this->scenetree_ptr->resolve(this->scenetree_entry);
-		if (!l_current.node->has_parent())
-		{
-			return this->transform.local_scale;
-		}
-		else
-		{
-			NTreeResolve<SceneNode> l_parent = this->scenetree_ptr->resolve(l_current.node->parent);
-			return mul(l_parent.element->get_worldscalefactor(), this->transform.local_scale);
-		}
-	};
-
-	inline Math::mat4f& get_localtoworld()
-	{
-		this->updatematrices_if_necessary();
-		return this->localtoworld;
-	};
-
-	inline Math::mat4f get_worldtolocal()
-	{
-		return inv(this->get_localtoworld());
-	};
-
-private:
-	inline void updatematrices_if_necessary()
-	{
-		if (this->state.matrices_mustBe_recalculated)
-		{
-			this->localtoworld = Math::TRS(this->transform.local_position, Math::extractAxis<float>(this->transform.local_rotation), this->transform.local_scale);
-			NTreeResolve<SceneNode> l_current = this->scenetree_ptr->resolve(this->scenetree_entry);
-			if (l_current.node->has_parent())
-			{
-				NTreeResolve<SceneNode> l_parent = this->scenetree_ptr->resolve(l_current.node->parent);
-				this->localtoworld = mul(l_parent.element->get_localtoworld(), this->localtoworld);
-			}
-			this->state.matrices_mustBe_recalculated = false;
-		}
-	};
-
-	inline void mark_for_recalculation()
-	{
-		struct MarkRecalculationForeach : public NTree<SceneNode>::INTreeForEach<SceneNode>
-		{
-			inline void foreach(NTreeResolve<SceneNode>& p_resolve)
-			{
-				p_resolve.element->state.matrices_mustBe_recalculated = true;
-				p_resolve.element->state.haschanged_thisframe = true;
-			};
-		};
-
-		this->scenetree_ptr->traverse(this->scenetree_entry, MarkRecalculationForeach());
-	}
 };
+
+
+
+
+
 
 struct ComponentAddedParameter
 {
@@ -290,67 +100,77 @@ struct ComponentAssetPushParameter
 	ComponentAssetPushParameter() {};
 };
 
-struct SceneHandle
+
+
+
+
+
+struct SceneHeap
 {
-	void* handle = nullptr;
+	GeneralPurposeHeap<> component_heap;
 
-	void allocate(const Callback<void, ComponentAddedParameter>& p_componentadded_callback, const Callback<void, ComponentRemovedParameter>& p_componentremoved_callback,
-		const Callback<void, ComponentAssetPushParameter>& p_componentasset_push_callback);
-	void free();
-
-	com::PoolToken allocate_node(const Math::Transform& p_initial_local_transform);
-	void free_node(com::PoolToken& p_node);
-	com::PoolToken add_node(const com::PoolToken& p_parent, const Math::Transform& p_initial_local_transform);
-
-	NTreeResolve<SceneNode> resolve_node(const com::PoolToken p_node);
-
-	template<class ComponentType>
-	ComponentType* resolve_component(const com::PoolToken p_component)
+	inline void allocate()
 	{
-		return resolve_componentheader(SceneNodeComponentToken(p_component.Index))->cast<ComponentType>();
-	};
+		this->component_heap.allocate(3000); //TODO -> tune
+	}
 
-	SceneNodeComponentHeader* resolve_componentheader(const SceneNodeComponentToken& p_component);
-
-	template<class ComponentType>
-	inline SceneNodeComponentToken add_component(const com::PoolToken p_node, const ComponentType& p_initialvalue = ComponentType())
+	inline SceneHeap clone()
 	{
-		return this->add_component(p_node, ComponentType::Type, (void*)&p_initialvalue);
-	};
+		SceneHeap l_return;
+		l_return.component_heap = this->component_heap.clone();
+		return l_return;
+	}
 
-	template<class ComponentType>
-	inline ComponentType* get_component(const com::PoolToken p_node)
+	inline void free()
 	{
-		SceneNodeComponentHeader* l_component_header = this->get_component(p_node, ComponentType::Type);
-		if (l_component_header)
+		this->component_heap.dispose();
+	}
+
+	//store components ?
+	inline SceneNodeComponentToken allocate_component(const SceneNodeComponent_TypeInfo& p_type, void* p_initial_value)
+	{
+		// if(this->component_heap.chunk_total_size <)
+		size_t l_allocationsize = sizeof(SceneNodeComponentHeader) + p_type.size;
+		com::TPoolToken<GeneralPurposeHeapMemoryChunk> l_memory_allocated;
+		if (!this->component_heap.allocate_element<>(l_allocationsize, &l_memory_allocated))
 		{
-			return l_component_header->cast<ComponentType>();
+			this->component_heap.realloc((this->component_heap.memory.Size * 2) + l_allocationsize);
+			if (!this->component_heap.allocate_element<>(l_allocationsize, &l_memory_allocated))
+			{
+				abort();
+			};
 		}
-		return nullptr;
-	};
 
-	template<class ComponentType>
-	inline void remove_component(const com::PoolToken p_node)
+		SceneNodeComponentHeader* l_header = this->component_heap.map<SceneNodeComponentHeader>(l_memory_allocated);
+		l_header->id = p_type.id;
+		memcpy((char*)l_header + sizeof(SceneNodeComponentHeader), p_initial_value, p_type.size);
+
+		return l_memory_allocated;
+	}
+
+	inline void free_component(SceneNodeComponentToken& p_component)
 	{
-		this->remove_component(p_node, ComponentType::Type);
-	};
+		this->component_heap.release_element(p_component);
+		p_component.Index = -1;
+	}
+};
 
+struct Scene
+{
+	NTree<SceneNode> tree;
+	com::Pool<com::Vector<SceneNodeComponentToken>, HeapZeroingAllocator> node_to_components;
+	SceneHeap heap;
 
-	template<class ComponentType>
-	inline com::Vector<NTreeResolve<SceneNode>> get_nodes_with_component()
+	Callback<void, ComponentAddedParameter> component_added_callback;
+	Callback<void, ComponentRemovedParameter> component_removed_callback;
+	Callback<void, ComponentAssetPushParameter> component_asset_push_callback;
+
+	inline void end_of_frame()
 	{
-		return this->get_nodes_with_component(ComponentType::Type);
-	};
-
-	void SceneHandle::feed_with_asset(SceneAsset& p_scene_asset);
-
-	com::PoolToken root();
-	void end_of_frame();
-
-private:
-	SceneNodeComponentToken add_component(const com::PoolToken p_node, const SceneNodeComponent_TypeInfo& p_component_type_info, void* p_initial_value);
-	SceneNodeComponentHeader* get_component(const com::PoolToken p_node, const SceneNodeComponent_TypeInfo& p_component_type_info);
-	void remove_component(const com::PoolToken p_node, SceneNodeComponentToken& p_component);
-	void remove_component(const com::PoolToken p_node, const SceneNodeComponent_TypeInfo& p_component_type_info);
-	com::Vector<NTreeResolve<SceneNode>> get_nodes_with_component(const SceneNodeComponent_TypeInfo& p_component_type_info);
+		for (size_t i = 0; i < this->tree.Memory.Memory.Size; i++)
+		{
+			SceneNode& l_node = this->tree.Memory.Memory[i];
+			l_node.state.haschanged_thisframe = false;
+		}
+	}
 };
