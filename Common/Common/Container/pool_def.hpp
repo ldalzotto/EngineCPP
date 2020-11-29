@@ -66,10 +66,15 @@ namespace com
 		OptionalPool();
 		void allocate(size_t p_initialSize, const Allocator& p_allocator = Allocator());
 		void free();
+
+		OptionalPool<TYPE, Allocator> clone();
+		OptionalPool<TYPE, Allocator> move();
+
 		size_t size();
 		Optional<TYPE>& operator[](size_t i);
 		Optional<TYPE>& operator[](const TPoolToken<Optional<TYPE>> i);
-		PoolToken alloc_element(const TYPE& p_element);
+		Optional<TYPE>& resolve(const TPoolToken<Optional<TYPE>> i);
+		TPoolToken<Optional<TYPE>> alloc_element(const TYPE& p_element);
 		void release_element(const TPoolToken<Optional<TYPE>>& p_element);
 	};
 }

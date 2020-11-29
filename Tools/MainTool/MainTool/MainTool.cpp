@@ -243,7 +243,7 @@ private:
 
 	struct SelectedNodeRenderer
 	{
-		com::PoolToken node;
+		SceneNodeToken node;
 		Math::vec4f original_color;
 
 		inline void set_original_meshrenderer(Scene* p_scene, RenderMiddlewareHandle p_render_middleware)
@@ -253,13 +253,13 @@ private:
 		};
 	};
 
-	com::PoolToken root_selected_node;
+	SceneNodeToken root_selected_node;
 	com::Vector<SelectedNodeRenderer> selected_nodes_renderer;
 	Scene* selected_node_scene;
 
 public:
 
-	inline void set_selected_node(Scene* p_scene, com::PoolToken& p_node, RenderMiddlewareHandle p_render_middleware)
+	inline void set_selected_node(Scene* p_scene, SceneNodeToken& p_node, RenderMiddlewareHandle p_render_middleware)
 	{
 		for (size_t i = 0; i < this->selected_nodes_renderer.Size; i++)
 		{
@@ -267,7 +267,7 @@ public:
 		}
 		this->selected_nodes_renderer.clear();
 
-		this->root_selected_node = com::PoolToken();
+		this->root_selected_node = SceneNodeToken();
 		this->selected_node_scene = p_scene;
 
 		if (p_node.Index == -1)
@@ -465,7 +465,7 @@ public:
 		}
 		this->selected_nodes_renderer.clear();
 
-		this->root_selected_node = com::PoolToken();
+		this->root_selected_node = SceneNodeToken();
 		this->selected_node_scene = nullptr;
 
 		this->state = State::UNDEFINED;
@@ -589,7 +589,7 @@ struct CommandHandler
 		{
 			size_t l_selected_node = FromString<size_t>::from_str(StringSlice(p_command_stack[p_depth + 1]));
 			p_tool_state.node_movement.set_selected_node(engine_scene(p_tool_state.engine_runner.engines[p_tool_state.selectged_engine].value.running_engine),
-				com::PoolToken(l_selected_node), engine_render_middleware(p_tool_state.engine_runner.engines[p_tool_state.selectged_engine].value.running_engine));
+				SceneNodeToken(l_selected_node), engine_render_middleware(p_tool_state.engine_runner.engines[p_tool_state.selectged_engine].value.running_engine));
 		}
 	};
 

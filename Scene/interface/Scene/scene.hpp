@@ -36,7 +36,7 @@ struct SceneNodeToken : public com::PoolToken
 	inline SceneNodeToken() {};
 	inline SceneNodeToken(size_t p_index) : com::PoolToken(p_index) {};
 	// inline com::TPoolToken<SceneNode>* cast_to_scenenode() { return (com::TPoolToken<SceneNode>*)this; };
-	// inline com::TPoolToken<NTreeNode>* cast_to_treenode() { return (com::TPoolToken<NTreeNode>*)this; };
+	inline com::TPoolToken<NTreeNode>* cast_to_treenode() { return (com::TPoolToken<NTreeNode>*)this; };
 };
 
 

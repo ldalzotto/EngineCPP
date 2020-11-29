@@ -41,13 +41,25 @@ inline void component_asset_push_cb(void* p_clos, ComponentAssetPushParameter* p
 	{
 		SceneKernel::add_component<ComponentTest>((Scene*)p_par->scene, p_par->node, *(ComponentTest*)p_par->component_asset_object);
 	}
-	
+
 };
 
 struct EditorScene
 {
-	Scene* scene;
+	Scene* engine_scene;
+	Scene proxy_scene;
 
+	inline void allocate(Scene* p_engine_scene)
+	{
+		this->engine_scene = p_engine_scene;
+		this->proxy_scene = SceneKernel::clone(p_engine_scene);
+	};
+
+	inline void free()
+	{
+		SceneKernel::free_scene(&this->proxy_scene);
+		this->engine_scene = nullptr;
+	};
 
 };
 
@@ -84,10 +96,15 @@ int main()
 	{
 		SceneKernel::feed_with_asset(&l_scene, l_scene_asset);
 		l_scene_asset.free();
+		
+		EditorScene l_editor_scene;
+		l_editor_scene.allocate(&l_scene);
 
-		Scene l_cloned_scene = SceneKernel::clone(&l_scene);
+
+
+		// l_editor_scene.free();
 	}
-	
+
 	SceneKernel::free_scene(&l_scene);
-	
+
 }

@@ -5,15 +5,16 @@
 
 struct NTreeNode
 {
+	typedef com::TPoolToken<Optional<com::Vector<com::TPoolToken<NTreeNode>>>> ChildsToken;
+
 	size_t index;
 	size_t parent;
-	com::Vector<size_t> childs;
+	ChildsToken  childs;
 
 	inline NTreeNode(){}
 
-	void allocate_as_root();
-	void allocate(const size_t p_current_index);
-	void allocate(const size_t p_parent_index, NTreeNode& p_parent, const size_t p_current_index);
+	void allocate_as_root(ChildsToken p_childs);
+	void allocate(const size_t p_current_index, const size_t p_parent_index, ChildsToken p_childs);
 	void free();
 
 	bool has_parent();
@@ -45,6 +46,7 @@ struct NTree
 
 	com::Pool<ElementType, Allocator> Memory;
 	com::Pool<NTreeNode, Allocator> Indices;
+	com::OptionalPool<com::Vector<com::TPoolToken<NTreeNode>>> Indices_childs;
 
 	void allocate(size_t p_initialSize, const Allocator& p_allocator = Allocator());
 	NTree<ElementType, Allocator> clone();
@@ -53,6 +55,7 @@ struct NTree
 	NTree<ElementType, Allocator> move();
 
 	NTreeResolve<ElementType> resolve(com::PoolToken p_token);
+	com::Vector<com::TPoolToken<NTreeNode>>& get_childs(const NTreeResolve<ElementType>& p_node_resolve);
 
 	com::TPoolToken<ElementType> push_root_value(const ElementType& p_value);
 	com::TPoolToken<ElementType> push_value(const com::TPoolToken<NTreeNode> p_parent, const ElementType& p_value);
@@ -63,7 +66,4 @@ struct NTree
 
 	template<class NTreeForEach>
 	void traverse(com::PoolToken& p_start, NTreeForEach& p_foreach);
-
-	template<class NTreeMap, class TargetElementType>
-	NTree<TargetElementType> map(NTreeMap& p_map);
 };

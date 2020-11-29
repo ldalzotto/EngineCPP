@@ -5,7 +5,7 @@
 namespace com
 {
 	template <class TYPE, class Allocator>
-	inline void Pool<TYPE, Allocator>::allocate(size_t p_initialSize, const Allocator &p_allocator)
+	inline void Pool<TYPE, Allocator>::allocate(size_t p_initialSize, const Allocator& p_allocator)
 	{
 		this->Memory.allocate(p_initialSize, p_allocator);
 		this->FreeBlocks.allocate(0, p_allocator);
@@ -58,7 +58,7 @@ namespace com
 	{
 		return this->Memory.Memory[i.Index];
 	}
-	
+
 	template<class TYPE, class Allocator>
 	inline TPoolToken<TYPE> Pool<TYPE, Allocator>::alloc_element(const TYPE& p_element)
 	{
@@ -107,6 +107,23 @@ namespace com
 		this->pool.free();
 	}
 
+	template <class TYPE, class Allocator>
+	inline OptionalPool<TYPE, Allocator> OptionalPool<TYPE, Allocator>::clone()
+	{
+		OptionalPool<TYPE, Allocator> l_return;
+		l_return.pool = l_return.pool.clone();
+		return l_return;
+	};
+
+
+	template <class TYPE, class Allocator>
+	inline OptionalPool<TYPE, Allocator> OptionalPool<TYPE, Allocator>::move()
+	{
+		OptionalPool<TYPE, Allocator> l_target;
+		l_target.pool = this->pool.move();
+		return l_target;
+	};
+
 	template<class TYPE, class Allocator>
 	inline size_t OptionalPool<TYPE, Allocator>::size()
 	{
@@ -126,7 +143,13 @@ namespace com
 	};
 
 	template<class TYPE, class Allocator>
-	inline PoolToken OptionalPool<TYPE, Allocator>::alloc_element(const TYPE& p_element)
+	inline Optional<TYPE>& resolve(const TPoolToken<Optional<TYPE>> i)
+	{
+		return this->pool[i];
+	};
+
+	template<class TYPE, class Allocator>
+	inline TPoolToken<Optional<TYPE>> OptionalPool<TYPE, Allocator>::alloc_element(const TYPE& p_element)
 	{
 		Optional<TYPE> l_element = Optional<TYPE>(p_element);
 		return this->pool.alloc_element(l_element);

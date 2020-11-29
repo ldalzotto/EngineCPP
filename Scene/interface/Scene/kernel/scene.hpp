@@ -28,8 +28,14 @@ struct SceneKernel
 		Scene l_return;
 
 		l_return.tree = thiz->tree.clone();
+
 		l_return.heap = thiz->heap.clone();
 		l_return.node_to_components = thiz->node_to_components.clone();
+
+		for (size_t i = 0; i < l_return.node_to_components.size(); i++)
+		{
+			l_return.node_to_components[i] = l_return.node_to_components[i].clone();
+		}
 
 		l_return.component_added_callback = thiz->component_added_callback;
 		l_return.component_asset_push_callback = thiz->component_asset_push_callback;
@@ -321,19 +327,20 @@ struct SceneKernel
 			if (l_newchild.node->has_parent())
 			{
 				NTreeResolve<SceneNode> l_newchild_parent = SceneKernel::resolve_node(p_scene, l_newchild.node->parent);
-				for (size_t i = 0; i < l_newchild_parent.node->childs.Size; i++)
+				com::Vector<com::TPoolToken<NTreeNode>>& l_newchild_parent_childs =  p_scene->tree.get_childs(l_newchild_parent);
+				for (size_t i = 0; i < l_newchild_parent_childs.Size; i++)
 				{
-					if (l_newchild_parent.node->childs[i] == l_newchild.node->parent)
+					if (l_newchild_parent_childs[i].Index == l_newchild.node->parent)
 					{
-						l_newchild_parent.node->childs.erase_at(i);
+						l_newchild_parent_childs.erase_at(i);
 						break;
 					}
 				}
 			}
 
 			l_newchild.node->parent = thiz->scenetree_entry.Index;
-			l_current.node->childs.push_back(l_newchild.element->scenetree_entry.Index);
-
+			p_scene->tree.get_childs(l_current).push_back(*l_newchild.element->scenetree_entry.cast_to_treenode());
+			
 			mark_for_recalculation(l_newchild.element, p_scene);
 		}
 
