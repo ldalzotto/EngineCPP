@@ -48,7 +48,7 @@ struct MaterialBuilder
 
 struct RenderableObjectEntry
 {
-	com::PoolToken node;
+	SceneNodeToken node;
 	RenderableObjectHandle renderableobject;
 	DefaultMaterial default_material;
 
@@ -67,7 +67,7 @@ struct RenderableObjectEntry
 
 struct CameraEntry
 {
-	com::PoolToken node;
+	SceneNodeToken node;
 
 	CameraEntry() {}
 };
@@ -91,14 +91,14 @@ struct RenderMiddleware
 		this->allocated_renderableobjects.free();
 	};
 
-	inline void push_camera(const com::PoolToken p_node_token, const NTreeResolve<SceneNode>& p_node, const Camera& p_camera)
+	inline void push_camera(const SceneNodeToken p_node_token, const NTreeResolve<SceneNode>& p_node, const Camera& p_camera)
 	{
 		this->allocated_camera.node = p_node_token;
 	};
 
 	inline void remove_camera()
 	{
-		this->allocated_camera.node = com::PoolToken();
+		this->allocated_camera.node = SceneNodeToken();
 	};
 
 	inline RenderableObjectEntry* get_renderable_object(const com::TPoolToken<Optional<RenderableObjectEntry>>& p_renderable_object)
@@ -116,7 +116,7 @@ struct RenderMiddleware
 		return this->get_renderable_object(com::TPoolToken<Optional<RenderableObjectEntry>>(p_mesh_renderer->rendererable_object.Index));
 	};
 
-	inline void on_elligible(const com::PoolToken p_node_token, const NTreeResolve<SceneNode>& p_node, MeshRenderer& p_mesh_renderer)
+	inline void on_elligible(const SceneNodeToken p_node_token, const NTreeResolve<SceneNode>& p_node, MeshRenderer& p_mesh_renderer)
 	{
 		DefaultMaterial l_material = MaterialBuilder::build(p_mesh_renderer.material, this->asset_server, this->render);
 

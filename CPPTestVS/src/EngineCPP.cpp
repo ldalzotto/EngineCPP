@@ -19,7 +19,7 @@ struct TestContext
 {
 	com::PoolToken center_node;
 	com::PoolToken moving_node;
-	com::Vector<com::PoolToken> moving_nodes;
+	com::Vector<SceneNodeToken> moving_nodes;
 	size_t framecount = 0;
 } testContext;
 
@@ -36,13 +36,14 @@ void update(void* p_engine, float p_delta)
 		com::Vector<char> l_scene_binary = engine_assetserver(*l_engine).get_resource("scenes/test_scene.json");
 		SceneAsset l_scene_asset = SceneSerializer::deserialize_from_binary(l_scene_binary);
 		SceneKernel::feed_with_asset(l_scenehandle, l_scene_asset);
-		
+// 		*l_scenehandle = SceneKernel::clone(l_scenehandle);
+
 		l_scene_binary.free();
 
 		com::Vector<NTreeResolve<SceneNode>> l_nodes = SceneKernel::get_nodes_with_component<MeshRenderer>(l_scenehandle);
 		for (size_t i = 0; i < l_nodes.Size; i++)
 		{
-			testContext.moving_nodes.push_back(com::PoolToken(l_nodes[i].node->index));
+			testContext.moving_nodes.push_back(SceneNodeToken(l_nodes[i].node->index));
 		}
 	}
 

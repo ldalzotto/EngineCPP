@@ -19,7 +19,7 @@ struct SceneKernel
 		thiz->node_to_components.allocate(1);
 		thiz->heap.allocate();
 
-		auto l_root = thiz->tree.push_root_value(SceneNode());
+		SceneNodeToken l_root = SceneNodeToken(thiz->tree.push_root_value(SceneNode()).Index);
 		allocate_node(resolve_node(thiz, l_root).element, thiz, Math::Transform(), l_root.Index, thiz->node_to_components.alloc_element(com::Vector<SceneNodeComponentToken>()));
 	}
 
@@ -30,6 +30,11 @@ struct SceneKernel
 		l_return.tree = thiz->tree.clone();
 		l_return.heap = thiz->heap.clone();
 		l_return.node_to_components = thiz->node_to_components.clone();
+
+		l_return.component_added_callback = thiz->component_added_callback;
+		l_return.component_asset_push_callback = thiz->component_asset_push_callback;
+		l_return.component_removed_callback = thiz->component_removed_callback;
+
 		return l_return;
 	}
 
@@ -58,19 +63,19 @@ struct SceneKernel
 	template<class FeedWithAssetInsertionCallbacks = FeedWithAssetInsertionCallbacksDefault>
 	inline static void feed_with_asset(Scene* thiz, SceneAsset& p_scene_asset, FeedWithAssetInsertionCallbacks& p_insertion_callbacks = FeedWithAssetInsertionCallbacksDefault())
 	{
-		com::Vector<com::PoolToken> l_insertednodes_token;
+		com::Vector<SceneNodeToken> l_insertednodes_token;
 		{
 			for (size_t l_node_index = 0; l_node_index < p_scene_asset.nodes.Size; l_node_index++)
 			{
 				NodeAsset& l_node = p_scene_asset.nodes[l_node_index];
 
-				com::PoolToken l_parent_node = com::PoolToken(0);
+				SceneNodeToken l_parent_node = SceneNodeToken(0);
 				if (l_node.parent != -1)
 				{
 					l_parent_node = l_insertednodes_token[l_node.parent];
 				}
 
-				com::PoolToken l_node_token = add_node(thiz, l_parent_node, Math::Transform(l_node.local_position, l_node.local_rotation, l_node.local_scale));
+				SceneNodeToken l_node_token = add_node(thiz, l_parent_node, Math::Transform(l_node.local_position, l_node.local_rotation, l_node.local_scale));
 				p_insertion_callbacks.on_node_added(l_node_token, l_node);
 				l_insertednodes_token.push_back(l_node_token);
 
@@ -104,24 +109,24 @@ struct SceneKernel
 		thiz->heap.free_component(p_component_token);
 	};
 
-	inline static SceneNodeComponentToken add_component(Scene* thiz, const com::PoolToken p_node, const SceneNodeComponent_TypeInfo& p_component_type_info, void* p_initial_value)
+	inline static SceneNodeComponentToken add_component(Scene* thiz, const SceneNodeToken p_node, const SceneNodeComponent_TypeInfo& p_component_type_info, void* p_initial_value)
 	{
 		SceneNodeComponentToken l_component = allocate_component(thiz, p_component_type_info, p_initial_value);
 		NTreeResolve<SceneNode> l_node = resolve_node(thiz, p_node);
 		thiz->node_to_components[l_node.element->components].push_back(l_component);
 		ComponentAddedParameter l_param = ComponentAddedParameter(p_node, l_node, l_component, resolve_component(thiz, l_component));
 		thiz->component_added_callback.call(&l_param);
-		return SceneNodeComponentToken(l_component.Index);
+		return l_component;
 	};
 
 
 	template<class ComponentType>
-	inline static SceneNodeComponentToken add_component(Scene* thiz, const com::PoolToken p_node, const ComponentType& p_initialvalue = ComponentType())
+	inline static SceneNodeComponentToken add_component(Scene* thiz, const SceneNodeToken p_node, const ComponentType& p_initialvalue = ComponentType())
 	{
 		return add_component(thiz, p_node, ComponentType::Type, (void*)&p_initialvalue);
 	};
 
-	inline static void remove_component(Scene* thiz, const com::PoolToken p_node, const SceneNodeComponent_TypeInfo& p_component_type_info)
+	inline static void remove_component(Scene* thiz, const SceneNodeToken p_node, const SceneNodeComponent_TypeInfo& p_component_type_info)
 	{
 		com::Vector<SceneNodeComponentToken>& l_components = thiz->node_to_components[resolve_node(thiz, p_node).element->components];
 		for (size_t i = 0; i < l_components.Size; i++)
@@ -147,13 +152,13 @@ struct SceneKernel
 			}
 		}
 
-		ComponentRemovedParameter l_component_removed = ComponentRemovedParameter(p_node.node->index, p_node, resolve_component(thiz, p_component_token));
+		ComponentRemovedParameter l_component_removed = ComponentRemovedParameter(SceneNodeToken(p_node.node->index), p_node, resolve_component(thiz, p_component_token));
 		thiz->component_removed_callback.call(&l_component_removed);
 		free_component(thiz, p_component_token);
 	};
 
 
-	inline static void remove_component(Scene* thiz, const com::PoolToken p_node, SceneNodeComponentToken& p_component_token)
+	inline static void remove_component(Scene* thiz, const SceneNodeToken p_node, SceneNodeComponentToken& p_component_token)
 	{
 		NTreeResolve<SceneNode> l_node = resolve_node(thiz, p_node);
 		remove_component(thiz, l_node, p_component_token);
@@ -171,7 +176,7 @@ struct SceneKernel
 	};
 
 
-	inline static SceneNodeComponentHeader* get_component(Scene* thiz, const com::PoolToken p_node, const SceneNodeComponent_TypeInfo& p_component_type_info)
+	inline static SceneNodeComponentHeader* get_component(Scene* thiz, const SceneNodeToken p_node, const SceneNodeComponent_TypeInfo& p_component_type_info)
 	{
 		com::Vector<SceneNodeComponentToken>& l_components = thiz->node_to_components[resolve_node(thiz, p_node).element->components];
 		for (size_t i = 0; i < l_components.Size; i++)
@@ -186,7 +191,7 @@ struct SceneKernel
 	};
 
 	template<class ComponentType>
-	inline static ComponentType* get_component(Scene* thiz, const com::PoolToken p_node)
+	inline static ComponentType* get_component(Scene* thiz, const SceneNodeToken p_node)
 	{
 		SceneNodeComponentHeader* l_component_header = get_component(thiz, p_node, ComponentType::Type);
 		if (l_component_header)
@@ -243,7 +248,7 @@ struct SceneKernel
 
 
 
-	inline static void allocate_node(NodeKernel_InputParams, const Math::Transform& p_transform, const com::PoolToken& p_scenetree_entry,
+	inline static void allocate_node(NodeKernel_InputParams, const Math::Transform& p_transform, const SceneNodeToken& p_scenetree_entry,
 		com::TPoolToken<com::Vector<SceneNodeComponentToken>> p_scenecomponents_token)
 	{
 		thiz->transform = p_transform;
@@ -256,15 +261,15 @@ struct SceneKernel
 	{
 	};
 
-	inline static NTreeResolve<SceneNode> resolve_node(Scene* thiz, const com::PoolToken p_node)
+	inline static NTreeResolve<SceneNode> resolve_node(Scene* thiz, const SceneNodeToken p_node)
 	{
 		return thiz->tree.resolve(p_node);
 	};
 
 
-	inline static com::PoolToken allocate_node(Scene* thiz, const Math::Transform& p_initial_local_transform)
+	inline static SceneNodeToken allocate_node(Scene* thiz, const Math::Transform& p_initial_local_transform)
 	{
-		auto l_node = thiz->tree.push_value(SceneNode());
+		SceneNodeToken l_node = SceneNodeToken(thiz->tree.push_value(SceneNode()).Index);
 		allocate_node(thiz->tree.resolve(l_node).element, thiz, p_initial_local_transform, l_node.Index, thiz->node_to_components.alloc_element(com::Vector<SceneNodeComponentToken>()));
 		return l_node;
 	};
@@ -296,9 +301,9 @@ struct SceneKernel
 		thiz->tree.remove(p_node, RemoveAllComponents(thiz));
 	};
 
-	inline static com::PoolToken add_node(Scene* thiz, const com::PoolToken& p_parent, const Math::Transform& p_initial_local_transform)
+	inline static SceneNodeToken add_node(Scene* thiz, const SceneNodeToken& p_parent, const Math::Transform& p_initial_local_transform)
 	{
-		auto l_node = allocate_node(thiz, p_initial_local_transform);
+		SceneNodeToken l_node = allocate_node(thiz, p_initial_local_transform);
 		addchild(resolve_node(thiz, p_parent).element, thiz, l_node);
 		return l_node;
 	};
@@ -306,7 +311,7 @@ struct SceneKernel
 
 
 
-	inline static void addchild(NodeKernel_InputParams, com::PoolToken& p_newchild)
+	inline static void addchild(NodeKernel_InputParams, SceneNodeToken& p_newchild)
 	{
 		NTreeResolve<SceneNode> l_current = SceneKernel::resolve_node(p_scene, thiz->scenetree_entry);
 		NTreeResolve<SceneNode> l_newchild = SceneKernel::resolve_node(p_scene, p_newchild);

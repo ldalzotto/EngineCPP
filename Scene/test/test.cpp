@@ -7,6 +7,7 @@
 #include "Common/Serialization/json.hpp"
 #include "Math/serialization.hpp"
 #include "Scene/serialization.hpp"
+#include "Scene/kernel/scene.hpp"
 #include "SceneComponents/components.hpp"
 
 using namespace Math;
@@ -38,9 +39,7 @@ inline void component_asset_push_cb(void* p_clos, ComponentAssetPushParameter* p
 {
 	if (p_par->component_asset->id == ComponentTest::Id)
 	{
-		SceneHandle l_scene;
-		l_scene.handle = p_par->scene;
-		l_scene.add_component<ComponentTest>(p_par->node, *(ComponentTest*)p_par->component_asset_object);
+		SceneKernel::add_component<ComponentTest>((Scene*)p_par->scene, p_par->node, *(ComponentTest*)p_par->component_asset_object);
 	}
 	
 };
@@ -56,7 +55,7 @@ int main()
 {
 
 	Scene l_scene;
-	l_scene.allocate(
+	SceneKernel::allocate_scene(&l_scene,
 		Callback<void, ComponentAddedParameter>(nullptr, component_added_cb),
 		Callback<void, ComponentRemovedParameter>(nullptr, component_removed_cb),
 		Callback<void, ComponentAssetPushParameter>(nullptr, component_asset_push_cb)
@@ -64,7 +63,9 @@ int main()
 
 	SceneAsset l_scene_asset;
 	l_scene_asset.allocate();
+	l_scene_asset.component_asset_heap.allocate(200);
 	NodeAsset l_node;
+	l_node.parent = -1;
 	l_node.components_begin = 0;
 	l_node.components_end = 1;
 	l_node.local_position = Math::vec3f(1.0f, 2.0f, 3.0f);
@@ -81,10 +82,12 @@ int main()
 	l_scene_asset.components.push_back(l_component_asset);
 
 	{
-		l_scene.feed_with_asset(l_scene_asset);
+		SceneKernel::feed_with_asset(&l_scene, l_scene_asset);
 		l_scene_asset.free();
+
+		Scene l_cloned_scene = SceneKernel::clone(&l_scene);
 	}
 	
-	l_scene.free();
+	SceneKernel::free_scene(&l_scene);
 	
 }

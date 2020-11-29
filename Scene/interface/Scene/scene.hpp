@@ -13,7 +13,11 @@
 #include "Common/Container/vector.hpp"
 #include "Common/Memory/heap.hpp"
 
-typedef com::TPoolToken<GeneralPurposeHeapMemoryChunk> SceneNodeComponentToken;
+
+struct SceneNodeComponentToken : public com::TPoolToken<GeneralPurposeHeapMemoryChunk>
+{
+	inline com::TPoolToken<GeneralPurposeHeapMemoryChunk>* cast_to_parent() { return this; }
+};
 
 
 struct SceneNodeComponentHeader
@@ -26,6 +30,15 @@ struct SceneNodeComponentHeader
 		return (ComponentType*)(((char*)this) + sizeof(SceneNodeComponentHeader));
 	};
 };
+
+struct SceneNodeToken : public com::PoolToken
+{
+	inline SceneNodeToken() {};
+	inline SceneNodeToken(size_t p_index) : com::PoolToken(p_index) {};
+	// inline com::TPoolToken<SceneNode>* cast_to_scenenode() { return (com::TPoolToken<SceneNode>*)this; };
+	// inline com::TPoolToken<NTreeNode>* cast_to_treenode() { return (com::TPoolToken<NTreeNode>*)this; };
+};
+
 
 struct SceneNode
 {
@@ -44,8 +57,7 @@ struct SceneNode
 	/** This matrix will always be relative to the root Node (a Node without parent). */
 	Math::mat4f localtoworld;
 
-	//Childs
-	com::PoolToken scenetree_entry;
+	SceneNodeToken scenetree_entry;
 
 
 public:
@@ -59,13 +71,13 @@ public:
 
 struct ComponentAddedParameter
 {
-	com::PoolToken node_token;
+	SceneNodeToken node_token;
 	NTreeResolve<SceneNode> node;
 	SceneNodeComponentToken component_token;
 	SceneNodeComponentHeader* component;
 
 	ComponentAddedParameter() {};
-	inline ComponentAddedParameter(const com::PoolToken p_node_token, const NTreeResolve<SceneNode>& p_node,const SceneNodeComponentToken& p_component_token, SceneNodeComponentHeader* p_component)
+	inline ComponentAddedParameter(const SceneNodeToken p_node_token, const NTreeResolve<SceneNode>& p_node,const SceneNodeComponentToken& p_component_token, SceneNodeComponentHeader* p_component)
 	{
 		this->node_token = p_node_token;
 		this->node = p_node;
@@ -76,12 +88,12 @@ struct ComponentAddedParameter
 
 struct ComponentRemovedParameter
 {
-	com::PoolToken node_token;
+	SceneNodeToken node_token;
 	NTreeResolve<SceneNode> node;
 	SceneNodeComponentHeader* component;
 
 	ComponentRemovedParameter() {};
-	inline ComponentRemovedParameter(const com::PoolToken p_node_token, const NTreeResolve<SceneNode>& p_node, SceneNodeComponentHeader* p_component)
+	inline ComponentRemovedParameter(const SceneNodeToken p_node_token, const NTreeResolve<SceneNode>& p_node, SceneNodeComponentHeader* p_component)
 	{
 		this->node_token = p_node_token;
 		this->node = p_node;
@@ -92,7 +104,7 @@ struct ComponentRemovedParameter
 struct ComponentAssetPushParameter
 {
 	void* scene;
-	com::PoolToken node;
+	SceneNodeToken node;
 	ComponentAsset* component_asset;
 	void* component_asset_object;
 	SceneNodeComponentToken inserted_component;
@@ -131,11 +143,11 @@ struct SceneHeap
 	{
 		// if(this->component_heap.chunk_total_size <)
 		size_t l_allocationsize = sizeof(SceneNodeComponentHeader) + p_type.size;
-		com::TPoolToken<GeneralPurposeHeapMemoryChunk> l_memory_allocated;
-		if (!this->component_heap.allocate_element<>(l_allocationsize, &l_memory_allocated))
+		SceneNodeComponentToken l_memory_allocated;
+		if (!this->component_heap.allocate_element<>(l_allocationsize, l_memory_allocated.cast_to_parent()))
 		{
 			this->component_heap.realloc((this->component_heap.memory.Size * 2) + l_allocationsize);
-			if (!this->component_heap.allocate_element<>(l_allocationsize, &l_memory_allocated))
+			if (!this->component_heap.allocate_element<>(l_allocationsize, l_memory_allocated.cast_to_parent()))
 			{
 				abort();
 			};
