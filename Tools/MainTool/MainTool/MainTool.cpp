@@ -108,10 +108,175 @@ struct InterpretorFile
 	}
 };
 
+
+
+
+
+
+
+
+struct EditorSceneEventHeader
+{
+	unsigned int Type;
+};
+
+struct EditorSceneEventMoveNode
+{
+	inline static const unsigned int Type = 1;
+
+	SceneNodeToken scene_node;
+	Math::vec3f old_localposition;
+	Math::vec3f new_localposition;
+
+	inline EditorSceneEventMoveNode(SceneNodeToken& p_scene_node, Math::vec3f& p_old_local, Math::vec3f& p_new_local)
+	{
+		this->scene_node = p_scene_node;
+		this->old_localposition = p_old_local;
+		this->new_localposition = p_new_local;
+	};
+
+	inline void _do(Scene* p_scene)
+	{
+		SceneKernel::set_localposition(SceneKernel::resolve_node(p_scene, this->scene_node).element, p_scene, this->new_localposition);
+	};
+
+	inline void _undo(Scene* p_scene)
+	{
+		SceneKernel::set_localposition(SceneKernel::resolve_node(p_scene, this->scene_node).element, p_scene, this->old_localposition);
+	};
+};
+
+struct EditorSceneEventRotateNode
+{
+	inline static const unsigned int Type = EditorSceneEventMoveNode::Type + 1;
+
+	SceneNodeToken scene_node;
+	Math::quat old_localrotation;
+	Math::quat new_localrotation;
+
+	inline EditorSceneEventRotateNode(SceneNodeToken& p_scene_node, Math::quat& p_old_local, Math::quat& p_new_local)
+	{
+		this->scene_node = p_scene_node;
+		this->old_localrotation = p_old_local;
+		this->new_localrotation = p_new_local;
+	};
+
+	inline void _do(Scene* p_scene)
+	{
+		SceneKernel::set_localrotation(SceneKernel::resolve_node(p_scene, this->scene_node).element, p_scene, this->new_localrotation);
+	};
+
+	inline void _undo(Scene* p_scene)
+	{
+		SceneKernel::set_localrotation(SceneKernel::resolve_node(p_scene, this->scene_node).element, p_scene, this->old_localrotation);
+	};
+};
+
+
+
+struct EditorSceneEvent
+{
+	EditorSceneEventHeader header;
+	char* object;
+
+	template<class Event>
+	inline void allocate(const Event& p_initial_value = Event())
+	{
+		this->header.Type = Event::Type;
+		this->object = (char*)malloc(sizeof(Event));
+		if (this->object)
+		{
+			memcpy(this->object, &p_initial_value, sizeof(Event));
+		}
+	};
+
+	inline void free()
+	{
+		::free(this->object);
+	};
+};
+
+struct EditorScene
+{
+	Scene* engine_scene;
+	// Scene proxy_scene;
+	com::Vector<EditorSceneEvent> undo_events;
+
+	inline void allocate(Scene* p_engine_scene)
+	{
+		this->engine_scene = p_engine_scene;
+		//this->proxy_scene = SceneKernel::clone(p_engine_scene);
+	};
+
+	inline void free()
+	{
+		//SceneKernel::free_scene(&this->proxy_scene);
+		for (size_t i = 0; i < this->undo_events.Size; i++)
+		{
+			this->undo_events[i].free();
+		}
+		this->undo_events.free();
+		this->engine_scene = nullptr;
+	};
+
+	inline void set_localposition(NTreeResolve<SceneNode>& p_scene_node, Math::vec3f& p_local_position)
+	{
+		EditorSceneEvent l_event;
+		l_event.allocate(EditorSceneEventMoveNode(SceneNodeToken(p_scene_node.node->index), SceneKernel::get_localposition(p_scene_node.element), p_local_position));
+		this->undo_events.push_back(l_event);
+
+		((EditorSceneEventMoveNode*)l_event.object)->_do(this->engine_scene);
+		//((EditorSceneEventMoveNode*)l_event.object)->_do(&this->proxy_scene);
+	};
+
+	inline void set_localrotation(NTreeResolve<SceneNode>& p_scene_node, Math::quat& p_local_rotation)
+	{
+		EditorSceneEvent l_event;
+		l_event.allocate(EditorSceneEventRotateNode(SceneNodeToken(p_scene_node.node->index), SceneKernel::get_localrotation(p_scene_node.element), p_local_rotation));
+		this->undo_events.push_back(l_event);
+
+		((EditorSceneEventRotateNode*)l_event.object)->_do(this->engine_scene);
+		//((EditorSceneEventRotateNode*)l_event.object)->_do(&this->proxy_scene);
+	};
+
+	inline void _undo()
+	{
+		if (this->undo_events.Size > 0)
+		{
+			EditorSceneEvent& l_event = this->undo_events[this->undo_events.Size - 1];
+			switch (l_event.header.Type)
+			{
+			case EditorSceneEventMoveNode::Type:
+			{
+				((EditorSceneEventMoveNode*)l_event.object)->_undo(this->engine_scene);
+			}
+			break;
+			case EditorSceneEventRotateNode::Type:
+			{
+				((EditorSceneEventRotateNode*)l_event.object)->_undo(this->engine_scene);
+			}
+			break;
+			}
+
+			l_event.free();
+			this->undo_events.erase_at(this->undo_events.Size - 1);
+		}
+	};
+};
+
+
+
+
+
+
+
+
+
 struct EngineRunningModule
 {
 	ExternalHooks engine_hooks;
 	EngineHandle running_engine = nullptr;
+	EditorScene editor_scene;
 	bool frame_executed = false;
 
 	inline void start()
@@ -119,11 +284,31 @@ struct EngineRunningModule
 		this->engine_hooks.closure = this;
 		this->engine_hooks.ext_update = EngineRunningModule::update;
 		this->running_engine = engine_create("", this->engine_hooks);
+		this->editor_scene.allocate(engine_scene(this->running_engine));
+	};
+
+	inline void load_scene(size_t p_scene_hash)
+	{
+		Scene tmp_scene = *engine_scene(this->running_engine);
+		SceneKernel::free_scene(engine_scene(this->running_engine));
+		SceneKernel::allocate_scene(engine_scene(this->running_engine), tmp_scene.component_added_callback, tmp_scene.component_removed_callback, tmp_scene.component_asset_push_callback);
+
+
+		com::Vector<char> l_scene = engine_assetserver(this->running_engine).get_resource(p_scene_hash);
+		SceneAsset l_deserialized_scene = SceneSerializer::deserialize_from_binary(l_scene);
+		{
+			SceneKernel::feed_with_asset(engine_scene(this->running_engine), l_deserialized_scene);
+		}
+		l_scene.free();
+
+		this->editor_scene.free();
+		this->editor_scene.allocate(engine_scene(this->running_engine));
 	};
 
 	inline void stop()
 	{
 		engine_destroy(this->running_engine);
+		this->editor_scene.free();
 	};
 
 	inline void editor_update()
@@ -132,7 +317,7 @@ struct EngineRunningModule
 		{
 			engine_poll_events(this->running_engine);
 		}
-	}
+	};
 
 	inline void update()
 	{
@@ -216,6 +401,18 @@ struct EngineRunner
 		engines.free();
 	}
 };
+
+
+
+
+
+
+
+
+
+
+
+
 
 struct NodeMovement
 {
@@ -316,18 +513,21 @@ public:
 
 	};
 
-	inline void perform_node_movement(EngineHandle p_engine)
+	inline void handle_scene_undo(EngineRunningModule& p_engine_running_module)
+	{
+		InputHandle l_input = engine_input(p_engine_running_module.running_engine);
+
+		if (l_input.get_state(InputKey::InputKey_P, KeyState::KeyStateFlag_PRESSED))
+		{
+			p_engine_running_module.editor_scene._undo();
+		}
+	};
+
+	inline void perform_node_movement(EngineRunningModule& p_engine_running_module)
 	{
 		if (this->root_selected_node.Index != -1)
 		{
-			InputHandle l_input = engine_input(p_engine);
-
-			/*
-			if (l_input.get_state(InputKey::InputKey_L, KeyState::KeyStateFlag_PRESSED_THIS_FRAME))
-			{
-
-			}
-			*/
+			InputHandle l_input = engine_input(p_engine_running_module.running_engine);
 
 			if (l_input.get_state(InputKey::InputKey_T, KeyState::KeyStateFlag_PRESSED_THIS_FRAME))
 			{
@@ -366,7 +566,7 @@ public:
 				this->state != NodeMovement::State::UNDEFINED)
 			{
 
-				Scene* p_scene = engine_scene(p_engine);
+				Scene* p_scene = p_engine_running_module.editor_scene.engine_scene;
 				NTreeResolve<SceneNode> l_node = SceneKernel::resolve_node(p_scene, this->root_selected_node);
 
 				switch (this->state)
@@ -409,7 +609,11 @@ public:
 
 					l_delta = mul(SceneKernel::get_worldtolocal(l_node.element, p_scene), l_delta);
 
-					SceneKernel::set_localposition(l_node.element, p_scene, SceneKernel::get_localposition(l_node.element) + l_delta.Vec3);
+					if (!Math::EqualsVec(l_delta, Math::vec4f(0.0f, 0.0f, 0.0f, 0.0f)))
+					{
+						p_engine_running_module.editor_scene.set_localposition(l_node, SceneKernel::get_localposition(l_node.element) + l_delta.Vec3);
+						// SceneKernel::set_localposition(l_node.element, p_scene, SceneKernel::get_localposition(l_node.element) + l_delta.Vec3);
+					}
 				}
 				break;
 				case NodeMovement::State::ROTATION_LOCAL:
@@ -447,7 +651,11 @@ public:
 					break;
 					}
 
-					SceneKernel::set_localrotation(l_node.element, p_scene, mul(SceneKernel::get_localrotation(l_node.element), Math::rotateAround(l_axis, l_value)));
+					Math::quat l_delta = Math::rotateAround(l_axis, l_value);
+					if (!Math::Equals(l_delta, Math::QuatConst::IDENTITY))
+					{
+						p_engine_running_module.editor_scene.set_localrotation(l_node, mul(SceneKernel::get_localrotation(l_node.element), Math::rotateAround(l_axis, l_value)));
+					}
 				}
 				break;
 				}
@@ -507,6 +715,7 @@ struct CommandHandler
 		{
 			if (p_tool_state.engine_runner.engines[p_tool_state.selectged_engine].hasValue)
 			{
+				p_tool_state.node_movement.exit(engine_render_middleware(p_tool_state.engine_runner.engines[p_tool_state.selectged_engine].value.running_engine));
 				p_tool_state.engine_runner.engines[p_tool_state.selectged_engine].value.stop();
 				p_tool_state.engine_runner.engines.release_element(p_tool_state.selectged_engine);
 			}
@@ -514,7 +723,12 @@ struct CommandHandler
 		else if (p_command_stack[p_depth].equals(CommandHandler::select_slice))
 		{
 			size_t l_engine_index = FromString<size_t>::from_str(p_command_stack[p_depth + 1]);
-			if (p_tool_state.engine_runner.engines[l_engine_index].hasValue)
+
+			if (l_engine_index == -1 || p_tool_state.selectged_engine.Index != -1)
+			{
+				p_tool_state.node_movement.exit(engine_render_middleware(p_tool_state.engine_runner.engines[p_tool_state.selectged_engine].value.running_engine));
+			}
+			if (l_engine_index == -1 || p_tool_state.engine_runner.engines[l_engine_index].hasValue)
 			{
 				p_tool_state.selectged_engine = l_engine_index;
 			}
@@ -541,12 +755,8 @@ struct CommandHandler
 		{
 			if (p_tool_state.engine_runner.engines[p_tool_state.selectged_engine].hasValue)
 			{
-				com::Vector<char> l_scene = engine_assetserver(p_tool_state.engine_runner.engines[p_tool_state.selectged_engine].value.running_engine).get_resource(Hash<StringSlice>::hash(p_command_stack[p_depth + 1]));
-				SceneAsset l_deserialized_scene = SceneSerializer::deserialize_from_binary(l_scene);
-				{
-				 SceneKernel::feed_with_asset(engine_scene(p_tool_state.engine_runner.engines[p_tool_state.selectged_engine].value.running_engine), l_deserialized_scene);
-				}
-				l_scene.free();
+				p_tool_state.node_movement.exit(engine_render_middleware(p_tool_state.engine_runner.engines[p_tool_state.selectged_engine].value.running_engine));
+				p_tool_state.engine_runner.engines[p_tool_state.selectged_engine].value.load_scene(Hash<StringSlice>::hash(p_command_stack[p_depth + 1]));
 				p_tool_state.engine_runner.engines[p_tool_state.selectged_engine].value.update(0);
 			}
 		}
@@ -647,7 +857,8 @@ int main()
 				EngineRunningModule& l_engine_module = tool_state.engine_runner.engines[tool_state.selectged_engine].value;
 				if (l_engine_module.frame_executed)
 				{
-					tool_state.node_movement.perform_node_movement(l_engine_module.running_engine);
+					tool_state.node_movement.handle_scene_undo(l_engine_module);
+					tool_state.node_movement.perform_node_movement(l_engine_module);
 				}
 
 			};
