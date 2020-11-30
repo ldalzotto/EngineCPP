@@ -59,13 +59,13 @@ void main(int argc, char** argv)
 
 	String<> l_source;
 	l_source.from_raw(l_json_test);
-	Serialization::JSON::JSONObjectIterator l_root = Serialization::JSON::StartDeserialization(l_source);
+	Deserialization::JSON::JSONObjectIterator l_root = Deserialization::JSON::StartDeserialization(l_source);
 
 	l_root.next_field("type");
-	Serialization::JSON::FieldNode& l_field_node = l_root.get_currentfield();
-	Serialization::JSON::JSONObjectIterator l_nodes; l_root.next_array("nodes", &l_nodes);
+	Deserialization::JSON::FieldNode& l_field_node = l_root.get_currentfield();
+	Deserialization::JSON::JSONObjectIterator l_nodes; l_root.next_array("nodes", &l_nodes);
 	{
-		Serialization::JSON::JSONObjectIterator l_node;
+		Deserialization::JSON::JSONObjectIterator l_node;
 		while (l_nodes.next_array_object(&l_node))
 		{
 			l_node.next_field("parent");

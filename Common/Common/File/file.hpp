@@ -406,7 +406,7 @@ struct FileTree : public NTree<File<FilePathMemoryLayout::STRING>>
 				{
 					while (this->node_levels.Size != p_depth)
 					{
-						this->node_levels.erase_at(this->node_levels.Size - 1);
+						this->node_levels.erase_at(this->node_levels.Size - 1, 1);
 					}
 
 					auto l_token = this->tree->push_value(this->node_levels[p_depth - 1], p_file.clone());

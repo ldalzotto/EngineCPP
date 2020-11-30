@@ -87,9 +87,22 @@ template<class ElementType>
 inline String<Allocator>& String<Allocator>::append(const ElementType& p_element)
 {
 	String<> l_tmp_str = ToString<ElementType>::to_str(p_element);
-	String<Allocator>&  l_return = this->append(StringSlice(l_tmp_str.c_str()));
+	String<Allocator>& l_return = this->append(StringSlice(l_tmp_str.c_str()));
 	l_tmp_str.free();
 	return l_return;
+};
+
+template<class Allocator>
+String<Allocator>& String<Allocator>::remove(const size_t p_begin, const size_t p_end)
+{
+	size_t l_end = p_end;
+	if (l_end >= this->Memory.Size - 1)
+	{
+		l_end = this->Memory.Size - 1;
+	}
+
+	this->Memory.erase_at(p_begin, l_end - p_begin);
+	return *this;
 };
 
 template<class Allocator>
@@ -183,7 +196,7 @@ void String<Allocator>::remove_chars(const char p_char)
 	{
 		if (this->Memory[i] == p_char)
 		{
-			this->Memory.erase_at(i);
+			this->Memory.erase_at(i, 1);
 		}
 	}
 };

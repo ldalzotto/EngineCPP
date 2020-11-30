@@ -6,7 +6,7 @@
 
 struct ComponentAssetSerializer
 {
-	inline static bool deserializeJSON(StringSlice& p_component_type, Serialization::JSON::JSONObjectIterator& p_component_object_iterator,
+	inline static bool deserializeJSON(StringSlice& p_component_type, Deserialization::JSON::JSONObjectIterator& p_component_object_iterator,
 		com::Vector<ComponentAsset>& p_component_assets, GeneralPurposeHeap<>& p_compoent_asset_heap, ComponentAsset* out_component_asset)
 	{
 		if (p_component_type.equals("MeshRenderer"))

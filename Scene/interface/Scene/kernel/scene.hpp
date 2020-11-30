@@ -162,7 +162,7 @@ struct SceneKernel
 		{
 			if (l_components[i].Index == p_component_token.Index)
 			{
-				l_components.erase_at(i);
+				l_components.erase_at(i, 1);
 				break;
 			}
 		}
@@ -341,7 +341,7 @@ struct SceneKernel
 				{
 					if (l_newchild_parent_childs[i].Index == l_newchild.node->parent)
 					{
-						l_newchild_parent_childs.erase_at(i);
+						l_newchild_parent_childs.erase_at(i, 1);
 						break;
 					}
 				}

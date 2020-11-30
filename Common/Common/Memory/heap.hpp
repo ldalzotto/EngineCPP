@@ -117,7 +117,7 @@ struct GeneralPurposeHeap
 			else if (l_chunk.chunk_size == p_size)
 			{
 				*out_chunk = p_memorychunk_mapper.map(l_chunk, this->allocated_chunks.alloc_element(l_chunk));
-				this->free_chunks.erase_at(i);
+				this->free_chunks.erase_at(i, 1);
 				return true;
 			}
 		}
@@ -176,7 +176,7 @@ struct GeneralPurposeHeap
 				if (l_offset_modulo == 0)
 				{
 					*out_token = this->allocated_chunks.alloc_element(l_chunk);
-					this->free_chunks.erase_at(i);
+					this->free_chunks.erase_at(i, 1);
 					return true;
 				}
 			}

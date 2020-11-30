@@ -284,10 +284,10 @@ private:
 				l_file_binary.remove_chars('\r');
 				l_file_binary.remove_chars('\t');
 
-				Serialization::JSON::JSONObjectIterator l_json_deserializer = Serialization::JSON::StartDeserialization(l_file_binary);
+				Deserialization::JSON::JSONObjectIterator l_json_deserializer = Deserialization::JSON::StartDeserialization(l_file_binary);
 				{
 					l_json_deserializer.next_field("type");
-					Serialization::JSON::FieldNode& l_json_type = l_json_deserializer.stack_fields[l_json_deserializer.current_field];
+					Deserialization::JSON::FieldNode& l_json_type = l_json_deserializer.stack_fields[l_json_deserializer.current_field];
 
 					com::Vector<char> l_asset_bytes;
 

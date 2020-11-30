@@ -13,7 +13,7 @@ namespace com
 	template <class TYPE>
 	inline size_t getElementOffset(const size_t p_index)
 	{
-		return sizeof(TYPE) * p_index; 
+		return sizeof(TYPE) * p_index;
 	};
 
 	Vector_TemplateHeader
@@ -45,7 +45,7 @@ namespace com
 		return this->Memory[i];
 	};
 
-	Vector_TemplateHeader inline void Vector_ClassName::allocate(size_t p_initialSize, const Allocator &p_allocator)
+	Vector_TemplateHeader inline void Vector_ClassName::allocate(size_t p_initialSize, const Allocator& p_allocator)
 	{
 		this->allocator = p_allocator;
 		this->Memory = (TYPE*)this->allocator.malloc(p_initialSize * sizeof(TYPE));
@@ -83,7 +83,7 @@ namespace com
 	{
 		if (p_newCapacity > this->Capacity)
 		{
-			TYPE *l_newMemory = (TYPE *)this->allocator.realloc(this->Memory, p_newCapacity * sizeof(TYPE));
+			TYPE* l_newMemory = (TYPE*)this->allocator.realloc(this->Memory, p_newCapacity * sizeof(TYPE));
 			if (l_newMemory != NULL)
 			{
 				this->Memory = l_newMemory;
@@ -96,7 +96,7 @@ namespace com
 		return 1;
 	}
 
-	Vector_TemplateHeader inline char Vector_ClassName::push_back(const TYPE &p_element)
+	Vector_TemplateHeader inline char Vector_ClassName::push_back(const TYPE& p_element)
 	{
 		if (this->Size >= this->Capacity)
 		{
@@ -152,14 +152,14 @@ namespace com
 	};
 
 	Vector_TemplateHeader
-	template<class SortFn, class ComparatorElementsProvider>
+		template<class SortFn, class ComparatorElementsProvider>
 	inline char Vector_ClassName::insert_at_v2(const TYPE& p_element, ComparatorElementsProvider& p_element_provider)
 	{
 		return this->insert_at(p_element, SortFn::get_insertion_index(&p_element, this->to_memoryslice(), p_element_provider));
 	};
 
 	Vector_TemplateHeader
-		inline char Vector_ClassName::erase_at(const size_t p_index)
+		inline char Vector_ClassName::erase_at(const size_t p_index, const size_t p_size)
 	{
 		if (p_index >= this->Size)
 		{
@@ -167,13 +167,13 @@ namespace com
 		}
 
 		// If we are not erasing the last element, then we move memory. Else, we have nothing to do.
-		if (p_index + 1 != this->Size)
+		if (p_index + p_size != this->Size)
 		{
 			void* p_targetMemory = (char*)this->Memory + getElementOffset<TYPE>(p_index);
-			memmove(p_targetMemory, (char*)p_targetMemory + sizeof(TYPE), (this->Size - p_index - 1) * sizeof(TYPE));
+			memmove(p_targetMemory, (char*)p_targetMemory + (p_size * sizeof(TYPE)), (this->Size - p_index - p_size) * sizeof(TYPE));
 		}
 
-		this->Size -= 1;
+		this->Size -= p_size;
 		return 0;
 	};
 

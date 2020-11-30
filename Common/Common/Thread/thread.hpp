@@ -106,7 +106,7 @@ private:
 				{
 					auto& l_vector = this->tasks.mutex.get();
 					{
-						l_vector.erase_at(i);
+						l_vector.erase_at(i, 1);
 					}
 					this->tasks.mutex.give();
 				}

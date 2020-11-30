@@ -3,7 +3,7 @@
 #include "Common/Container/vector.hpp"
 #include "Common/Container/string.hpp"
 
-namespace Serialization
+namespace Deserialization
 {
 	struct JSON
 	{
@@ -78,6 +78,17 @@ namespace Serialization
 
 				return l_field_found;
 			};
+
+			template<class ElementType>
+			inline bool next_field(const char* p_field_name, ElementType* out_value)
+			{
+				if (this->next_field(p_field_name))
+				{
+					*out_value = JSONDeserializer<ElementType>::deserialize(*this);
+					return true;
+				}
+				return false;
+			}
 
 			inline bool next_object(const char* p_field_name, JSONObjectIterator* out_object_iterator)
 			{
@@ -311,80 +322,165 @@ namespace Serialization
 	};
 }
 
+namespace Serialization
+{
+	struct JSON
+	{
+		struct Deserializer
+		{
+			String<> output;
+			size_t current_indentation = 0;
+
+			inline void allocate() 
+			{
+				this->output.allocate(0);
+				this->current_indentation = 0;
+			}
+
+			inline void free() 
+			{
+				this->output.free();
+				this->current_indentation = 0;
+			}
+
+			inline void start() 
+			{
+				this->output.append("{\n");
+				this->current_indentation += 1;
+			};
+
+			inline void end()
+			{
+				this->remove_last_coma();
+				this->output.append("}");
+				this->current_indentation -= 1;
+			};
+
+			inline void push_field(const StringSlice& p_name,const StringSlice& p_value)
+			{
+				this->push_indentation();
+				this->output.append("\"");
+				this->output.append(p_name);
+				this->output.append("\": \"");
+				this->output.append(p_value);
+				this->output.append("\",\n");
+			};
+
+			template<class ElementType>
+			inline void push_field(const StringSlice& p_name, const ElementType& p_value)
+			{
+				String<> l_str = ToString<ElementType>::to_str(p_value);
+				this->push_field(p_name, l_str.toSlice());
+				l_str.free();
+			};
+
+			inline void start_object(const StringSlice& p_name)
+			{
+				this->push_indentation();
+				this->output.append("\"");
+				this->output.append(p_name);
+				this->output.append("\": {\n");
+				this->current_indentation += 1;
+			};
+
+			inline void start_object()
+			{
+				this->push_indentation();
+				this->output.append("{\n");
+				this->current_indentation += 1;
+			};
+
+			inline void end_object()
+			{
+				this->remove_last_coma();
+				this->current_indentation -= 1;
+				this->push_indentation();
+				this->output.append("},\n");
+			};
+
+			inline void start_array(const StringSlice& p_name)
+			{
+				this->push_indentation();
+				this->output.append("\"");
+				this->output.append(p_name);
+				this->output.append("\": [\n");
+				this->current_indentation += 1;
+			};
+
+			inline void end_array()
+			{
+				this->remove_last_coma();
+				this->current_indentation -= 1;
+				this->push_indentation();
+				this->output.append("],\n");
+			};
+
+		private:
+			void push_indentation()
+			{
+				String<> l_indentation;
+				l_indentation.allocate(this->current_indentation);
+				for (size_t i = 0; i < this->current_indentation; i++)
+				{
+					l_indentation.append(" ");
+				}
+				this->output.append(l_indentation);
+				l_indentation.free();
+			};
+
+			void remove_last_coma()
+			{
+				if (this->output.Memory[this->output.Memory.Size - 1 - 2] == ',')
+				{
+					this->output.remove(this->output.Memory.Size - 1 - 2, this->output.Memory.Size - 1 - 1);
+				}
+			};
+		};
+
+	};
+}
+
 template<class ElementType>
 struct JSONDeserializer
 {
-	static ElementType deserialize(Serialization::JSON::JSONObjectIterator& p_iterator);
+	static ElementType deserialize(Deserialization::JSON::JSONObjectIterator& p_iterator);
 };
 
-template<>
-struct JSONDeserializer<int>
-{
-	static int deserialize(Serialization::JSON::JSONObjectIterator& p_iterator)
-	{
-		String<> l_str; l_str.allocate(30);
-		l_str.append(p_iterator.get_currentfield().value);
-		int l_return = atoi(l_str.c_str());
-		l_str.free();
-		return l_return;
-	};
+#define DECLARE_JSON_DESERIALIAZER(ElementType) \
+template<> \
+struct JSONDeserializer<ElementType> \
+{ \
+	inline static ElementType deserialize(Deserialization::JSON::JSONObjectIterator& p_iterator) \
+	{ \
+		return FromString<ElementType>::from_str(p_iterator.get_currentfield().value); \
+	}; \
 };
 
-template<>
-struct JSONDeserializer<short>
+DECLARE_JSON_DESERIALIAZER(size_t);
+DECLARE_JSON_DESERIALIAZER(int);
+DECLARE_JSON_DESERIALIAZER(short);
+DECLARE_JSON_DESERIALIAZER(bool);
+DECLARE_JSON_DESERIALIAZER(float);
+DECLARE_JSON_DESERIALIAZER(String<>);
+
+template<class ElementType>
+struct JSONSerializer
 {
-	static short deserialize(Serialization::JSON::JSONObjectIterator& p_iterator)
-	{
-		String<> l_str; l_str.allocate(30);
-		l_str.append(p_iterator.get_currentfield().value);
-		short l_return = (short)atoi(l_str.c_str());
-		l_str.free();
-		return l_return;
-	};
+	static void serialize(Serialization::JSON::Deserializer& p_serializer, const ElementType& p_object);
 };
 
-template<>
-struct JSONDeserializer<float>
-{
-	static float deserialize(Serialization::JSON::JSONObjectIterator& p_iterator)
-	{
-		String<> l_str; l_str.allocate(30);
-		l_str.append(p_iterator.get_currentfield().value);
-		float l_return = (float)atof(l_str.c_str());
-		l_str.free();
-		return l_return;
-	};
+#define DECLARE_JSON_SERIALIZER(ElementType) \
+template<> \
+struct JSONSerializer<ElementType> \
+{ \
+	inline static void serialize(Serialization::JSON::Deserializer& p_serializer, const StringSlice& p_name, const ElementType& p_object) \
+	{ \
+		String<> l_object_str = ToString<ElementType>::to_str(p_object); \
+		p_serializer.push_field(p_name, l_object_str.toSlice()); \
+		l_object_str.free(); \
+	}; \
 };
 
-template<>
-struct JSONDeserializer<bool>
-{
-	static bool deserialize(Serialization::JSON::JSONObjectIterator& p_iterator)
-	{
-		String<> l_str; l_str.allocate(30);
-		l_str.append(p_iterator.get_currentfield().value);
-		bool l_return = false;
-		if (l_str.equals(StringSlice("true")))
-		{
-			l_return = true;
-		}
-		else if (l_str.equals(StringSlice("false")))
-		{
-			l_return = false;
-		}
-		l_str.free();
-		return l_return;
-	};
-};
-
-template<>
-struct JSONDeserializer<String<>>
-{
-	static String<> deserialize(Serialization::JSON::JSONObjectIterator& p_iterator)
-	{
-		StringSlice& l_value = p_iterator.get_currentfield().value;
-		String<> l_str; l_str.allocate(l_value.size());
-		l_str.append(l_value);
-		return l_str;
-	};
-};
+DECLARE_JSON_SERIALIZER(int);
+DECLARE_JSON_SERIALIZER(short);
+DECLARE_JSON_SERIALIZER(float);

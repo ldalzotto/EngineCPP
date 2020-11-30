@@ -3497,7 +3497,7 @@ public:
 			{
 				if (this->shaders_sortedBy_executionOrder[i].Index == p_shader.Index)
 				{
-					this->shaders_sortedBy_executionOrder.erase_at(i);
+					this->shaders_sortedBy_executionOrder.erase_at(i, 1);
 					break;
 				}
 			}
@@ -3548,7 +3548,7 @@ public:
 		{
 			if (l_shaders_to_materials[i].Index == p_material.Index)
 			{
-				l_shaders_to_materials.erase_at(i);
+				l_shaders_to_materials.erase_at(i, 1);
 				break;
 			}
 		}

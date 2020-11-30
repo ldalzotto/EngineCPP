@@ -259,7 +259,7 @@ struct EditorScene
 			}
 
 			l_event.free();
-			this->undo_events.erase_at(this->undo_events.Size - 1);
+			this->undo_events.erase_at(this->undo_events.Size - 1, 1);
 		}
 	};
 };

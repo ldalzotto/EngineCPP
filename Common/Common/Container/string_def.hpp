@@ -57,6 +57,8 @@ struct String
 	template<class ElementType>
 	String<Allocator>& append(const ElementType& p_element);
 
+	String<Allocator>& remove(const size_t p_begin, const size_t p_end);
+
 	void clear();
 
 	StringSlice toSlice() const;

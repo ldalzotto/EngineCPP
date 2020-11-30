@@ -28,13 +28,13 @@ template<>
 struct JSONDeserializer<NodeAsset>
 {
 	template<class ComponentAssetSerializer>
-	static void deserialize(Serialization::JSON::JSONObjectIterator& p_iterator, size_t p_parent_nodeasset_index, com::Vector<NodeAsset>& p_node_assets,
+	static void deserialize(Deserialization::JSON::JSONObjectIterator& p_iterator, size_t p_parent_nodeasset_index, com::Vector<NodeAsset>& p_node_assets,
 			com::Vector<ComponentAsset>& p_component_assets, GeneralPurposeHeap<>& p_compoent_asset_heap)
 	{
 		NodeAsset l_asset;
 		l_asset.parent = p_parent_nodeasset_index;
 
-		Serialization::JSON::JSONObjectIterator l_object_iterator;
+		Deserialization::JSON::JSONObjectIterator l_object_iterator;
 	
 		p_iterator.next_object("local_position", &l_object_iterator);
 		l_asset.local_position = JSONDeserializer<Math::vec3f>::deserialize(l_object_iterator);
@@ -46,14 +46,14 @@ struct JSONDeserializer<NodeAsset>
 		l_asset.local_scale = JSONDeserializer<Math::vec3f>::deserialize(l_object_iterator);
 
 		p_iterator.next_array("components", &l_object_iterator);
-		Serialization::JSON::JSONObjectIterator l_component_iterator;
+		Deserialization::JSON::JSONObjectIterator l_component_iterator;
 		size_t l_componentasset_count = 0;
 		while (l_object_iterator.next_array_object(&l_component_iterator))
 		{
 			l_component_iterator.next_field("type");
 			StringSlice l_component_type = l_component_iterator.get_currentfield().value;
 
-			Serialization::JSON::JSONObjectIterator l_component_object_iterator;
+			Deserialization::JSON::JSONObjectIterator l_component_object_iterator;
 			l_component_iterator.next_object("object", &l_component_object_iterator);
 
 			ComponentAsset l_component_asset;
@@ -75,7 +75,7 @@ struct JSONDeserializer<NodeAsset>
 
 		if (p_iterator.next_array("childs", &l_object_iterator))
 		{
-			Serialization::JSON::JSONObjectIterator l_childs_iterator;
+			Deserialization::JSON::JSONObjectIterator l_childs_iterator;
 			while (l_object_iterator.next_array_object(&l_childs_iterator))
 			{
 				deserialize<ComponentAssetSerializer>(l_childs_iterator, l_node_insert_index, p_node_assets, p_component_assets, p_compoent_asset_heap);
@@ -124,15 +124,15 @@ template<>
 struct JSONDeserializer<SceneAsset>
 {
 	template<class ComponentAssetSerializer>
-	static SceneAsset deserialize(Serialization::JSON::JSONObjectIterator& p_iterator)
+	static SceneAsset deserialize(Deserialization::JSON::JSONObjectIterator& p_iterator)
 	{
 		SceneAsset l_asset;
 		l_asset.allocate();
 
 		p_iterator.next_field("type");
 
-		Serialization::JSON::JSONObjectIterator l_node_array_iterator;
-		Serialization::JSON::JSONObjectIterator l_node_iterator;
+		Deserialization::JSON::JSONObjectIterator l_node_array_iterator;
+		Deserialization::JSON::JSONObjectIterator l_node_iterator;
 		p_iterator.next_array("nodes", &l_node_array_iterator);
 		while (l_node_array_iterator.next_array_object(&l_node_iterator))
 		{
@@ -154,7 +154,7 @@ struct SceneSerializer
 	{
 		String<> p_json_scene_as_string;
 		p_json_scene_as_string.Memory = p_json_scene;
-		Serialization::JSON::JSONObjectIterator l_scene_root_json = Serialization::JSON::StartDeserialization(p_json_scene_as_string);
+		Deserialization::JSON::JSONObjectIterator l_scene_root_json = Deserialization::JSON::StartDeserialization(p_json_scene_as_string);
 		SceneAsset l_scene_asset = JSONDeserializer<SceneAsset>::deserialize<ComponentAssetSerializer>(l_scene_root_json);
 
 		com::Vector<char> l_binary_scene;

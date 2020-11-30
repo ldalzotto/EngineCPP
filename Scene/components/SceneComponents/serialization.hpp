@@ -7,7 +7,7 @@
 template<>
 struct JSONDeserializer<MeshRendererAsset>
 {
-	static MeshRendererAsset deserialize(Serialization::JSON::JSONObjectIterator& p_iterator)
+	inline static MeshRendererAsset deserialize(Deserialization::JSON::JSONObjectIterator& p_iterator)
 	{
 		MeshRendererAsset l_asset;
 		p_iterator.next_field("mesh");
@@ -24,22 +24,41 @@ struct JSONDeserializer<MeshRendererAsset>
 	};
 };
 
+/*
+template<>
+struct JSONSerializer<MeshRendererAsset>
+{
+	inline static void serialize(Serialization::JSON::Deserializer& p_serializer, const MeshRendererAsset& p_object)
+	{
+		p_serializer.push_field("mesh", p_object.fov);
+		p_serializer.push_field("near", p_object.near_);
+		p_serializer.push_field("far", p_object.far_);
+	};
+};
+*/
 
 template<>
 struct JSONDeserializer<CameraAsset>
 {
-	static CameraAsset deserialize(Serialization::JSON::JSONObjectIterator& p_iterator)
+	inline static CameraAsset deserialize(Deserialization::JSON::JSONObjectIterator& p_iterator)
 	{
 		CameraAsset l_asset;
-		p_iterator.next_field("fov");
-		l_asset.fov = JSONDeserializer<float>::deserialize(p_iterator);
-		p_iterator.next_field("near");
-		l_asset.near_ = JSONDeserializer<float>::deserialize(p_iterator);
-		p_iterator.next_field("far");
-		l_asset.far_ = JSONDeserializer<float>::deserialize(p_iterator);
+		p_iterator.next_field("fov", &l_asset.fov);
+		p_iterator.next_field("near", &l_asset.near_);
+		p_iterator.next_field("far", &l_asset.far_);
 
 		p_iterator.free();
 		return l_asset;
 	};
 };
 
+template<>
+struct JSONSerializer<CameraAsset>
+{
+	inline static void serialize(Serialization::JSON::Deserializer& p_serializer, const CameraAsset& p_object)
+	{
+		p_serializer.push_field("fov", p_object.fov);
+		p_serializer.push_field("near", p_object.near_);
+		p_serializer.push_field("far", p_object.far_);
+	};
+};

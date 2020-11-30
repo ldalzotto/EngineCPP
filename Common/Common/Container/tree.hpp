@@ -42,7 +42,7 @@ inline void tree_detach_from_tree(NTree<ElementType, Allocator>& p_tree, NTreeRe
 		{
 			if (l_parent_childs[i].Index == p_node.node->index)
 			{
-				l_parent_childs.erase_at(i);
+				l_parent_childs.erase_at(i, 1);
 				break;
 			}
 		}

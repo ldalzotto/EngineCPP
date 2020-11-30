@@ -201,7 +201,7 @@ struct ShaderAsset
 template<>
 struct JSONDeserializer<ShaderAsset>
 {
-	inline static ShaderAsset deserialize(Serialization::JSON::JSONObjectIterator& p_iterator)
+	inline static ShaderAsset deserialize(Deserialization::JSON::JSONObjectIterator& p_iterator)
 	{
 		ShaderAsset l_asset;
 
@@ -271,7 +271,7 @@ struct MaterialAsset
 template<>
 struct JSONDeserializer<MaterialAsset>
 {
-	inline static MaterialAsset deserialize(Serialization::JSON::JSONObjectIterator& p_iterator)
+	inline static MaterialAsset deserialize(Deserialization::JSON::JSONObjectIterator& p_iterator)
 	{
 		MaterialAsset l_asset;
 
@@ -281,7 +281,7 @@ struct JSONDeserializer<MaterialAsset>
 		p_iterator.next_field("texture");
 		l_asset.texture = Hash<StringSlice>::hash(p_iterator.get_currentfield().value);
 
-		Serialization::JSON::JSONObjectIterator l_color_iterator;
+		Deserialization::JSON::JSONObjectIterator l_color_iterator;
 		if (p_iterator.next_object("color", &l_color_iterator))
 		{
 			l_asset.color = JSONDeserializer<Math::vec4f>::deserialize(l_color_iterator);

@@ -165,7 +165,31 @@ struct EditorScene
 
 int main()
 {
+	Serialization::JSON::Deserializer l_deserializer;
+	l_deserializer.allocate();
+	l_deserializer.start();
+	l_deserializer.push_field(StringSlice("field1"), StringSlice("value1"));
+	l_deserializer.push_field(StringSlice("field1"), StringSlice("value1"));
 
+	l_deserializer.start_object(StringSlice("object1"));
+	l_deserializer.push_field(StringSlice("field1"), StringSlice("value1"));
+	l_deserializer.end_object();
+
+	l_deserializer.start_array(StringSlice("array1"));
+	
+	l_deserializer.start_object();
+	l_deserializer.push_field(StringSlice("field1"), StringSlice("value1"));
+	l_deserializer.end_object();
+
+	l_deserializer.start_object();
+	l_deserializer.push_field(StringSlice("field1"), StringSlice("value1"));
+	l_deserializer.end_object();
+	
+	l_deserializer.end_array();
+
+	l_deserializer.end();
+	printf(l_deserializer.output.Memory.Memory);
+	l_deserializer.free();
 	Scene l_scene;
 	SceneKernel::allocate_scene(&l_scene,
 		Callback<void, ComponentAddedParameter>(nullptr, component_added_cb),
