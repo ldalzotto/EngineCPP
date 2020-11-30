@@ -17,5 +17,6 @@ add_subdirectory(Scene)
 add_subdirectory(Middleware)
 add_subdirectory(Engine)
 
+add_subdirectory(SceneSerialization)
 add_subdirectory(Tools)
 add_subdirectory(CPPTestVS)

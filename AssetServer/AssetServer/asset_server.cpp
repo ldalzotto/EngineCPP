@@ -61,6 +61,11 @@ com::Vector<char> AssetServerHandle::get_resource(const size_t p_id) const
 	return l_resource;
 };
 
+String<> AssetServerHandle::get_path_from_resourcehash(const size_t p_id) const
+{
+	return ((AssetServer*)this->handle)->resource_query.get_path_from_resourcehash(p_id);
+};
+
 void AssetServerHandle::insert_or_update_resource_fromfile(const std::string& p_path)
 {
 	((AssetServer*)this->handle)->resource_query.insert_or_update_fromfile(p_path);

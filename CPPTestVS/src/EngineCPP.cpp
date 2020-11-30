@@ -12,6 +12,7 @@
 #include "Input/input.hpp"
 #include "Middleware/RenderMiddleware.hpp"
 #include "Scene/kernel/scene.hpp"
+#include "SceneSerialization/scene_serialization.hpp"
 
 using namespace Math;
 

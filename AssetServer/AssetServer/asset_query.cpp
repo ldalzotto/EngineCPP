@@ -26,6 +26,7 @@ struct GenericAssetQuery
 	AssetQuery request_query;
 	AssetQuery insert_query;
 	AssetQuery update_query;
+	AssetQuery path_query;
 
 	const AssetPath* asset_path;
 	const AssetDatabaseConnection* connection;
@@ -39,6 +40,7 @@ struct GenericAssetQuery
 		this->request_query.allocate(p_connection, "select resource.data from resource where resource.id = ?");
 		this->insert_query.allocate(p_connection, "insert into resource (id, path, data) values (?, ?, ?)");
 		this->update_query.allocate(p_connection, "update resource set data = ? where id = ?");
+		this->path_query.allocate(p_connection, "select resource.path from resource where resource.id = ?");
 	};
 
 	inline void free()
@@ -47,6 +49,7 @@ struct GenericAssetQuery
 		this->request_query.free(*connection);
 		this->insert_query.free(*connection);
 		this->update_query.free(*connection);
+		this->path_query.free(*connection);
 	};
 
 	inline void insert_fromfile(const std::string& p_path)
@@ -110,7 +113,7 @@ struct GenericAssetQuery
 	{
 		com::Vector<char> l_file;
 		FileAlgorithm::read_bytes(asset_path->asset_folder_path + p_path, l_file);
-		
+
 		this->insert_or_update(p_path, l_file);
 
 		l_file.free();
@@ -179,5 +182,30 @@ struct GenericAssetQuery
 	{
 		size_t l_id = Hash<std::string>::hash(p_path);
 		this->request(l_id, out_bytes);
+	};
+
+	inline String<> get_path_from_resourcehash(const size_t p_id)
+	{
+		this->connection->handleSQLiteError(sqlite3_bind_int64(this->path_query.statement, 1, p_id));
+
+		struct GetPathMapper
+		{
+			String<> path;
+
+			inline void allocate()
+			{
+				this->path.allocate(0);
+			}
+
+			inline void execute(sqlite3_stmt* p_statement)
+			{
+				const unsigned char* l_txt = sqlite3_column_text(p_statement, 0);
+				this->path.append(StringSlice((char*)l_txt));
+			};
+		};
+		GetPathMapper l_mapper; l_mapper.allocate();
+		this->path_query.execute_sync_single(*this->connection, l_mapper);
+		this->path_query.clear(*this->connection);
+		return l_mapper.path;
 	};
 };

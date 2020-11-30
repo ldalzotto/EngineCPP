@@ -9,7 +9,8 @@ struct ToString
 	inline static String<> to_str(const ElementType& p_element)
 	{
 		String<> l_str; l_str.allocate(30);
-		sprintf_s(l_str.Memory.Memory, l_str.Memory.size_in_bytes(), ToStringFormat<ElementType>::format, p_element);
+		int l_char_nb = sprintf_s(l_str.Memory.Memory, l_str.Memory.capacity_in_bytes(), ToStringFormat<ElementType>::format, p_element);
+		l_str.Memory.Size = l_char_nb + 1;
 		return l_str;
 	};
 };

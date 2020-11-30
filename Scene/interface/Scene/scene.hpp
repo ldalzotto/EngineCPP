@@ -3,7 +3,7 @@
 #include "component_def.hpp"
 #include "Common/Memory/handle.hpp"
 
-#include "serialization.hpp"
+#include "Scene/assets.hpp"
 
 #include "Common/Functional/Callback.hpp"
 #include "Common/Container/tree.hpp"

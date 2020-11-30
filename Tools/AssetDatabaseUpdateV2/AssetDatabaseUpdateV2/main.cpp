@@ -7,8 +7,7 @@
 #include <Common/File/file.hpp>
 #include <Common/Container/tree.hpp>
 #include <Common/Clock/clock.hpp>
-#include <Scene/serialization.hpp>
-#include <SceneComponents/serialization.hpp>
+#include <SceneSerialization/scene_serialization.hpp>
 #include <Middleware/scene_middleware.hpp>
 
 #include<iostream>
@@ -302,6 +301,12 @@ private:
 						l_json_deserializer.free();
 						SceneAsset l_scene_asset = JSONDeserializer<SceneAsset>::deserialize<ComponentAssetSerializer>(l_json_deserializer);
 						l_scene_asset.serialize(l_asset_bytes);
+
+						/*
+						com::Vector<char> l_test = SceneSerializer::serialize_to_json<ComponentAssetSerializer>(l_scene_asset, this->asset_server);
+						printf(l_test.Memory);
+						l_test.free();
+						*/
 					}
 					else if (l_json_type.value.equals(StringSlice("shader")))
 					{

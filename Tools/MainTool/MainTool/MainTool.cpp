@@ -7,6 +7,7 @@
 #include "Common/Functional/ToString.hpp"
 #include "Scene/scene.hpp"
 #include "Scene/kernel/scene.hpp"
+#include "SceneSerialization/scene_serialization.hpp"
 #include "Input/input.hpp"
 #include "Common/Clock/clock.hpp"
 #include "Math/math.hpp"
@@ -201,10 +202,13 @@ struct EditorScene
 	Scene* engine_scene;
 	// Scene proxy_scene;
 	com::Vector<EditorSceneEvent> undo_events;
+	String<> engine_scene_asset_path;
 
-	inline void allocate(Scene* p_engine_scene)
+	inline void allocate(Scene* p_engine_scene, StringSlice& p_engine_asset_path)
 	{
 		this->engine_scene = p_engine_scene;
+		this->engine_scene_asset_path.allocate(p_engine_asset_path.size());
+		this->engine_scene_asset_path.append(p_engine_asset_path);
 		//this->proxy_scene = SceneKernel::clone(p_engine_scene);
 	};
 
@@ -217,6 +221,15 @@ struct EditorScene
 		}
 		this->undo_events.free();
 		this->engine_scene = nullptr;
+
+		this->engine_scene_asset_path.free();
+	};
+
+	inline void persist_current_scene(EngineHandle p_engine)
+	{
+		AssetServerHandle l_asset_server = engine_assetserver(p_engine);
+		//TODO -> convert scene to scene asset
+		// SceneSerializer::serialize_to_json(, l_asset_server);
 	};
 
 	inline void set_localposition(NTreeResolve<SceneNode>& p_scene_node, Math::vec3f& p_local_position)
@@ -284,25 +297,26 @@ struct EngineRunningModule
 		this->engine_hooks.closure = this;
 		this->engine_hooks.ext_update = EngineRunningModule::update;
 		this->running_engine = engine_create("", this->engine_hooks);
-		this->editor_scene.allocate(engine_scene(this->running_engine));
+		this->editor_scene.allocate(engine_scene(this->running_engine), StringSlice(""));
 	};
 
-	inline void load_scene(size_t p_scene_hash)
+	inline void load_scene(StringSlice& p_scene)
 	{
 		Scene tmp_scene = *engine_scene(this->running_engine);
 		SceneKernel::free_scene(engine_scene(this->running_engine));
 		SceneKernel::allocate_scene(engine_scene(this->running_engine), tmp_scene.component_added_callback, tmp_scene.component_removed_callback, tmp_scene.component_asset_push_callback);
 
 
-		com::Vector<char> l_scene = engine_assetserver(this->running_engine).get_resource(p_scene_hash);
+		com::Vector<char> l_scene = engine_assetserver(this->running_engine).get_resource(Hash<StringSlice>::hash(p_scene));
 		SceneAsset l_deserialized_scene = SceneSerializer::deserialize_from_binary(l_scene);
 		{
 			SceneKernel::feed_with_asset(engine_scene(this->running_engine), l_deserialized_scene);
 		}
+
 		l_scene.free();
 
 		this->editor_scene.free();
-		this->editor_scene.allocate(engine_scene(this->running_engine));
+		this->editor_scene.allocate(engine_scene(this->running_engine), p_scene);
 	};
 
 	inline void stop()
@@ -694,6 +708,7 @@ struct CommandHandler
 	inline static const StringSlice select_slice = StringSlice("select");
 	inline static const StringSlice load_slice = StringSlice("load");
 	inline static const StringSlice print_slice = StringSlice("print");
+	inline static const StringSlice persist_slice = StringSlice("persist");
 	inline static const StringSlice n_slice = StringSlice("n");
 	inline static const StringSlice engine_slice = StringSlice("engine");
 	inline static const StringSlice scene_slice = StringSlice("scene");
@@ -751,20 +766,22 @@ struct CommandHandler
 
 	inline static void handle_scene_commands(InterpretorFile& p_command_file, ToolState& p_tool_state, com::Vector<StringSlice>& p_command_stack, size_t p_depth)
 	{
+		Optional<EngineRunningModule> l_running_rengine = p_tool_state.engine_runner.engines[p_tool_state.selectged_engine];
+
 		if (p_command_stack[p_depth].equals(CommandHandler::load_slice))
 		{
-			if (p_tool_state.engine_runner.engines[p_tool_state.selectged_engine].hasValue)
+			if (l_running_rengine.hasValue)
 			{
-				p_tool_state.node_movement.exit(engine_render_middleware(p_tool_state.engine_runner.engines[p_tool_state.selectged_engine].value.running_engine));
-				p_tool_state.engine_runner.engines[p_tool_state.selectged_engine].value.load_scene(Hash<StringSlice>::hash(p_command_stack[p_depth + 1]));
-				p_tool_state.engine_runner.engines[p_tool_state.selectged_engine].value.update(0);
+				p_tool_state.node_movement.exit(engine_render_middleware(l_running_rengine.value.running_engine));
+				l_running_rengine.value.load_scene(p_command_stack[p_depth + 1]);
+				l_running_rengine.value.update(0);
 			}
 		}
 		else if (p_command_stack[p_depth].equals(CommandHandler::print_slice))
 		{
-			if (p_tool_state.engine_runner.engines[p_tool_state.selectged_engine].hasValue)
+			if (l_running_rengine.hasValue)
 			{
-				Scene* p_scene = engine_scene(p_tool_state.engine_runner.engines[p_tool_state.selectged_engine].value.running_engine);
+				Scene* p_scene = engine_scene(l_running_rengine.value.running_engine);
 
 				struct ScenePrintForeach
 				{
@@ -789,6 +806,13 @@ struct CommandHandler
 				p_command_file.machine_write(l_message.toSlice());
 
 				l_message.free();
+			}
+		}
+		else if (p_command_stack[p_depth].equals(CommandHandler::persist_slice))
+		{
+			if (l_running_rengine.hasValue)
+			{
+				l_running_rengine.value.editor_scene.persist_current_scene(l_running_rengine.value.running_engine);
 			}
 		}
 	}

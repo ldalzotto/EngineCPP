@@ -1,8 +1,10 @@
 #pragma once
 
-#include "Scene/serialization.hpp"
+#include "Scene/assets.hpp"
 #include "Scene/scene.hpp"
 #include "RenderMiddleware.hpp"
+#include "SceneSerialization/scene_serialization.hpp"
+#include "AssetServer/asset_server.hpp"
 
 struct ComponentAssetSerializer
 {
@@ -32,6 +34,46 @@ struct ComponentAssetSerializer
 		}
 
 		return false;
+	};
+
+	inline static void serializeJSON(ComponentAsset& p_component_asset, Serialization::JSON::Deserializer& p_serializer, GeneralPurposeHeap<>& p_compoent_asset_heap, AssetServerHandle p_asset_server)
+	{
+		StringSlice l_component_type;
+		bool l_component_detected = false;
+		if (p_component_asset.id == MeshRenderer::Id)
+		{
+			l_component_type = "MeshRenderer";
+			l_component_detected = true;
+		}
+		else if (p_component_asset.id == Camera::Id)
+		{
+			l_component_type = "Camera";
+			l_component_detected = true;
+		}
+
+		if (l_component_detected)
+		{
+			void* l_component = p_compoent_asset_heap.map<void>(p_component_asset.componentasset_heap_index);
+
+			p_serializer.push_field("type", l_component_type);
+			p_serializer.start_object("object");
+
+			switch (p_component_asset.id)
+			{
+			case MeshRenderer::Id:
+			{
+				JSONSerializer<MeshRendererAsset>::serialize(p_serializer, *(MeshRendererAsset*)l_component, p_asset_server);
+			}
+			break;
+			case Camera::Id:
+			{
+				JSONSerializer<CameraAsset>::serialize(p_serializer, *(CameraAsset*)l_component);
+			}
+			break;
+			}
+
+			p_serializer.end_object();
+		}
 	};
 
 private:

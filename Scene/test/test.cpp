@@ -7,7 +7,7 @@
 #include "Common/Serialization/binary.hpp"
 #include "Common/Serialization/json.hpp"
 #include "Math/serialization.hpp"
-#include "Scene/serialization.hpp"
+#include "Scene/assets.hpp"
 #include "Scene/kernel/scene.hpp"
 #include "SceneComponents/components.hpp"
 
