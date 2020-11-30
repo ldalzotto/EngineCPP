@@ -7,7 +7,7 @@
 #include "Common/Functional/ToString.hpp"
 #include "Scene/scene.hpp"
 #include "Scene/kernel/scene.hpp"
-#include "SceneSerialization/scene_serialization.hpp"
+#include "Middleware/scene_middleware.hpp"
 #include "Input/input.hpp"
 #include "Common/Clock/clock.hpp"
 #include "Math/math.hpp"
@@ -228,8 +228,12 @@ struct EditorScene
 	inline void persist_current_scene(EngineHandle p_engine)
 	{
 		AssetServerHandle l_asset_server = engine_assetserver(p_engine);
-		//TODO -> convert scene to scene asset
-		// SceneSerializer::serialize_to_json(, l_asset_server);
+
+		SceneAsset l_dup_asset = SceneAssetBuilder::build_from_scene(*this->engine_scene);
+		com::Vector<char> l_scene_json = SceneSerializer::serialize_to_json<ComponentAssetSerializer>(l_dup_asset, l_asset_server);
+		printf(l_scene_json.Memory);
+		l_scene_json.free();
+		l_dup_asset.free();
 	};
 
 	inline void set_localposition(NTreeResolve<SceneNode>& p_scene_node, Math::vec3f& p_local_position)
@@ -317,6 +321,11 @@ struct EngineRunningModule
 
 		this->editor_scene.free();
 		this->editor_scene.allocate(engine_scene(this->running_engine), p_scene);
+
+
+
+		//TODO test
+		// SceneAsset l_dup_asset = SceneAssetBuilder::build_from_scene(*engine_scene(this->running_engine));
 	};
 
 	inline void stop()

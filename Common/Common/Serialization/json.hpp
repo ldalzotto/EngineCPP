@@ -39,6 +39,16 @@ namespace Deserialization
 				this->current_field = -1;
 			};
 
+			inline JSONObjectIterator clone()
+			{
+				JSONObjectIterator l_return;
+				l_return.source = this->source;
+				l_return.object = this->object;
+				l_return.stack_fields = this->stack_fields.clone();
+				l_return.current_field = this->current_field;
+				return l_return;
+			};
+
 			inline bool next_field(const char* p_field_name)
 			{
 				bool l_field_found = false;

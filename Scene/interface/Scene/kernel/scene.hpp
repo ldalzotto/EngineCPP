@@ -365,6 +365,11 @@ struct SceneKernel
 		return thiz->transform.local_rotation;
 	};
 
+	inline static Math::vec3f& get_localscale(SceneNode* thiz)
+	{
+		return thiz->transform.local_scale;
+	};
+
 	inline static void set_localposition(NodeKernel_InputParams, const Math::vec3f& p_position)
 	{
 		if (!Math::EqualsVec(thiz->transform.local_position, p_position))

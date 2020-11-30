@@ -2,6 +2,8 @@
 
 #include "SceneComponents/components.hpp"
 #include "Scene/assets.hpp"
+#include "Scene/scene.hpp"
+#include "Scene/kernel/scene.hpp"
 #include "Common/Serialization/json.hpp"
 #include "Common/Functional/Hash.hpp"
 #include "Common/Serialization/binary.hpp"
@@ -9,6 +11,7 @@
 #include "Math/serialization.hpp"
 #include "Math/quaternion_def.hpp"
 #include "AssetServer/asset_server.hpp"
+
 
 template<>
 struct JSONDeserializer<MeshRendererAsset>
@@ -71,8 +74,102 @@ struct JSONSerializer<CameraAsset>
 	};
 };
 
+/*
+template<class PerInputChildNodeType>
+struct NodeAssetsBuilder
+{
+	struct ChildProcessingEntry
+	{
+		size_t node_asset_index;
+		com::Vector<PerInputChildNodeType> childs_iterators;
 
+		inline void free()
+		{
+			this->childs_iterators.free();
+		};
+	};
 
+	enum class NodeAssetsBuilderStep
+	{
+		ENDED = 0,
+		INITIALIZATION = 1
+	};
+
+	struct State
+	{
+		NodeAssetsBuilderStep current_step = NodeAssetsBuilderStep::ENDED;
+	} state;
+
+	inline void start()
+	{
+		this->state.current_step = NodeAssetsBuilderStep::INITIALIZATION;
+	};
+
+	inline NodeAssetsBuilderStep next()
+	{
+		
+	};
+};
+*/
+
+template<class PerInputChildNodeType, class NodeAssetBuilder, class NodeAssetChildsBuilder>
+void build_nodeassets(PerInputChildNodeType& p_iterator, size_t p_parent_nodeasset_index, com::Vector<NodeAsset>& p_node_assets, NodeAssetBuilder& p_nodeasset_builder, NodeAssetChildsBuilder& p_nodeasset_childs_builder)
+{
+	struct ChildProcessingEntry
+	{
+		size_t node_asset_index;
+		com::Vector<PerInputChildNodeType> childs_iterators;
+
+		inline void free()
+		{
+			this->childs_iterators.free();
+		};
+	};
+
+	com::Vector<ChildProcessingEntry> l_insertion_stack;
+	com::Vector<ChildProcessingEntry> l_insertion_stack_buffer;
+
+	p_node_assets.push_back(p_nodeasset_builder.build(p_iterator, p_parent_nodeasset_index));
+
+	ChildProcessingEntry l_initial_node;
+	l_initial_node.node_asset_index = p_node_assets.Size - 1;
+	l_initial_node.childs_iterators = p_nodeasset_childs_builder.build(p_iterator);
+	l_insertion_stack.push_back(l_initial_node);
+
+	while (l_insertion_stack.Size > 0)
+	{
+		ChildProcessingEntry& l_current_processed_entry = l_insertion_stack[0];
+
+		p_node_assets[l_current_processed_entry.node_asset_index].childs_begin = p_node_assets.Size;
+		p_node_assets[l_current_processed_entry.node_asset_index].childs_end = p_node_assets.Size + l_current_processed_entry.childs_iterators.Size;
+
+		//p_node_assets.push_back(l_current_processed_entry.node_asset);
+
+		for (size_t i = 0; i < l_current_processed_entry.childs_iterators.Size; i++)
+		{
+			PerInputChildNodeType& l_child_node_iterator = l_current_processed_entry.childs_iterators[i];
+			p_node_assets.push_back(p_nodeasset_builder.build(l_child_node_iterator, l_current_processed_entry.node_asset_index));
+
+			ChildProcessingEntry l_child_node;
+			l_child_node.node_asset_index = p_node_assets.Size - 1;
+			l_child_node.childs_iterators = p_nodeasset_childs_builder.build(l_child_node_iterator);
+			l_insertion_stack_buffer.push_back(l_child_node);
+		}
+
+		l_current_processed_entry.free();
+		l_insertion_stack.erase_at(0, 1);
+
+		if (l_insertion_stack_buffer.Size > 0)
+		{
+			l_insertion_stack.insert_at(l_insertion_stack_buffer.to_memoryslice(), l_insertion_stack.Size);
+			l_insertion_stack_buffer.clear();
+		}
+	}
+
+	l_insertion_stack.free();
+	l_insertion_stack_buffer.free();
+	
+}
 
 
 template<>
@@ -80,6 +177,43 @@ struct JSONDeserializer<NodeAsset>
 {
 	template<class ComponentAssetSerializer>
 	inline static void deserialize(Deserialization::JSON::JSONObjectIterator& p_iterator, size_t p_parent_nodeasset_index, com::Vector<NodeAsset>& p_node_assets,
+		com::Vector<ComponentAsset>& p_component_assets, GeneralPurposeHeap<>& p_compoent_asset_heap)
+	{
+
+
+		struct NodeAssetBuilder
+		{
+			com::Vector<ComponentAsset>* component_assets;
+			GeneralPurposeHeap<>* compoent_asset_heap;
+
+			inline NodeAssetBuilder(com::Vector<ComponentAsset>& p_component_assets, GeneralPurposeHeap<>& p_compoent_asset_heap)
+			{
+				this->component_assets = &p_component_assets;
+				this->compoent_asset_heap = &p_compoent_asset_heap;
+			};
+
+			inline NodeAsset build(Deserialization::JSON::JSONObjectIterator& p_child_node_iterator, size_t p_parent_nodeasset_index)
+			{
+				return JSONDeserializer<NodeAsset>::build_singlenode_with_components<ComponentAssetSerializer>(p_child_node_iterator, p_parent_nodeasset_index, *this->component_assets, *this->compoent_asset_heap);
+			};
+		};
+
+		struct NodeAssetChildsBuilder
+		{
+			inline com::Vector<Deserialization::JSON::JSONObjectIterator> build(Deserialization::JSON::JSONObjectIterator& p_iterator)
+			{
+				return JSONDeserializer<NodeAsset>::build_child_iterators(p_iterator);
+			};
+		};
+		
+		build_nodeassets(p_iterator, p_parent_nodeasset_index, p_node_assets,
+			NodeAssetBuilder(p_component_assets, p_compoent_asset_heap), NodeAssetChildsBuilder());
+			
+		p_iterator.free();
+	};
+
+	template<class ComponentAssetSerializer>
+	inline static NodeAsset build_singlenode_with_components(Deserialization::JSON::JSONObjectIterator& p_iterator, size_t p_parent_nodeasset_index,
 		com::Vector<ComponentAsset>& p_component_assets, GeneralPurposeHeap<>& p_compoent_asset_heap)
 	{
 		NodeAsset l_asset;
@@ -120,23 +254,25 @@ struct JSONDeserializer<NodeAsset>
 		l_asset.components_begin = p_component_assets.Size - l_componentasset_count;
 		l_asset.components_end = p_component_assets.Size;
 
-		//childs
-		p_node_assets.push_back(l_asset);
-		size_t l_node_insert_index = p_node_assets.Size - 1;
+		return l_asset;
+	};
 
+	inline static com::Vector<Deserialization::JSON::JSONObjectIterator> build_child_iterators(Deserialization::JSON::JSONObjectIterator& p_iterator)
+	{
+		com::Vector<Deserialization::JSON::JSONObjectIterator> l_childs_iterators;
+
+		Deserialization::JSON::JSONObjectIterator l_object_iterator;
 		if (p_iterator.next_array("childs", &l_object_iterator))
 		{
 			Deserialization::JSON::JSONObjectIterator l_childs_iterator;
 			while (l_object_iterator.next_array_object(&l_childs_iterator))
 			{
-				deserialize<ComponentAssetSerializer>(l_childs_iterator, l_node_insert_index, p_node_assets, p_component_assets, p_compoent_asset_heap);
+				l_childs_iterators.push_back(l_childs_iterator.clone());
 			}
 		}
+		l_object_iterator.free();
 
-		p_node_assets[l_node_insert_index].childs_begin = l_node_insert_index + 1;
-		p_node_assets[l_node_insert_index].childs_end = p_node_assets.Size;
-
-		p_iterator.free();
+		return l_childs_iterators;
 	};
 };
 
@@ -155,7 +291,7 @@ struct JSONSerializer<NodeAsset>
 		p_json_deserializer.start_object("local_scale");
 		JSONSerializer<Math::vec3f>::serialize(p_json_deserializer, p_node_asset.local_scale);
 		p_json_deserializer.end_object();
-			
+
 		p_json_deserializer.start_array("components");
 		for (size_t l_component_index = p_node_asset.components_begin; l_component_index < p_node_asset.components_end; l_component_index++)
 		{
@@ -202,6 +338,96 @@ struct JSONDeserializer<SceneAsset>
 	};
 };
 
+struct SceneAssetBuilder
+{
+
+	inline static SceneAsset build_from_scene(Scene& p_scene)
+	{
+	
+		com::Vector<NTreeResolve<SceneNode>> l_first_scenetree_childs;
+
+		com::Vector<com::TPoolToken<NTreeNode>>& l_first_scenetree_childs_raw = p_scene.tree.get_childs(p_scene.tree.resolve(com::PoolToken(0)));
+		for (size_t i = 0; i < l_first_scenetree_childs_raw.Size; i++)
+		{
+			l_first_scenetree_childs.push_back(p_scene.tree.resolve(l_first_scenetree_childs_raw[i]));
+		}
+
+		SceneAsset l_scene_asset;
+
+
+		for (size_t i = 0; i < l_first_scenetree_childs.Size; i++)
+		{
+			push_scenenode_to_sceneasset(l_first_scenetree_childs[i], -1, p_scene, l_scene_asset);
+		}
+
+		l_first_scenetree_childs.free();
+		return l_scene_asset;
+	}
+
+	inline static void push_scenenode_to_sceneasset(NTreeResolve<SceneNode>& p_scene_node, size_t p_parent_sceneasset_node_index, Scene& p_scene, SceneAsset& in_out_sceneasset)
+	{
+
+		struct NodeAssetBuilder
+		{
+			Scene* scene;
+
+			inline NodeAssetBuilder(Scene& p_scene)
+			{
+				this->scene = &p_scene;
+			};
+
+			inline NodeAsset build(NTreeResolve<SceneNode>& p_scene_node, size_t p_parent_nodeasset_index)
+			{
+				return SceneAssetBuilder::build_signe_nodeasset_with_components(p_scene_node, p_parent_nodeasset_index);
+			};
+		};
+
+		struct NodeAssetChildsBuilder
+		{
+			Scene* scene;
+
+			inline NodeAssetChildsBuilder(Scene& p_scene)
+			{
+				this->scene = &p_scene;
+			};
+
+			inline com::Vector<NTreeResolve<SceneNode>> build(NTreeResolve<SceneNode>& p_scene_node)
+			{
+				return SceneAssetBuilder::build_child_nodes(p_scene_node, this->scene);
+			};
+		};
+
+		build_nodeassets(p_scene_node, p_parent_sceneasset_node_index, in_out_sceneasset.nodes,
+			NodeAssetBuilder(p_scene), 
+			NodeAssetChildsBuilder(p_scene));
+	};
+
+	inline static NodeAsset build_signe_nodeasset_with_components(NTreeResolve<SceneNode>& p_node, size_t p_parent_sceneasset_node_index)
+	{
+		NodeAsset l_node_asset;
+		l_node_asset.parent = p_parent_sceneasset_node_index;
+		l_node_asset.local_position = SceneKernel::get_localposition(p_node.element);
+		l_node_asset.local_rotation = SceneKernel::get_localrotation(p_node.element);
+		l_node_asset.local_scale = SceneKernel::get_localscale(p_node.element);
+
+
+		//TODO -> components
+
+
+		return l_node_asset;
+	};
+
+	inline static com::Vector<NTreeResolve<SceneNode>> build_child_nodes(NTreeResolve<SceneNode>& p_node, Scene* p_scene)
+	{
+		com::Vector<NTreeResolve<SceneNode>> l_return;
+		auto& l_node_childs = p_scene->tree.get_childs(p_node);
+		for (size_t i = 0; i < l_node_childs.Size; i++)
+		{
+			l_return.push_back(p_scene->tree.resolve(l_node_childs[i]));
+		}
+		return l_return;
+	};
+};
 
 template<>
 struct JSONSerializer<SceneAsset>
@@ -212,7 +438,7 @@ struct JSONSerializer<SceneAsset>
 		p_json_deserializer.start();
 		p_json_deserializer.push_field("type", StringSlice("scene"));
 		p_json_deserializer.start_array("nodes");
-		
+
 		for (size_t i = 0; i < p_scene_asset.nodes.Size; i++)
 		{
 			if (p_scene_asset.nodes[i].parent == -1)
