@@ -7,6 +7,7 @@
 #include "Common/Functional/ToString.hpp"
 #include "Scene/scene.hpp"
 #include "Scene/kernel/scene.hpp"
+#include "SceneSerialization/scene_serialization.hpp"
 #include "Middleware/scene_middleware.hpp"
 #include "Input/input.hpp"
 #include "Common/Clock/clock.hpp"
@@ -229,8 +230,8 @@ struct EditorScene
 	{
 		AssetServerHandle l_asset_server = engine_assetserver(p_engine);
 
-		SceneAsset l_dup_asset = SceneAssetBuilder::build_from_scene(*this->engine_scene);
-		com::Vector<char> l_scene_json = SceneSerializer::serialize_to_json<ComponentAssetSerializer>(l_dup_asset, l_asset_server);
+		SceneAsset l_dup_asset = SceneSerializer2::Scene_to_SceneAsset(*this->engine_scene);
+		com::Vector<char> l_scene_json = SceneSerializer2::SceneAsset_to_JSON(l_dup_asset, l_asset_server);
 		printf(l_scene_json.Memory);
 		l_scene_json.free();
 		l_dup_asset.free();
@@ -312,7 +313,7 @@ struct EngineRunningModule
 
 
 		com::Vector<char> l_scene = engine_assetserver(this->running_engine).get_resource(Hash<StringSlice>::hash(p_scene));
-		SceneAsset l_deserialized_scene = SceneSerializer::deserialize_from_binary(l_scene);
+		SceneAsset l_deserialized_scene = SceneSerializer2::Binary_to_SceneAsset(l_scene);
 		{
 			SceneKernel::feed_with_asset(engine_scene(this->running_engine), l_deserialized_scene);
 		}

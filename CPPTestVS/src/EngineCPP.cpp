@@ -35,7 +35,7 @@ void update(void* p_engine, float p_delta)
 	if (testContext.framecount == 0)
 	{
 		com::Vector<char> l_scene_binary = engine_assetserver(*l_engine).get_resource("scenes/test_scene.json");
-		SceneAsset l_scene_asset = SceneSerializer::deserialize_from_binary(l_scene_binary);
+		SceneAsset l_scene_asset = SceneSerializer2::Binary_to_SceneAsset(l_scene_binary);
 		SceneKernel::feed_with_asset(l_scenehandle, l_scene_asset);
 // 		*l_scenehandle = SceneKernel::clone(l_scenehandle);
 

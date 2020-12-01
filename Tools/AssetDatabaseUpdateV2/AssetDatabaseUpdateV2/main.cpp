@@ -299,7 +299,7 @@ private:
 					else if (l_json_type.value.equals(StringSlice("scene")))
 					{
 						l_json_deserializer.free();
-						SceneAsset l_scene_asset = JSONDeserializer<SceneAsset>::deserialize<ComponentAssetSerializer>(l_json_deserializer);
+						SceneAsset l_scene_asset = SceneSerializer2::JSON_to_SceneAsset(l_json_deserializer);
 						l_scene_asset.serialize(l_asset_bytes);
 
 						//com::Vector<char> l_test = SceneSerializer::serialize_to_json<ComponentAssetSerializer>(l_scene_asset, this->asset_server);
