@@ -198,6 +198,7 @@ struct EditorSceneEvent
 	};
 };
 
+//TODO -> the this->engine_scene_asset_path memory location seems to be overrited somewhere
 struct EditorScene
 {
 	Scene* engine_scene;
@@ -210,7 +211,6 @@ struct EditorScene
 		this->engine_scene = p_engine_scene;
 		this->engine_scene_asset_path.allocate(p_engine_asset_path.size());
 		this->engine_scene_asset_path.append(p_engine_asset_path);
-		//this->proxy_scene = SceneKernel::clone(p_engine_scene);
 	};
 
 	inline void free()
