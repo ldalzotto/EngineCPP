@@ -64,7 +64,7 @@ inline Engine::Engine(const std::string& p_executeable_path, const ExternalHooks
 	this->loop = EngineLoop<EngineCallbacks>(EngineCallbacks(this, p_hooks), 16000);
 	SceneKernel::allocate_scene(&this->scene, *(Callback<void, ComponentAddedParameter>*) & Callback<ComponentMiddlewares, ComponentAddedParameter>(&this->all_middlewares, SceneComponentCallbacks::on_component_added),
 		*(Callback<void, ComponentRemovedParameter>*) & Callback<ComponentMiddlewares, ComponentRemovedParameter>(&this->all_middlewares, SceneComponentCallbacks::on_component_removed),
-		*(Callback<void, ComponentAssetPushParameter>*) & Callback<void, ComponentAssetPushParameter>(nullptr, SceneComponentCallbacks::push_componentasset));
+		*(Callback<void, ComponentAssetPushParameter>*) & Callback<void, ComponentAssetPushParameter>(nullptr, SceneComponentCallbacks::push_componentasset2));
 	this->render = create_render(this->asset_server);
 	this->input.allocate(render_window(this->render));
 	this->render_middleware.allocate(this->render, this->asset_server);

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Scene/scene.hpp"
+#include "SceneSerialization/scene_serialization.hpp"
 #include "RenderMiddleware.hpp"
 
 struct ComponentMiddlewares
@@ -51,27 +52,24 @@ struct SceneComponentCallbacks
 		}
 	};
 
-	inline static void push_componentasset(void* p_null, ComponentAssetPushParameter* p_parameter)
+	inline static void push_componentasset2(void* p_null, ComponentAssetPushParameter* p_parameter)
 	{
-		switch (p_parameter->component_asset->id)
+		struct WithComponent
 		{
-		case MeshRenderer::Id:
-		{
-			MeshRendererAsset* l_asset = (MeshRendererAsset*)p_parameter->component_asset_object;
+			ComponentAssetPushParameter* parameter;
 
-			MeshRenderer l_mesh_renderer;
-			l_mesh_renderer.initialize(l_asset->material, l_asset->mesh);
-			p_parameter->inserted_component = SceneKernel::add_component<MeshRenderer>((Scene*)p_parameter->scene, p_parameter->node, l_mesh_renderer);
-		}
-		break;
-		case Camera::Id:
-		{
-			CameraAsset* l_asset = (CameraAsset*)p_parameter->component_asset_object;
-			p_parameter->inserted_component = SceneKernel::add_component<Camera>((Scene*)p_parameter->scene, p_parameter->node, Camera(*l_asset));
-		}
-		break;
-		}
+			inline WithComponent(ComponentAssetPushParameter* p_parameter)
+			{
+				this->parameter = p_parameter;
+			};
 
+			inline void with_component(void* p_component_object, const SceneNodeComponent_TypeInfo& p_type)
+			{
+				this->parameter->inserted_component = SceneKernel::add_component((Scene*)this->parameter->scene, this->parameter->node, p_type, p_component_object);
+			}
+		};
+
+		ComponentAssetSerializer::ComponentAsset_to_Component(p_parameter->component_asset, p_parameter->component_asset_object, WithComponent(p_parameter));
 	};
 };
 

@@ -147,6 +147,61 @@ struct ComponentAssetSerializer
 		}
 	};
 
+	template<class WithComponent>
+	inline static void ComponentAsset_to_Component(ComponentAsset* p_component_asset, void* p_component_asset_object, WithComponent& p_with_component)
+	{
+		switch (p_component_asset->id)
+		{
+		case MeshRenderer::Id:
+		{
+			MeshRendererAsset* l_asset = (MeshRendererAsset*)p_component_asset_object;
+			MeshRenderer l_mesh_renderer;
+			l_mesh_renderer.initialize(l_asset->material, l_asset->mesh);
+			p_with_component.with_component(&l_mesh_renderer, MeshRenderer::Type);
+		}
+		break;
+		case Camera::Id:
+		{
+			CameraAsset* l_asset = (CameraAsset*)p_component_asset_object;
+			Camera l_camera = Camera(*l_asset);
+			p_with_component.with_component(&l_camera, Camera::Type);
+		}
+		break;
+		}
+	};
+
+	inline static bool Component_to_ComponentAsset(SceneNodeComponentHeader* p_component_header, GeneralPurposeHeap<>& p_compoent_asset_heap, ComponentAsset* out_componentasset)
+	{
+		switch (p_component_header->id)
+		{
+		case MeshRenderer::Id:
+		{
+			MeshRenderer* l_mesh_renderer = p_component_header->cast<MeshRenderer>();
+			allocate_component_asset<MeshRendererAsset>(p_compoent_asset_heap, &out_componentasset->componentasset_heap_index);
+			MeshRendererAsset* l_meshrenderer_asset = p_compoent_asset_heap.map<MeshRendererAsset>(out_componentasset->componentasset_heap_index);
+			l_meshrenderer_asset->material = l_mesh_renderer->material.key;
+			l_meshrenderer_asset->mesh = l_mesh_renderer->model.key;	
+			out_componentasset->id = MeshRenderer::Id;
+			return true;
+		}
+		break;
+		case Camera::Id:
+		{
+			Camera* l_camera = p_component_header->cast<Camera>();
+			allocate_component_asset<Camera>(p_compoent_asset_heap, &out_componentasset->componentasset_heap_index);
+			CameraAsset* l_camera_asset = p_compoent_asset_heap.map<CameraAsset>(out_componentasset->componentasset_heap_index);
+			l_camera_asset->far_ = l_camera->far_;
+			l_camera_asset->fov = l_camera->fov;
+			l_camera_asset->near_ = l_camera->near_;
+			out_componentasset->id = Camera::Id;
+			return true;
+		}
+		break;
+		}
+
+		return false;
+	};
+
 private:
 	template<class ComponentAssetType>
 	inline static bool allocate_component_asset(GeneralPurposeHeap<>& p_compoent_asset_heap, com::PoolToken* out_index)
@@ -158,46 +213,6 @@ private:
 		return true;
 	};
 };
-
-
-/*
-template<class PerInputChildNodeType>
-struct NodeAssetsBuilder
-{
-	struct ChildProcessingEntry
-	{
-		size_t node_asset_index;
-		com::Vector<PerInputChildNodeType> childs_iterators;
-
-		inline void free()
-		{
-			this->childs_iterators.free();
-		};
-	};
-
-	enum class NodeAssetsBuilderStep
-	{
-		ENDED = 0,
-		INITIALIZATION = 1
-	};
-
-	struct State
-	{
-		NodeAssetsBuilderStep current_step = NodeAssetsBuilderStep::ENDED;
-	} state;
-
-	inline void start()
-	{
-		this->state.current_step = NodeAssetsBuilderStep::INITIALIZATION;
-	};
-
-	inline NodeAssetsBuilderStep next()
-	{
-		
-	};
-};
-*/
-
 
 
 struct SceneSerializer2
@@ -241,7 +256,7 @@ struct SceneSerializer2
 	{
 		Serialization::JSON::Deserializer l_json_seralizer;
 		l_json_seralizer.allocate();
-		
+
 		l_json_seralizer.start();
 		l_json_seralizer.push_field("type", StringSlice("scene"));
 		l_json_seralizer.start_array("nodes");
@@ -483,15 +498,17 @@ private:
 		struct NodeAssetBuilder
 		{
 			Scene* scene;
+			SceneAsset* scene_asset;
 
-			inline NodeAssetBuilder(Scene& p_scene)
+			inline NodeAssetBuilder(Scene& p_scene, SceneAsset& p_scene_asset)
 			{
 				this->scene = &p_scene;
+				this->scene_asset = &p_scene_asset;
 			};
 
 			inline NodeAsset build(NTreeResolve<SceneNode>& p_scene_node, size_t p_parent_nodeasset_index)
 			{
-				return SceneNode_to_NodeAsset_withoutchilds(p_scene_node, p_parent_nodeasset_index);
+				return SceneNode_to_NodeAsset_withoutchilds(p_scene_node, p_parent_nodeasset_index, this->scene, this->scene_asset->components, this->scene_asset->component_asset_heap);
 			};
 		};
 
@@ -511,11 +528,12 @@ private:
 		};
 
 		TSceneAsset_builder_fromexternal(p_scene_node, p_parent_sceneasset_node_index, in_out_sceneasset.nodes,
-			NodeAssetBuilder(p_scene),
+			NodeAssetBuilder(p_scene, in_out_sceneasset),
 			NodeAssetChildsBuilder(p_scene));
 	}
 
-	inline static NodeAsset SceneNode_to_NodeAsset_withoutchilds(NTreeResolve<SceneNode>& p_node, size_t p_parent_sceneasset_node_index)
+	inline static NodeAsset SceneNode_to_NodeAsset_withoutchilds(NTreeResolve<SceneNode>& p_node, size_t p_parent_sceneasset_node_index, Scene* p_scene,
+		com::Vector<ComponentAsset>& p_component_assets, GeneralPurposeHeap<>& p_compoent_asset_heap)
 	{
 		NodeAsset l_node_asset;
 		l_node_asset.parent = p_parent_sceneasset_node_index;
@@ -524,8 +542,21 @@ private:
 		l_node_asset.local_scale = SceneKernel::get_localscale(p_node.element);
 
 
-		//TODO -> components
+		l_node_asset.components_begin = p_component_assets.Size;
+		com::Vector<SceneNodeComponentToken>& l_components = p_scene->node_to_components[p_node.element->components].value;
+		for (size_t i = 0; i < l_components.Size; i++)
+		{
+			SceneNodeComponentHeader* l_scene_node_component_header = SceneKernel::resolve_component(p_scene, l_components[i]);
+			
+			ComponentAsset l_component_asset;
+			if (ComponentAssetSerializer::Component_to_ComponentAsset(l_scene_node_component_header, p_compoent_asset_heap, &l_component_asset))
+			{
+				p_component_assets.push_back(l_component_asset);
+			};
 
+		}
+
+		l_node_asset.components_end = p_component_assets.Size;
 
 		return l_node_asset;
 	};

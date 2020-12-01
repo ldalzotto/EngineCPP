@@ -200,6 +200,13 @@ struct File
 		l_path.free();
 	};
 
+	inline void erase()
+	{
+		String<> l_path = this->path.get_as_string();
+		DeleteFile(l_path.c_str());
+		l_path.free();
+	};
+
 	inline void create_or_open()
 	{
 		this->create();
@@ -207,6 +214,16 @@ struct File
 		{
 			this->open();
 		}
+	};
+
+	inline void create_override()
+	{
+		if (this->exists())
+		{
+			this->erase();
+		}
+
+		this->create();
 	};
 
 	inline void append(StringSlice& p_str)

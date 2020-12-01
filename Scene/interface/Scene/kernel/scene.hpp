@@ -67,16 +67,7 @@ struct SceneKernel
 	};
 
 	
-
-
-	struct FeedWithAssetInsertionCallbacksDefault
-	{
-		inline void on_node_added(com::PoolToken p_node_token, NodeAsset& p_node_asset) { };
-		inline void on_component_added(com::PoolToken p_node_token, SceneNodeComponentToken p_component_token, ComponentAsset* p_component_asset) {};
-	};
-
-	template<class FeedWithAssetInsertionCallbacks = FeedWithAssetInsertionCallbacksDefault>
-	inline static void feed_with_asset(Scene* thiz, SceneAsset& p_scene_asset, FeedWithAssetInsertionCallbacks& p_insertion_callbacks = FeedWithAssetInsertionCallbacksDefault())
+	inline static void feed_with_asset(Scene* thiz, SceneAsset& p_scene_asset)
 	{
 		com::Vector<SceneNodeToken> l_insertednodes_token;
 		{
@@ -91,7 +82,6 @@ struct SceneKernel
 				}
 
 				SceneNodeToken l_node_token = add_node(thiz, l_parent_node, Math::Transform(l_node.local_position, l_node.local_rotation, l_node.local_scale));
-				p_insertion_callbacks.on_node_added(l_node_token, l_node);
 				l_insertednodes_token.push_back(l_node_token);
 
 				for (size_t l_component_index = l_node.components_begin; l_component_index < l_node.components_end; l_component_index++)
@@ -104,7 +94,6 @@ struct SceneKernel
 					l_component_asset_push.scene = thiz;
 					l_component_asset_push.component_asset_object = p_scene_asset.component_asset_heap.map<void>(l_component.componentasset_heap_index);
 					thiz->component_asset_push_callback.call(&l_component_asset_push);
-					p_insertion_callbacks.on_component_added(l_node_token, l_component_asset_push.inserted_component, &l_component);
 				}
 			}
 		}

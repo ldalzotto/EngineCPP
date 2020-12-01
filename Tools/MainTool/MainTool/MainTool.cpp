@@ -232,7 +232,18 @@ struct EditorScene
 
 		SceneAsset l_dup_asset = SceneSerializer2::Scene_to_SceneAsset(*this->engine_scene);
 		com::Vector<char> l_scene_json = SceneSerializer2::SceneAsset_to_JSON(l_dup_asset, l_asset_server);
-		printf(l_scene_json.Memory);
+		
+		File<FilePathMemoryLayout::STRING> l_scene_file;
+		FilePath<FilePathMemoryLayout::STRING> l_scene_file_path;
+		l_scene_file_path.allocate(0);
+		l_scene_file_path.path.append(l_asset_server.get_asset_basepath().c_str());
+		l_scene_file_path.path.append("scenes/alala_scene.json");
+		l_scene_file.allocate(FileType::CONTENT, l_scene_file_path);
+		l_scene_file.create_override();
+		l_scene_file.append(StringSlice(l_scene_json.Memory));
+		
+		l_scene_file.free();
+
 		l_scene_json.free();
 		l_dup_asset.free();
 	};
