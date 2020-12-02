@@ -2451,6 +2451,66 @@ private:
 	}
 };
 
+struct ShaderLayout
+{
+	vk::PipelineLayout layout;
+
+	inline void allocate(Device& p_device, vk::PipelineLayoutCreateInfo& p_descriptor_set_layout_info)
+	{
+		this->layout = p_device.device.createPipelineLayout(p_descriptor_set_layout_info);
+	};
+
+	inline void free(Device& p_device)
+	{
+		p_device.device.destroyPipelineLayout(this->layout);
+	};
+};
+
+struct ShaderLayouts
+{
+	ShaderLayout rt_draw_layout;
+	ShaderLayout khr_blit_layout;
+
+	inline void allocate(RenderAPI& p_render_api)
+	{
+		this->allocate_rt_draw_layout(p_render_api);
+		this->allocate_khr_blit_layout(p_render_api);
+	};
+
+	inline void free(RenderAPI& p_render_api)
+	{
+		this->rt_draw_layout.free(p_render_api.device);
+		this->khr_blit_layout.free(p_render_api.device);
+	};
+
+private:
+	inline void allocate_rt_draw_layout(RenderAPI& p_render_api)
+	{
+		vk::DescriptorSetLayout l_descriptorset_layouts[4];
+		l_descriptorset_layouts[0] = p_render_api.shaderparameter_layouts.uniformbuffer_vertex_layout; //camera (set = 0)
+		l_descriptorset_layouts[1] = p_render_api.shaderparameter_layouts.uniformbuffer_vertex_layout; //model (set = 1)
+		l_descriptorset_layouts[2] = p_render_api.shaderparameter_layouts.texture_fragment_layout; //texture (set = 2)
+		l_descriptorset_layouts[3] = p_render_api.shaderparameter_layouts.uniformbuffer_layout; //parameters (set = 3)
+
+		Array<vk::DescriptorSetLayout> l_descriptorset_layouts_arr = Array<vk::DescriptorSetLayout>(l_descriptorset_layouts, 4);
+		vk::PipelineLayoutCreateInfo l_pipelinelayout_create_info;
+		l_pipelinelayout_create_info.setSetLayoutCount((uint32_t)l_descriptorset_layouts_arr.Capacity);
+		l_pipelinelayout_create_info.setPSetLayouts(l_descriptorset_layouts_arr.Memory);
+		this->rt_draw_layout.allocate(p_render_api.device, l_pipelinelayout_create_info);
+	};
+
+	inline void allocate_khr_blit_layout(RenderAPI& p_render_api)
+	{
+		vk::DescriptorSetLayout l_descriptorset_layouts[1];
+		l_descriptorset_layouts[0] = p_render_api.shaderparameter_layouts.texture_fragment_layout; //texture (set = 2)
+
+		Array<vk::DescriptorSetLayout> l_descriptorset_layouts_arr = Array<vk::DescriptorSetLayout>(l_descriptorset_layouts, 1);
+		vk::PipelineLayoutCreateInfo l_pipelinelayout_create_info;
+		l_pipelinelayout_create_info.setSetLayoutCount((uint32_t)l_descriptorset_layouts_arr.Capacity);
+		l_pipelinelayout_create_info.setPSetLayouts(l_descriptorset_layouts_arr.Memory);
+		this->khr_blit_layout.allocate(p_render_api.device, l_pipelinelayout_create_info);
+	};
+};
 
 struct ShaderModule
 {
@@ -2470,7 +2530,7 @@ struct Shader
 		vk::ShaderStageFlagBits stage;
 	};
 
-	vk::PipelineLayout pipeline_layout;
+	const ShaderLayout* pipeline_layout;
 	vk::Pipeline pipeline;
 
 	Shader() : pipeline_layout(nullptr), pipeline(nullptr)
@@ -2478,46 +2538,24 @@ struct Shader
 
 	}
 
-	Shader(const size_t p_key, const size_t p_execution_order, const ShaderModule& p_vertex_shader, const ShaderModule& p_fragment_shader,
+	Shader(const size_t p_key, const size_t p_execution_order, const ShaderModule& p_vertex_shader, const ShaderModule& p_fragment_shader, const ShaderLayout& p_shader_layout,
 		const ShaderAsset::Config& p_shader_config, const RenderPass& p_render_pass, const RenderAPI& p_render_api)
 	{
 		this->key = p_key;
 		this->execution_order = p_execution_order;
-		this->createPipelineLayout(p_render_api);
+		this->pipeline_layout = &p_shader_layout;
 		this->createPipeline(p_render_api.device, p_render_pass, p_vertex_shader, p_fragment_shader, p_shader_config);
 	}
 
 	inline void dispose(const Device& p_device)
 	{
 		this->destroyPipeline(p_device);
-		this->destroyPipelineLayout(p_device);
 
 		this->pipeline = nullptr;
 		this->pipeline_layout = nullptr;
 	}
 
 private:
-
-	//TODO -> making the shader inputs dynamic (draw Shader, ui shader, image processing shader)
-	inline void createPipelineLayout(const RenderAPI& p_render_api)
-	{
-		vk::DescriptorSetLayout l_descriptorset_layouts[4];
-		l_descriptorset_layouts[0] = p_render_api.shaderparameter_layouts.uniformbuffer_vertex_layout; //camera (set = 0)
-		l_descriptorset_layouts[1] = p_render_api.shaderparameter_layouts.uniformbuffer_vertex_layout; //model (set = 1)
-		l_descriptorset_layouts[2] = p_render_api.shaderparameter_layouts.texture_fragment_layout; //texture (set = 2)
-		l_descriptorset_layouts[3] = p_render_api.shaderparameter_layouts.uniformbuffer_layout; //parameters (set = 3)
-
-		Array<vk::DescriptorSetLayout> l_descriptorset_layouts_arr = Array<vk::DescriptorSetLayout>(l_descriptorset_layouts, 4);
-		vk::PipelineLayoutCreateInfo l_pipelinelayout_create_info;
-		l_pipelinelayout_create_info.setSetLayoutCount((uint32_t)l_descriptorset_layouts_arr.Capacity);
-		l_pipelinelayout_create_info.setPSetLayouts(l_descriptorset_layouts_arr.Memory);
-		this->pipeline_layout = p_render_api.device.device.createPipelineLayout(l_pipelinelayout_create_info);
-	}
-
-	inline void destroyPipelineLayout(const Device& p_device)
-	{
-		p_device.device.destroyPipelineLayout(this->pipeline_layout);
-	}
 
 	inline void createPipeline(const Device& p_device, const RenderPass& p_renderPass,
 		const ShaderModule& p_vertex_shader, const ShaderModule& p_fragment_shader, const ShaderAsset::Config& p_shader_config)
@@ -2536,7 +2574,7 @@ private:
 		{
 
 			vk::GraphicsPipelineCreateInfo l_pipeline_graphcis_create_info;
-			l_pipeline_graphcis_create_info.setLayout(this->pipeline_layout);
+			l_pipeline_graphcis_create_info.setLayout(this->pipeline_layout->layout);
 			l_pipeline_graphcis_create_info.setRenderPass(p_renderPass.render_pass);
 
 			vk::PipelineInputAssemblyStateCreateInfo l_inputassembly_state;
@@ -2979,7 +3017,7 @@ struct ShaderUniformBufferParameter
 		p_device.device.updateDescriptorSets(1, &l_write_descriptor_set, 0, nullptr);
 	}
 
-	inline void bind_command(CommandBuffer& p_commandbuffer, uint32_t p_set_index, vk::PipelineLayout& p_pipeline_layout)
+	inline void bind_command(CommandBuffer& p_commandbuffer, uint32_t p_set_index, const vk::PipelineLayout& p_pipeline_layout)
 	{
 		p_commandbuffer.command_buffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, p_pipeline_layout,
 			p_set_index, 1, &this->descriptor_set, 0, nullptr);
@@ -3046,7 +3084,7 @@ struct ShaderCombinedImageSamplerDescriptorSet
 		p_device.device.updateDescriptorSets(1, &l_write_descriptor_set, 0, nullptr);
 	};
 
-	inline void bind_command(CommandBuffer& p_commandbuffer, uint32_t p_set_index, vk::PipelineLayout& p_pipeline_layout)
+	inline void bind_command(CommandBuffer& p_commandbuffer, uint32_t p_set_index, const vk::PipelineLayout& p_pipeline_layout)
 	{
 		p_commandbuffer.command_buffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, p_pipeline_layout,
 			p_set_index, 1, &this->descriptor_set, 0, nullptr);
@@ -3077,7 +3115,7 @@ struct ShaderCombinedImageSamplerParameter
 		this->descriptor_set.bind(p_dst_binding, p_device, p_texutre_samplers, l_texture.image_view);
 	};
 
-	inline void bind_command(CommandBuffer& p_commandbuffer, uint32_t p_set_index, vk::PipelineLayout& p_pipeline_layout)
+	inline void bind_command(CommandBuffer& p_commandbuffer, uint32_t p_set_index, const vk::PipelineLayout& p_pipeline_layout)
 	{
 		this->descriptor_set.bind_command(p_commandbuffer, p_set_index, p_pipeline_layout);
 	}
@@ -3103,11 +3141,6 @@ struct ShaderParameter
 struct Material
 {
 	com::Vector<ShaderParameter> parameters;
-
-	/*
-	com::PoolToken diffuse_color;
-	com::PoolToken diffuse_texture;
-	*/
 
 	Material() {};
 
@@ -3149,7 +3182,7 @@ struct Material
 	};
 
 	inline void bind_command(CommandBuffer& p_command_buffer, size_t p_set_index, com::Pool<ShaderUniformBufferParameter>& p_shader_uniformparameter_heap,
-		com::Pool<ShaderCombinedImageSamplerParameter>& p_shader_texturesample_heap, vk::PipelineLayout& p_pipeline_layout)
+		com::Pool<ShaderCombinedImageSamplerParameter>& p_shader_texturesample_heap, const vk::PipelineLayout& p_pipeline_layout)
 	{
 		for (size_t i = 0; i < this->parameters.Size; i++)
 		{
@@ -3291,14 +3324,16 @@ struct RenderHeap2
 		struct ShaderResourceAllocator
 		{
 			RenderHeap2* render_heap;
+			ShaderLayouts* shader_layouts;
 			AssetServerHandle asset_server;
 
 			inline ShaderResourceAllocator() {};
 
-			inline ShaderResourceAllocator(const AssetServerHandle& p_asset_server, RenderHeap2& p_render_heap)
+			inline ShaderResourceAllocator(const AssetServerHandle& p_asset_server, RenderHeap2& p_render_heap, ShaderLayouts& p_shader_layouts)
 			{
 				this->asset_server = p_asset_server;
 				this->render_heap = &p_render_heap;
+				this->shader_layouts = &p_shader_layouts;
 			};
 
 			inline com::TPoolToken<Shader> allocate(const size_t& p_key)
@@ -3312,6 +3347,7 @@ struct RenderHeap2
 				Shader l_shader = Shader(p_key, l_shader_asset.execution_order,
 					this->render_heap->shadermodules[l_vertex_module],
 					this->render_heap->shadermodules[l_fragment_module],
+					this->shader_layouts->rt_draw_layout,
 					l_shader_asset.config,
 					*this->render_heap->render_api->swap_chain.render_passes.get_renderpass<RenderPass::Type::RT_COLOR_DEPTH>(),
 					*(this->render_heap->render_api)
@@ -3475,10 +3511,10 @@ struct RenderHeap2
 		ResourceMap<size_t, com::TPoolToken<Mesh>, MeshResourceAllocator> mesh_resources;
 		ResourceMap<size_t, com::TPoolToken<Texture>, TextureResourceAllocator> texture_resources;
 
-		inline void allocate(RenderHeap2& p_render_heap, AssetServerHandle p_asset_server)
+		inline void allocate(RenderHeap2& p_render_heap, ShaderLayouts& p_shader_layouts, AssetServerHandle p_asset_server)
 		{
 			this->shader_module_resources.allocate(1, ShaderModuleResourceAllocator(p_asset_server, p_render_heap));
-			this->shader_resources.allocate(1, ShaderResourceAllocator(p_asset_server, p_render_heap));
+			this->shader_resources.allocate(1, ShaderResourceAllocator(p_asset_server, p_render_heap, p_shader_layouts));
 			this->mesh_resources.allocate(1, MeshResourceAllocator(p_asset_server, p_render_heap));
 			this->texture_resources.allocate(1, TextureResourceAllocator(p_asset_server, p_render_heap));
 		};
@@ -3497,10 +3533,10 @@ struct RenderHeap2
 
 public:
 
-	inline void allocate(AssetServerHandle p_asset_server, RenderAPI& p_render_api)
+	inline void allocate(AssetServerHandle p_asset_server, RenderAPI& p_render_api, ShaderLayouts& p_shader_layouts)
 	{
 		this->render_api = &p_render_api;
-		this->resource.allocate(*this, p_asset_server);
+		this->resource.allocate(*this, p_shader_layouts, p_asset_server);
 	};
 
 	inline void free()
@@ -3723,13 +3759,13 @@ struct RTDrawStep
 					com::TPoolToken<Material> l_material_heap_token = l_materials[l_material_index];
 					Material& l_material = this->heap->materials[l_material_heap_token];
 
-					l_material.bind_command(p_command_buffer, 2, this->heap->shader_uniform_parameters, this->heap->shader_imagesample_parameters, l_shader.pipeline_layout);
+					l_material.bind_command(p_command_buffer, 2, this->heap->shader_uniform_parameters, this->heap->shader_imagesample_parameters, l_shader.pipeline_layout->layout);
 
 					com::Vector<com::TPoolToken<RenderableObject>>& l_renderableobjects = this->heap->material_to_renderableobjects[l_material_heap_token.Index];
 					for (size_t l_renderableobject_index = 0; l_renderableobject_index < l_renderableobjects.Size; l_renderableobject_index++)
 					{
 						RenderableObject& l_renderableobject = this->heap->renderableobjects[l_renderableobjects[l_renderableobject_index]];
-						l_renderableobject.model_matrix_buffer.bind_command(p_command_buffer, 1, l_shader.pipeline_layout);
+						l_renderableobject.model_matrix_buffer.bind_command(p_command_buffer, 1, l_shader.pipeline_layout->layout);
 						l_renderableobject.draw(p_command_buffer, this->heap->meshes);
 					}
 				}
@@ -3754,7 +3790,7 @@ struct KHRPresentStep
 	ShaderCombinedImageSamplerDescriptorSet render_target_parameter;
 	Mesh quad_mesh;
 
-	inline void allocate(RenderAPI* p_render_api, AssetServerHandle p_asset_server)
+	inline void allocate(RenderAPI* p_render_api, ShaderLayouts& p_shader_layouts, AssetServerHandle p_asset_server)
 	{
 		this->renderApi = p_render_api;
 
@@ -3769,7 +3805,7 @@ struct KHRPresentStep
 		ShaderAsset::Config l_shader_config;
 		l_shader_config.ztest = ShaderCompareOp::Type::Invalid;
 		l_shader_config.zwrite = false;
-		this->khr_draw_shader = Shader(Hash<StringSlice>::hash(StringSlice("shader/quaddraw_shader.json")), -1, this->khr_draw_shader_vertex, this->khr_draw_shader_fragment, l_shader_config, 
+		this->khr_draw_shader = Shader(Hash<StringSlice>::hash(StringSlice("shader/quaddraw_shader.json")), -1, this->khr_draw_shader_vertex, this->khr_draw_shader_fragment, p_shader_layouts.khr_blit_layout, l_shader_config,
 			*p_render_api->swap_chain.render_passes.get_renderpass<RenderPass::Type::KHR_BLIT>(), *this->renderApi);
 
 		this->render_target_parameter.create(*p_render_api);
@@ -3813,7 +3849,7 @@ struct KHRPresentStep
 		{
 			p_command_buffer.command_buffer.bindPipeline(vk::PipelineBindPoint::eGraphics, this->khr_draw_shader.pipeline);
 
-			this->render_target_parameter.bind_command(p_command_buffer, 2, this->khr_draw_shader.pipeline_layout);
+			this->render_target_parameter.bind_command(p_command_buffer, 0, this->khr_draw_shader.pipeline_layout->layout);
 
 			vk::DeviceSize l_offsets[1] = { 0 };
 			p_command_buffer.command_buffer.bindVertexBuffers(0, 1, &this->quad_mesh.vertices.buffer, l_offsets);
@@ -3831,7 +3867,7 @@ struct Render
 	RenderAPI renderApi;
 
 	GlobalUniformBuffer<CameraMatrices> camera_matrices_globalbuffer;
-
+	ShaderLayouts shader_layouts;
 	RenderHeap2 heap;
 
 	RTDrawStep rt_draw_step;
@@ -3842,9 +3878,10 @@ struct Render
 		this->window.allocate(1280, 720, "MyGame");
 		this->renderApi.init(window);
 		this->create_global_buffers();
-		this->heap.allocate(p_asset_server, this->renderApi);
+		this->shader_layouts.allocate(this->renderApi);
+		this->heap.allocate(p_asset_server, this->renderApi, this->shader_layouts);
 		this->rt_draw_step.allocate(&this->renderApi, &this->heap, &this->camera_matrices_globalbuffer);
-		this->khr_present_step.allocate(&this->renderApi, p_asset_server);
+		this->khr_present_step.allocate(&this->renderApi, this->shader_layouts, p_asset_server);
 	};
 
 	inline void dispose()
@@ -3852,6 +3889,7 @@ struct Render
 		this->rt_draw_step.free();
 		this->khr_present_step.free();
 		this->heap.free();
+		this->shader_layouts.free(this->renderApi);
 		this->destroy_global_buffers();
 		this->renderApi.dispose();
 		this->window.dispose();
