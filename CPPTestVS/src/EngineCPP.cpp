@@ -42,10 +42,13 @@ void update(void* p_engine, float p_delta)
 		l_scene_binary.free();
 
 		com::Vector<NTreeResolve<SceneNode>> l_nodes = SceneKernel::get_nodes_with_component<MeshRenderer>(l_scenehandle);
-		for (size_t i = 0; i < l_nodes.Size; i++)
 		{
-			testContext.moving_nodes.push_back(SceneNodeToken(l_nodes[i].node->index));
+			for (size_t i = 0; i < l_nodes.Size; i++)
+			{
+				testContext.moving_nodes.push_back(SceneNodeToken(l_nodes[i].node->index));
+			}
 		}
+		l_nodes.free();
 	}
 
 	if (l_input.get_state(InputKey::InputKey_B, KeyState::KeyStateFlag_PRESSED_THIS_FRAME))

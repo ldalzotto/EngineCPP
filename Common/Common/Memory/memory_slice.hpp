@@ -47,4 +47,21 @@ namespace com
 			return (this->Memory + Begin)[p_index];
 		};
 	};
+
+	template<class TYPE, unsigned N>
+	struct NMemorySlice
+	{
+		TYPE Memory[N];
+
+		inline TYPE& operator[](size_t p_index)
+		{
+			return this->Memory[p_index];
+		};
+
+		inline MemorySlice<TYPE> to_memoryslice()
+		{
+			return MemorySlice<TYPE>(this->Memory, N);
+		};
+
+	};
 }

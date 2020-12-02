@@ -512,71 +512,126 @@ struct Device
 };
 
 
-//TODO -> create a dynamic RenderPass, from a vector of parameter
 struct RenderPass
 {
-	vk::RenderPass l_render_pass;
+	vk::RenderPass render_pass;
 
-	void create_color_depth(const Device& p_device, vk::Format p_rendertarget_format, vk::Format p_depth_format)
+	enum class Type
 	{
-		com::Vector<vk::AttachmentDescription> l_attachments;
-		l_attachments.allocate(2);
-		l_attachments.Size = l_attachments.Capacity;
+		UNDEFINED = 0,
+		KHR_BLIT = 1,
+		RT_COLOR_DEPTH = 2
+	};
 
-		com::Vector<vk::SubpassDescription> l_subpasses;
-		l_subpasses.allocate(1);
-		l_subpasses.Size = 1;
-		{
-			vk::AttachmentDescription& l_color_attachment = l_attachments[0];
-			l_color_attachment = vk::AttachmentDescription();
-			l_color_attachment.setFormat(p_rendertarget_format);
-			l_color_attachment.setSamples(vk::SampleCountFlagBits::e1);
-			l_color_attachment.setLoadOp(vk::AttachmentLoadOp::eClear);
-			l_color_attachment.setStoreOp(vk::AttachmentStoreOp::eStore);
-			l_color_attachment.setStencilLoadOp(vk::AttachmentLoadOp::eDontCare);
-			l_color_attachment.setStencilStoreOp(vk::AttachmentStoreOp::eDontCare);
-			l_color_attachment.setInitialLayout(vk::ImageLayout::eUndefined);
-			l_color_attachment.setFinalLayout(vk::ImageLayout::eColorAttachmentOptimal);
+	void dispose(const Device& p_device)
+	{
+		p_device.device.destroyRenderPass(this->render_pass);
+	}
+};
 
-			vk::AttachmentDescription& l_depth_attachment = l_attachments[1];
-			l_depth_attachment = vk::AttachmentDescription();
-			l_depth_attachment.setFormat(p_depth_format);
-			l_depth_attachment.setSamples(vk::SampleCountFlagBits::e1);
-			l_depth_attachment.setLoadOp(vk::AttachmentLoadOp::eClear);
-			l_depth_attachment.setStoreOp(vk::AttachmentStoreOp::eDontCare);
-			l_depth_attachment.setStencilLoadOp(vk::AttachmentLoadOp::eDontCare);
-			l_depth_attachment.setStencilStoreOp(vk::AttachmentStoreOp::eDontCare);
-			l_depth_attachment.setInitialLayout(vk::ImageLayout::eUndefined);
-			l_depth_attachment.setFinalLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal);
+struct RenderPasses
+{
+	RenderPass color_depth_rendertarget;
+	RenderPass color_blit_khr;
 
-			vk::AttachmentReference l_color_attachment_ref;
-			l_color_attachment_ref.setAttachment(0);
-			l_color_attachment_ref.setLayout(vk::ImageLayout::eColorAttachmentOptimal);
+	inline void allocate(const Device& p_device, vk::Format p_rendertarget_format, vk::Format p_depth_format, vk::Format p_khr_format)
+	{
+		this->create_color_depth_rendertarget(p_device, p_rendertarget_format, p_depth_format, p_khr_format);
+		this->create_color_blit_khr(p_device, p_rendertarget_format, p_depth_format, p_khr_format);
+	};
 
-			vk::AttachmentReference l_depth_atttachment_ref;
-			l_depth_atttachment_ref.setAttachment(1);
-			l_depth_atttachment_ref.setLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal);
+	inline void free(const Device& p_device)
+	{
+		this->color_depth_rendertarget.dispose(p_device);
+		this->color_blit_khr.dispose(p_device);
+	};
 
-			vk::SubpassDescription& l_color_subpass = l_subpasses[0];
-			l_color_subpass = vk::SubpassDescription();
-			l_color_subpass.setPipelineBindPoint(vk::PipelineBindPoint::eGraphics);
-			l_color_subpass.setColorAttachmentCount(1);
-			l_color_subpass.setPColorAttachments(&l_color_attachment_ref);
-			l_color_subpass.setPDepthStencilAttachment(&l_depth_atttachment_ref);
+	template<RenderPass::Type RenderPassType>
+	struct RenderPassGetter
+	{
+		static RenderPass* get(RenderPasses& p_renderpasses);
+	};
 
-			vk::RenderPassCreateInfo l_renderpass_create_info;
-			l_renderpass_create_info.setAttachmentCount((uint32_t)l_attachments.Size);
-			l_renderpass_create_info.setPAttachments(l_attachments.Memory);
-			l_renderpass_create_info.setSubpassCount((uint32_t)l_subpasses.Size);
-			l_renderpass_create_info.setPSubpasses(l_subpasses.Memory);
+	template<>
+	struct RenderPassGetter<RenderPass::Type::RT_COLOR_DEPTH>
+	{
+		inline static RenderPass* get(RenderPasses& p_renderpasses) {
+			return &p_renderpasses.color_depth_rendertarget;
+		};
+	};
+	template<>
+	struct RenderPassGetter<RenderPass::Type::KHR_BLIT>
+	{
+		inline static RenderPass* get(RenderPasses& p_renderpasses) {
+			return &p_renderpasses.color_blit_khr;
+		};
+	};
 
-			this->l_render_pass = p_device.device.createRenderPass(l_renderpass_create_info);
-		}
-		l_subpasses.free();
-		l_subpasses.free();
+	template<RenderPass::Type RenderPassType>
+	inline RenderPass* get_renderpass() { return RenderPassGetter<RenderPassType>::get(*this); };
+
+private:
+	inline void create_color_depth_rendertarget(const Device& p_device, vk::Format p_rendertarget_format, vk::Format p_depth_format, vk::Format p_khr_format)
+	{
+			com::Vector<vk::AttachmentDescription> l_attachments;
+			l_attachments.allocate(2);
+			l_attachments.Size = l_attachments.Capacity;
+
+			com::Vector<vk::SubpassDescription> l_subpasses;
+			l_subpasses.allocate(1);
+			l_subpasses.Size = 1;
+			{
+				vk::AttachmentDescription& l_color_attachment = l_attachments[0];
+				l_color_attachment = vk::AttachmentDescription();
+				l_color_attachment.setFormat(p_rendertarget_format);
+				l_color_attachment.setSamples(vk::SampleCountFlagBits::e1);
+				l_color_attachment.setLoadOp(vk::AttachmentLoadOp::eClear);
+				l_color_attachment.setStoreOp(vk::AttachmentStoreOp::eStore);
+				l_color_attachment.setStencilLoadOp(vk::AttachmentLoadOp::eDontCare);
+				l_color_attachment.setStencilStoreOp(vk::AttachmentStoreOp::eDontCare);
+				l_color_attachment.setInitialLayout(vk::ImageLayout::eUndefined);
+				l_color_attachment.setFinalLayout(vk::ImageLayout::eColorAttachmentOptimal);
+
+				vk::AttachmentDescription& l_depth_attachment = l_attachments[1];
+				l_depth_attachment = vk::AttachmentDescription();
+				l_depth_attachment.setFormat(p_depth_format);
+				l_depth_attachment.setSamples(vk::SampleCountFlagBits::e1);
+				l_depth_attachment.setLoadOp(vk::AttachmentLoadOp::eClear);
+				l_depth_attachment.setStoreOp(vk::AttachmentStoreOp::eDontCare);
+				l_depth_attachment.setStencilLoadOp(vk::AttachmentLoadOp::eDontCare);
+				l_depth_attachment.setStencilStoreOp(vk::AttachmentStoreOp::eDontCare);
+				l_depth_attachment.setInitialLayout(vk::ImageLayout::eUndefined);
+				l_depth_attachment.setFinalLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal);
+
+				vk::AttachmentReference l_color_attachment_ref;
+				l_color_attachment_ref.setAttachment(0);
+				l_color_attachment_ref.setLayout(vk::ImageLayout::eColorAttachmentOptimal);
+
+				vk::AttachmentReference l_depth_atttachment_ref;
+				l_depth_atttachment_ref.setAttachment(1);
+				l_depth_atttachment_ref.setLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal);
+
+				vk::SubpassDescription& l_color_subpass = l_subpasses[0];
+				l_color_subpass = vk::SubpassDescription();
+				l_color_subpass.setPipelineBindPoint(vk::PipelineBindPoint::eGraphics);
+				l_color_subpass.setColorAttachmentCount(1);
+				l_color_subpass.setPColorAttachments(&l_color_attachment_ref);
+				l_color_subpass.setPDepthStencilAttachment(&l_depth_atttachment_ref);
+
+				vk::RenderPassCreateInfo l_renderpass_create_info;
+				l_renderpass_create_info.setAttachmentCount((uint32_t)l_attachments.Size);
+				l_renderpass_create_info.setPAttachments(l_attachments.Memory);
+				l_renderpass_create_info.setSubpassCount((uint32_t)l_subpasses.Size);
+				l_renderpass_create_info.setPSubpasses(l_subpasses.Memory);
+
+				this->color_depth_rendertarget.render_pass = p_device.device.createRenderPass(l_renderpass_create_info);
+			}
+			l_subpasses.free();
+			l_subpasses.free();
+		
 	}
 
-	void create_khr_draw(const Device& p_device, vk::Format p_khr_format)
+	inline void create_color_blit_khr(const Device& p_device, vk::Format p_rendertarget_format, vk::Format p_depth_format, vk::Format p_khr_format)
 	{
 		com::Vector<vk::AttachmentDescription> l_attachments;
 		l_attachments.allocate(1);
@@ -613,26 +668,22 @@ struct RenderPass
 			l_renderpass_create_info.setSubpassCount((uint32_t)l_subpasses.Size);
 			l_renderpass_create_info.setPSubpasses(l_subpasses.Memory);
 
-			this->l_render_pass = p_device.device.createRenderPass(l_renderpass_create_info);
+			this->color_blit_khr.render_pass = p_device.device.createRenderPass(l_renderpass_create_info);
 		}
 		l_subpasses.free();
 		l_subpasses.free();
-	}
-
-	void dispose(const Device& p_device)
-	{
-		p_device.device.destroyRenderPass(this->l_render_pass);
 	}
 };
 
 struct FrameBuffer
 {
 	vk::Framebuffer frame_buffer;
+	RenderPass* render_pass = nullptr;
 
-	inline void allocate(const Device& p_device, com::Vector<vk::ImageView>& p_attachments, RenderPass& p_render_pass, vk::Extent2D& p_extend)
+	inline void allocate(const Device& p_device, com::Vector<vk::ImageView>& p_attachments, RenderPass* p_render_pass, vk::Extent2D& p_extend)
 	{
 		vk::FramebufferCreateInfo l_framebuffer_create;
-		l_framebuffer_create.setRenderPass(p_render_pass.l_render_pass);
+		l_framebuffer_create.setRenderPass(p_render_pass->render_pass);
 		l_framebuffer_create.setAttachmentCount((uint32_t)p_attachments.Size);
 		l_framebuffer_create.setPAttachments(p_attachments.Memory);
 		l_framebuffer_create.setWidth(p_extend.width);
@@ -640,12 +691,14 @@ struct FrameBuffer
 		l_framebuffer_create.setLayers(1);
 
 		this->frame_buffer = p_device.device.createFramebuffer(l_framebuffer_create);
+		this->render_pass = p_render_pass;
 	};
 
 	inline void free(const Device& p_device)
 	{
 		p_device.device.destroyFramebuffer(this->frame_buffer);
 		this->frame_buffer = nullptr;
+		this->render_pass = nullptr;
 	};
 
 };
@@ -681,17 +734,38 @@ struct CommandBuffer
 		}
 	}
 
-	inline void beginRenderPass(const RenderPass& p_renderpass, const com::Vector<vk::ClearValue>& p_clear_values, const vk::Rect2D& p_rendered_screen)
+	inline void beginRenderPass2(const FrameBuffer& p_framebuffer, com::MemorySlice<vk::ClearValue> p_clear_values, vk::Offset2D& p_render_offset, vk::Extent2D& p_render_extent)
 	{
 		vk::RenderPassBeginInfo l_renderpass_begin;
 		l_renderpass_begin.setPNext(nullptr);
-		l_renderpass_begin.setRenderPass(p_renderpass.l_render_pass);
-		l_renderpass_begin.setRenderArea(p_rendered_screen);
-		l_renderpass_begin.setClearValueCount((uint32_t)p_clear_values.Size);
+		l_renderpass_begin.setRenderPass(p_framebuffer.render_pass->render_pass);
+		vk::Rect2D l_renderArea;
+		l_renderArea.setOffset(p_render_offset);
+		l_renderArea.setExtent(p_render_extent);
+		l_renderpass_begin.setRenderArea(l_renderArea);
+		l_renderpass_begin.setClearValueCount(p_clear_values.count());
 		l_renderpass_begin.setPClearValues(p_clear_values.Memory);
+		l_renderpass_begin.setFramebuffer(p_framebuffer.frame_buffer);
+
+		vk::Viewport l_viewport;
+		l_viewport.setHeight((float)p_render_extent.height);
+		l_viewport.setWidth((float)p_render_extent.width);
+		l_viewport.setMinDepth(0.0f);
+		l_viewport.setMaxDepth(1.0f);
+
+		vk::Rect2D l_windowarea;
+		l_windowarea.setOffset(vk::Offset2D(0, 0));
+		l_windowarea.setExtent(vk::Extent2D(p_render_extent.width, p_render_extent.height));
 
 		this->command_buffer.beginRenderPass(l_renderpass_begin, vk::SubpassContents::eInline);
-	}
+		this->command_buffer.setViewport(0, 1, &l_viewport);
+		this->command_buffer.setScissor(0, 1, &l_windowarea);
+	};
+
+	inline void endRenderPass()
+	{
+		this->command_buffer.endRenderPass();
+	};
 
 	inline void end()
 	{
@@ -1560,7 +1634,8 @@ public:
 	std::vector<vk::Image> images;
 	com::Vector<SwapChainBuffer> buffers;
 
-	RenderPass khr_pass;
+	RenderPasses render_passes;
+
 	com::Vector<FrameBuffer> khr_framebuffers;
 
 
@@ -1576,7 +1651,6 @@ public:
 	GPUOnlyImageMemory depth_image;
 	vk::ImageView depth_image_view;
 
-	RenderPass rendertarget_draw_renderpass;
 	FrameBuffer rendertarget_draw_framebuffers;
 
 
@@ -1605,27 +1679,27 @@ public:
 
 		this->pick_surface_format();
 		this->pick_presentation_mode();
-		
+
 		this->pick_window_extend();
 		this->pick_image_count();
 
 		this->create_swapchain();
 
 		this->create_window_images(p_staging_commands);
-		this->create_khr_renderpass(p_device);
-		this->create_khr_framebuffers(p_device);
 
 		this->pick_rendertarget_extent();
 		this->create_rendertarget_image(p_staging_commands);
 		this->create_depth_image(p_staging_commands);
-		this->create_rendertarget_renderPass(p_device);
+
+		this->render_passes.allocate(p_device, this->rendertarget_format, this->depth_format, this->surface_format.format);
+
+		this->create_khr_framebuffers(p_device);
 		this->create_rendertarget_framebuffers(p_device);
 	}
 
 	inline void resize(DeferredCommandBufferExecution& p_staging_commands)
 	{
 		this->destroy_khr_framebuffers();
-		this->destroy_khr_renderpass();
 		this->destroy_window_images();
 
 		this->device->device.destroySwapchainKHR(this->handle);
@@ -1636,19 +1710,20 @@ public:
 		this->create_swapchain();
 
 		this->create_window_images(p_staging_commands);
-		this->create_khr_renderpass(*this->device);
+		
 		this->create_khr_framebuffers(*this->device);
 	};
 
 	inline void dispose(DeferredCommandBufferExecution& p_staging_commands)
 	{
 		this->destroy_khr_framebuffers();
-		this->destroy_khr_renderpass();
 		this->destroy_window_images();
 		this->device->device.destroySwapchainKHR(this->handle);
 
 		this->destroy_rednertarget_framebuffers();
-		this->destroy_rendertarget_renderPass();
+
+		this->render_passes.free(*this->device);
+
 		this->free_rendertarget_image(p_staging_commands);
 		this->destroy_depth_image(p_staging_commands);
 	}
@@ -1704,7 +1779,7 @@ private:
 	inline void pick_window_extend()
 	{
 		this->surface_capabilities = this->physicalDevice->getSurfaceCapabilitiesKHR(*this->surface);
-		
+
 		if (this->surface_capabilities.currentExtent.width != UINT32_MAX)
 		{
 			this->window_extend = this->surface_capabilities.currentExtent;
@@ -1899,26 +1974,6 @@ private:
 		this->depth_image.dispose(*this->device, p_staging_commands);
 	}
 
-	inline void create_khr_renderpass(const Device& p_device)
-	{
-		this->khr_pass.create_khr_draw(p_device, this->surface_format.format);
-	};
-
-	inline void destroy_khr_renderpass()
-	{
-		this->khr_pass.dispose(*this->device);
-	};
-
-	inline void create_rendertarget_renderPass(const Device& p_device)
-	{
-		this->rendertarget_draw_renderpass.create_color_depth(p_device, this->rendertarget_format, this->depth_format);
-	}
-
-	inline void destroy_rendertarget_renderPass()
-	{
-		this->rendertarget_draw_renderpass.dispose(*this->device);
-	}
-
 	inline void create_khr_framebuffers(const Device& p_device)
 	{
 		this->khr_framebuffers.allocate(this->image_count);
@@ -1931,7 +1986,7 @@ private:
 		for (size_t i = 0; i < this->image_count; i++)
 		{
 			l_attachments[0] = this->buffers[i].view;
-			this->khr_framebuffers[i].allocate(p_device, l_attachments, this->khr_pass, vk::Extent2D(this->window->Width, this->window->Height));
+			this->khr_framebuffers[i].allocate(p_device, l_attachments, this->render_passes.get_renderpass<RenderPass::Type::KHR_BLIT>(), vk::Extent2D(this->window->Width, this->window->Height));
 		}
 
 		l_attachments.free();
@@ -1949,14 +2004,14 @@ private:
 
 	inline void create_rendertarget_framebuffers(const Device& p_device)
 	{
-			com::Vector<vk::ImageView> l_attachments;
-			l_attachments.allocate(2);
-			l_attachments.Size = l_attachments.Capacity;
-			l_attachments[0] = this->rendertarget_image_view;
-			l_attachments[1] = this->depth_image_view;
+		com::Vector<vk::ImageView> l_attachments;
+		l_attachments.allocate(2);
+		l_attachments.Size = l_attachments.Capacity;
+		l_attachments[0] = this->rendertarget_image_view;
+		l_attachments[1] = this->depth_image_view;
 
-			this->rendertarget_draw_framebuffers.allocate(p_device, l_attachments, this->rendertarget_draw_renderpass, this->rendertarget_extend);
-			l_attachments.free();
+		this->rendertarget_draw_framebuffers.allocate(p_device, l_attachments, this->render_passes.get_renderpass<RenderPass::Type::RT_COLOR_DEPTH>(), this->rendertarget_extend);
+		l_attachments.free();
 	}
 
 	inline void destroy_rednertarget_framebuffers()
@@ -2394,7 +2449,7 @@ private:
 	{
 		this->image_samplers.free(this->device);
 	}
-	};
+};
 
 
 struct ShaderModule
@@ -2447,10 +2502,10 @@ private:
 	inline void createPipelineLayout(const RenderAPI& p_render_api)
 	{
 		vk::DescriptorSetLayout l_descriptorset_layouts[4];
-		l_descriptorset_layouts[0] = p_render_api.shaderparameter_layouts.uniformbuffer_vertex_layout; //vertex
-		l_descriptorset_layouts[1] = p_render_api.shaderparameter_layouts.uniformbuffer_vertex_layout; //uv
-		l_descriptorset_layouts[2] = p_render_api.shaderparameter_layouts.texture_fragment_layout;
-		l_descriptorset_layouts[3] = p_render_api.shaderparameter_layouts.uniformbuffer_layout;
+		l_descriptorset_layouts[0] = p_render_api.shaderparameter_layouts.uniformbuffer_vertex_layout; //camera (set = 0)
+		l_descriptorset_layouts[1] = p_render_api.shaderparameter_layouts.uniformbuffer_vertex_layout; //model (set = 1)
+		l_descriptorset_layouts[2] = p_render_api.shaderparameter_layouts.texture_fragment_layout; //texture (set = 2)
+		l_descriptorset_layouts[3] = p_render_api.shaderparameter_layouts.uniformbuffer_layout; //parameters (set = 3)
 
 		Array<vk::DescriptorSetLayout> l_descriptorset_layouts_arr = Array<vk::DescriptorSetLayout>(l_descriptorset_layouts, 4);
 		vk::PipelineLayoutCreateInfo l_pipelinelayout_create_info;
@@ -2482,7 +2537,7 @@ private:
 
 			vk::GraphicsPipelineCreateInfo l_pipeline_graphcis_create_info;
 			l_pipeline_graphcis_create_info.setLayout(this->pipeline_layout);
-			l_pipeline_graphcis_create_info.setRenderPass(p_renderPass.l_render_pass);
+			l_pipeline_graphcis_create_info.setRenderPass(p_renderPass.render_pass);
 
 			vk::PipelineInputAssemblyStateCreateInfo l_inputassembly_state;
 			l_inputassembly_state.setTopology(vk::PrimitiveTopology::eTriangleList);
@@ -3258,7 +3313,7 @@ struct RenderHeap2
 					this->render_heap->shadermodules[l_vertex_module],
 					this->render_heap->shadermodules[l_fragment_module],
 					l_shader_asset.config,
-					this->render_heap->render_api->swap_chain.rendertarget_draw_renderpass,
+					*this->render_heap->render_api->swap_chain.render_passes.get_renderpass<RenderPass::Type::RT_COLOR_DEPTH>(),
 					*(this->render_heap->render_api)
 				);
 
@@ -3622,9 +3677,75 @@ private:
 
 };
 
+struct RTDrawStep
+{
+	RenderAPI* renderApi = nullptr;
+	RenderHeap2* heap = nullptr;
+	GlobalUniformBuffer<CameraMatrices>* camera_matrices_globalbuffer = nullptr;
+
+	com::NMemorySlice<vk::ClearValue, 2> clear_values;
+
+	inline void allocate(RenderAPI* p_render_api, RenderHeap2* p_render_heap, GlobalUniformBuffer<CameraMatrices>* p_camera_matrices_globalbuffer)
+	{
+		this->renderApi = p_render_api;
+		this->heap = p_render_heap;
+		this->camera_matrices_globalbuffer = p_camera_matrices_globalbuffer;
+
+		this->clear_values[0].color.setFloat32({ 0.0f, 0.0f, 0.2f, 1.0f });
+		this->clear_values[1].depthStencil.setDepth(1.0f);
+		this->clear_values[1].depthStencil.setStencil((uint32_t)0.0f);
+	};
+
+	inline void free() {
+		this->renderApi = nullptr;
+		this->heap = nullptr;
+		this->camera_matrices_globalbuffer = nullptr;
+	};
+
+	inline void step(CommandBuffer& p_command_buffer)
+	{
+
+		p_command_buffer.beginRenderPass2(this->renderApi->swap_chain.rendertarget_draw_framebuffers, this->clear_values.to_memoryslice(), vk::Offset2D(0, 0), this->renderApi->swap_chain.rendertarget_extend);
+
+		{
+			this->camera_matrices_globalbuffer->bind_command(p_command_buffer);
+
+			for (size_t l_shader_index = 0; l_shader_index < this->heap->shaders_sortedBy_executionOrder.Size; l_shader_index++)
+			{
+				com::TPoolToken<Shader> l_shader_heap = this->heap->shaders_sortedBy_executionOrder[l_shader_index];
+				Shader& l_shader = this->heap->shaders[l_shader_heap];
+
+				p_command_buffer.command_buffer.bindPipeline(vk::PipelineBindPoint::eGraphics, l_shader.pipeline);
+
+				com::Vector<com::TPoolToken<Material>>& l_materials = this->heap->shaders_to_materials[l_shader_heap.Index];
+				for (size_t l_material_index = 0; l_material_index < l_materials.Size; l_material_index++)
+				{
+					com::TPoolToken<Material> l_material_heap_token = l_materials[l_material_index];
+					Material& l_material = this->heap->materials[l_material_heap_token];
+
+					l_material.bind_command(p_command_buffer, 2, this->heap->shader_uniform_parameters, this->heap->shader_imagesample_parameters, l_shader.pipeline_layout);
+
+					com::Vector<com::TPoolToken<RenderableObject>>& l_renderableobjects = this->heap->material_to_renderableobjects[l_material_heap_token.Index];
+					for (size_t l_renderableobject_index = 0; l_renderableobject_index < l_renderableobjects.Size; l_renderableobject_index++)
+					{
+						RenderableObject& l_renderableobject = this->heap->renderableobjects[l_renderableobjects[l_renderableobject_index]];
+						l_renderableobject.model_matrix_buffer.bind_command(p_command_buffer, 1, l_shader.pipeline_layout);
+						l_renderableobject.draw(p_command_buffer, this->heap->meshes);
+					}
+				}
+			}
+		}
+
+		p_command_buffer.endRenderPass();
+	};
+
+};
+
 struct KHRPresentStep
 {
 	RenderAPI* renderApi;
+
+	com::NMemorySlice<vk::ClearValue, 1> clear_values;
 
 	ShaderModule khr_draw_shader_vertex;
 	ShaderModule khr_draw_shader_fragment;
@@ -3637,6 +3758,8 @@ struct KHRPresentStep
 	{
 		this->renderApi = p_render_api;
 
+		this->clear_values[0].color.setFloat32({ 0.0f, 0.0f, 0.0f, 1.0f });
+
 		this->khr_draw_shader_vertex.key = Hash<StringSlice>::hash(StringSlice("shader/QuadDraw.vert"));
 		this->khr_draw_shader_vertex.shader_module = RenderHeap2::Resource::ShaderModuleResourceAllocator::load_shadermodule(p_asset_server, p_render_api->device, khr_draw_shader_vertex.key);
 
@@ -3646,7 +3769,8 @@ struct KHRPresentStep
 		ShaderAsset::Config l_shader_config;
 		l_shader_config.ztest = ShaderCompareOp::Type::Invalid;
 		l_shader_config.zwrite = false;
-		this->khr_draw_shader = Shader(Hash<StringSlice>::hash(StringSlice("shader/quaddraw_shader.json")), -1, this->khr_draw_shader_vertex, this->khr_draw_shader_fragment, l_shader_config, this->renderApi->swap_chain.khr_pass, *this->renderApi);
+		this->khr_draw_shader = Shader(Hash<StringSlice>::hash(StringSlice("shader/quaddraw_shader.json")), -1, this->khr_draw_shader_vertex, this->khr_draw_shader_fragment, l_shader_config, 
+			*p_render_api->swap_chain.render_passes.get_renderpass<RenderPass::Type::KHR_BLIT>(), *this->renderApi);
 
 		this->render_target_parameter.create(*p_render_api);
 		this->render_target_parameter.bind(0, p_render_api->device, p_render_api->image_samplers, p_render_api->swap_chain.rendertarget_image_view);
@@ -3680,53 +3804,23 @@ struct KHRPresentStep
 		this->quad_mesh.dispose(*this->renderApi, this->renderApi->device);
 	};
 
-	inline void bind_command(CommandBuffer& p_command_buffer, size_t p_image_count)
+	inline void step(CommandBuffer& p_command_buffer, size_t p_image_count)
 	{
-
-		//vk::ImageLayout::eColorAttachmentOptimal
 		TextureLayoutTransitionCommand::execute_transition<vk::ImageLayout::eColorAttachmentOptimal, vk::ImageLayout::eShaderReadOnlyOptimal>(p_command_buffer,
 			this->renderApi->swap_chain.rendertarget_image.buffer, this->renderApi->swap_chain.rendertarget_image_subresource_range);
 
-		vk::ClearValue l_clear[1];
-		l_clear[0].color.setFloat32({ 0.0f, 0.0f, 0.0f, 1.0f });
+		p_command_buffer.beginRenderPass2(this->renderApi->swap_chain.khr_framebuffers[p_image_count], this->clear_values.to_memoryslice(), vk::Offset2D(0, 0), this->renderApi->swap_chain.window_extend);
+		{
+			p_command_buffer.command_buffer.bindPipeline(vk::PipelineBindPoint::eGraphics, this->khr_draw_shader.pipeline);
 
-		vk::RenderPassBeginInfo l_renderpass_begin;
-		l_renderpass_begin.setPNext(nullptr);
-		l_renderpass_begin.setRenderPass(this->renderApi->swap_chain.khr_pass.l_render_pass);
-		vk::Rect2D l_renderArea;
-		l_renderArea.setOffset(vk::Offset2D(0, 0));
-		l_renderArea.setExtent(this->renderApi->swap_chain.window_extend);
-		l_renderpass_begin.setRenderArea(l_renderArea);
-		l_renderpass_begin.setClearValueCount(1);
-		l_renderpass_begin.setPClearValues(l_clear);
-		l_renderpass_begin.setFramebuffer(this->renderApi->swap_chain.khr_framebuffers[p_image_count].frame_buffer);
+			this->render_target_parameter.bind_command(p_command_buffer, 2, this->khr_draw_shader.pipeline_layout);
 
-		vk::Viewport l_viewport;
-		l_viewport.setHeight((float)this->renderApi->swap_chain.window_extend.height);
-		l_viewport.setWidth((float)this->renderApi->swap_chain.window_extend.width);
-		l_viewport.setMinDepth(0.0f);
-		l_viewport.setMaxDepth(1.0f);
-
-		vk::Rect2D l_windowarea;
-		l_windowarea.setOffset(vk::Offset2D(0, 0));
-		l_windowarea.setExtent(vk::Extent2D(this->renderApi->swap_chain.window_extend.width, this->renderApi->swap_chain.window_extend.height));
-
-
-		p_command_buffer.command_buffer.beginRenderPass(l_renderpass_begin, vk::SubpassContents::eInline);
-		p_command_buffer.command_buffer.setViewport(0, 1, &l_viewport);
-		p_command_buffer.command_buffer.setScissor(0, 1, &l_windowarea);
-
-		p_command_buffer.command_buffer.bindPipeline(vk::PipelineBindPoint::eGraphics, this->khr_draw_shader.pipeline);
-
-		this->render_target_parameter.bind_command(p_command_buffer, 2, this->khr_draw_shader.pipeline_layout);
-
-		vk::DeviceSize l_offsets[1] = { 0 };
-		p_command_buffer.command_buffer.bindVertexBuffers(0, 1, &this->quad_mesh.vertices.buffer, l_offsets);
-		p_command_buffer.command_buffer.bindIndexBuffer(this->quad_mesh.indices.buffer, 0, vk::IndexType::eUint32);
-		p_command_buffer.command_buffer.drawIndexed((uint32_t)this->quad_mesh.indices_length, (uint32_t)1, (uint32_t)0, (uint32_t)0, (uint32_t)1);
-
-		p_command_buffer.command_buffer.endRenderPass();
-
+			vk::DeviceSize l_offsets[1] = { 0 };
+			p_command_buffer.command_buffer.bindVertexBuffers(0, 1, &this->quad_mesh.vertices.buffer, l_offsets);
+			p_command_buffer.command_buffer.bindIndexBuffer(this->quad_mesh.indices.buffer, 0, vk::IndexType::eUint32);
+			p_command_buffer.command_buffer.drawIndexed((uint32_t)this->quad_mesh.indices_length, (uint32_t)1, (uint32_t)0, (uint32_t)0, (uint32_t)1);
+		}
+		p_command_buffer.endRenderPass();
 	};
 
 };
@@ -3739,6 +3833,8 @@ struct Render
 	GlobalUniformBuffer<CameraMatrices> camera_matrices_globalbuffer;
 
 	RenderHeap2 heap;
+
+	RTDrawStep rt_draw_step;
 	KHRPresentStep khr_present_step;
 
 	inline Render(const AssetServerHandle p_asset_server)
@@ -3747,11 +3843,13 @@ struct Render
 		this->renderApi.init(window);
 		this->create_global_buffers();
 		this->heap.allocate(p_asset_server, this->renderApi);
+		this->rt_draw_step.allocate(&this->renderApi, &this->heap, &this->camera_matrices_globalbuffer);
 		this->khr_present_step.allocate(&this->renderApi, p_asset_server);
 	};
 
 	inline void dispose()
 	{
+		this->rt_draw_step.free();
 		this->khr_present_step.free();
 		this->heap.free();
 		this->destroy_global_buffers();
@@ -3776,72 +3874,11 @@ struct Render
 
 		CommandBuffer& l_command_buffer = this->renderApi.draw_commandbuffers[l_render_image_index];
 		l_command_buffer.begin();
-
-		this->renderApi.stagedbuffer_commands.process_all_buffers(l_command_buffer, this->renderApi.device);
-
-		vk::ClearValue l_clear[2];
-		l_clear[0].color.setFloat32({ 0.0f, 0.0f, 0.2f, 1.0f });
-		l_clear[1].depthStencil.setDepth(1.0f);
-		l_clear[1].depthStencil.setStencil((uint32_t)0.0f);
-
-		vk::RenderPassBeginInfo l_renderpass_begin;
-		l_renderpass_begin.setPNext(nullptr);
-		l_renderpass_begin.setRenderPass(this->renderApi.swap_chain.rendertarget_draw_renderpass.l_render_pass);
-		vk::Rect2D l_renderArea;
-		l_renderArea.setOffset(vk::Offset2D(0, 0));
-		l_renderArea.setExtent(this->renderApi.swap_chain.rendertarget_extend);
-		l_renderpass_begin.setRenderArea(l_renderArea);
-		l_renderpass_begin.setClearValueCount(2);
-		l_renderpass_begin.setPClearValues(l_clear);
-		l_renderpass_begin.setFramebuffer(this->renderApi.swap_chain.rendertarget_draw_framebuffers.frame_buffer);
-
-		vk::Viewport l_viewport;
-		l_viewport.setHeight((float)this->renderApi.swap_chain.rendertarget_extend.height);
-		l_viewport.setWidth((float)this->renderApi.swap_chain.rendertarget_extend.width);
-		l_viewport.setMinDepth(0.0f);
-		l_viewport.setMaxDepth(1.0f);
-
-		vk::Rect2D l_windowarea;
-		l_windowarea.setOffset(vk::Offset2D(0, 0));
-		l_windowarea.setExtent(vk::Extent2D(this->renderApi.swap_chain.rendertarget_extend.width, this->renderApi.swap_chain.rendertarget_extend.height));
-
-
-		l_command_buffer.command_buffer.beginRenderPass(l_renderpass_begin, vk::SubpassContents::eInline);
-		l_command_buffer.command_buffer.setViewport(0, 1, &l_viewport);
-		l_command_buffer.command_buffer.setScissor(0, 1, &l_windowarea);
-
-
-		this->camera_matrices_globalbuffer.bind_command(l_command_buffer);
-
-		for (size_t l_shader_index = 0; l_shader_index < this->heap.shaders_sortedBy_executionOrder.Size; l_shader_index++)
 		{
-			com::TPoolToken<Shader> l_shader_heap = this->heap.shaders_sortedBy_executionOrder[l_shader_index];
-			Shader& l_shader = this->heap.shaders[l_shader_heap];
-
-			l_command_buffer.command_buffer.bindPipeline(vk::PipelineBindPoint::eGraphics, l_shader.pipeline);
-
-			com::Vector<com::TPoolToken<Material>>& l_materials = this->heap.shaders_to_materials[l_shader_heap.Index];
-			for (size_t l_material_index = 0; l_material_index < l_materials.Size; l_material_index++)
-			{
-				com::TPoolToken<Material> l_material_heap_token = l_materials[l_material_index];
-				Material& l_material = this->heap.materials[l_material_heap_token];
-
-				l_material.bind_command(l_command_buffer, 2, this->heap.shader_uniform_parameters, this->heap.shader_imagesample_parameters, l_shader.pipeline_layout);
-
-				com::Vector<com::TPoolToken<RenderableObject>>& l_renderableobjects = this->heap.material_to_renderableobjects[l_material_heap_token.Index];
-				for (size_t l_renderableobject_index = 0; l_renderableobject_index < l_renderableobjects.Size; l_renderableobject_index++)
-				{
-					RenderableObject& l_renderableobject = this->heap.renderableobjects[l_renderableobjects[l_renderableobject_index]];
-					l_renderableobject.model_matrix_buffer.bind_command(l_command_buffer, 1, l_shader.pipeline_layout);
-					l_renderableobject.draw(l_command_buffer, this->heap.meshes);
-				}
-			}
+			this->renderApi.stagedbuffer_commands.process_all_buffers(l_command_buffer, this->renderApi.device);
+			this->rt_draw_step.step(l_command_buffer);
+			this->khr_present_step.step(l_command_buffer, l_render_image_index);
 		}
-
-		l_command_buffer.command_buffer.endRenderPass();
-
-		this->khr_present_step.bind_command(l_command_buffer, l_render_image_index);
-
 		l_command_buffer.end();
 
 
