@@ -480,8 +480,11 @@ private:
 
 		inline void set_original_meshrenderer(Scene* p_scene, RenderMiddlewareHandle p_render_middleware)
 		{
-			p_render_middleware->get_renderable_object(SceneKernel::get_component<MeshRenderer>(p_scene, this->node))->default_material.set_color(p_render_middleware->render, this->original_color);
-			//	p_render_middleware->set_material(p_scene.get_component<MeshRenderer>(this->node), this->original_material);
+			TMaterial<MaterialTypeEnum::DEFAULT> l_material;
+			if (TMaterialCaster<MaterialTypeEnum::DEFAULT>::cast(p_render_middleware->get_renderable_object(SceneKernel::get_component<MeshRenderer>(p_scene, this->node))->default_material, p_render_middleware->render, &l_material))
+			{
+				l_material.set_color(p_render_middleware->render, this->original_color);
+			}
 		};
 	};
 
@@ -529,14 +532,17 @@ public:
 					MeshRenderer* l_mesh_renderer = SceneKernel::get_component<MeshRenderer>(this->scene, p_node.node->index);
 					if (l_mesh_renderer)
 					{
-						DefaultMaterial* l_renderableobject_material = &this->render_middleware->get_renderable_object(l_mesh_renderer)->default_material;
-
+					
 						SelectedNodeRenderer l_selected_node_renderer;
 						l_selected_node_renderer.node = p_node.node->index;
-						l_selected_node_renderer.original_color = l_renderableobject_material->get_color(this->render_middleware->render);
+						
+						TMaterial<MaterialTypeEnum::DEFAULT> l_renderableobject_material;
+						if (TMaterialCaster<MaterialTypeEnum::DEFAULT>::cast(this->render_middleware->get_renderable_object(l_mesh_renderer)->default_material, this->render_middleware->render, &l_renderableobject_material))
+						{
+							l_selected_node_renderer.original_color = l_renderableobject_material.get_color(this->render_middleware->render);
+							l_renderableobject_material.set_color(this->render_middleware->render, Math::vec4f(3.0f, 3.0f, 3.0f, 1.0f));
+						}
 
-						l_renderableobject_material->set_color(this->render_middleware->render, Math::vec4f(3.0f, 3.0f, 3.0f, 1.0f));
-						// this->render_middleware->set_material(l_mesh_renderer, Hash<StringSlice>::hash(StringSlice("materials/editor_selected.json")));
 						this->out_selected_node_renderers->push_back(l_selected_node_renderer);
 					}
 				};

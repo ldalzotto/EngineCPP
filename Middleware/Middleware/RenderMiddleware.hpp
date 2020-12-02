@@ -7,50 +7,11 @@
 #include "Render/render.hpp"
 #include <optick.h>
 
-struct DefaultMaterial : public MaterialHandle
-{
-	inline static const size_t COLOR_INDEX = 1;
-
-	inline void set_color(const RenderHandle& p_render, Math::vec4f& p_value)
-	{
-		this->set_uniform_parameter(p_render, DefaultMaterial::COLOR_INDEX, GPtr::fromType(&p_value));
-	};
-
-	inline Math::vec4f get_color(const RenderHandle& p_render)
-	{
-		Math::vec4f l_return;
-		this->get_uniform_paramter(p_render, DefaultMaterial::COLOR_INDEX, GPtr::fromType(&l_return));
-		return l_return;
-	};
-};
-
-struct MaterialBuilder
-{
-	inline static DefaultMaterial build(MeshRenderer::MaterialKey p_material, AssetServerHandle& p_asset_server, RenderHandle& p_render)
-	{
-		com::Vector<char> l_material_binary = p_asset_server.get_resource(p_material.key);
-		MaterialAsset l_material_asset = MaterialAsset::deserialize(l_material_binary.Memory);
-		l_material_binary.free();
-
-		ShaderHandle l_shader;
-		l_shader.allocate(p_render, l_material_asset.shader);
-		TextureHandle l_texture;
-		l_texture.allocate(p_render, l_material_asset.texture);
-
-		DefaultMaterial l_material;
-		l_material.allocate(p_render, l_shader);
-		l_material.add_image_parameter(p_render, l_texture);
-		l_material.add_uniform_parameter(p_render, GPtr::fromType(&l_material_asset.color));
-
-		return l_material;
-	};
-};
-
 struct RenderableObjectEntry
 {
 	SceneNodeToken node;
 	RenderableObjectHandle renderableobject;
-	DefaultMaterial default_material;
+	MaterialHandle default_material;
 
 	// this boolean is used to push data to render when the MeshRenderer component is added after the node is created. Because in this case,
 	// the haschanged_thisframe will be false.
@@ -59,7 +20,7 @@ struct RenderableObjectEntry
 
 	inline void set_material(MeshRenderer* p_mesh_renderer, size_t p_new_material, AssetServerHandle& p_asset_server, RenderHandle& p_render)
 	{
-		this->default_material = MaterialBuilder::build(p_new_material, p_asset_server, p_render);
+		this->default_material = TMaterial<MaterialTypeEnum::DEFAULT>::allocate(p_new_material, p_asset_server, p_render).material;
 		this->renderableobject.set_material(p_render, this->default_material);
 		p_mesh_renderer->material = p_new_material;
 	};
@@ -118,7 +79,7 @@ struct RenderMiddleware
 
 	inline void on_elligible(const SceneNodeToken p_node_token, const NTreeResolve<SceneNode>& p_node, MeshRenderer& p_mesh_renderer)
 	{
-		DefaultMaterial l_material = MaterialBuilder::build(p_mesh_renderer.material, this->asset_server, this->render);
+		MaterialHandle l_material = TMaterial<MaterialTypeEnum::DEFAULT>::allocate(p_mesh_renderer.material.key, this->asset_server, this->render).material;
 
 		MeshHandle l_mesh;
 		l_mesh.allocate(this->render, p_mesh_renderer.model.key);

@@ -573,62 +573,62 @@ struct RenderPasses
 private:
 	inline void create_color_depth_rendertarget(const Device& p_device, vk::Format p_rendertarget_format, vk::Format p_depth_format, vk::Format p_khr_format)
 	{
-			com::Vector<vk::AttachmentDescription> l_attachments;
-			l_attachments.allocate(2);
-			l_attachments.Size = l_attachments.Capacity;
+		com::Vector<vk::AttachmentDescription> l_attachments;
+		l_attachments.allocate(2);
+		l_attachments.Size = l_attachments.Capacity;
 
-			com::Vector<vk::SubpassDescription> l_subpasses;
-			l_subpasses.allocate(1);
-			l_subpasses.Size = 1;
-			{
-				vk::AttachmentDescription& l_color_attachment = l_attachments[0];
-				l_color_attachment = vk::AttachmentDescription();
-				l_color_attachment.setFormat(p_rendertarget_format);
-				l_color_attachment.setSamples(vk::SampleCountFlagBits::e1);
-				l_color_attachment.setLoadOp(vk::AttachmentLoadOp::eClear);
-				l_color_attachment.setStoreOp(vk::AttachmentStoreOp::eStore);
-				l_color_attachment.setStencilLoadOp(vk::AttachmentLoadOp::eDontCare);
-				l_color_attachment.setStencilStoreOp(vk::AttachmentStoreOp::eDontCare);
-				l_color_attachment.setInitialLayout(vk::ImageLayout::eUndefined);
-				l_color_attachment.setFinalLayout(vk::ImageLayout::eColorAttachmentOptimal);
+		com::Vector<vk::SubpassDescription> l_subpasses;
+		l_subpasses.allocate(1);
+		l_subpasses.Size = 1;
+		{
+			vk::AttachmentDescription& l_color_attachment = l_attachments[0];
+			l_color_attachment = vk::AttachmentDescription();
+			l_color_attachment.setFormat(p_rendertarget_format);
+			l_color_attachment.setSamples(vk::SampleCountFlagBits::e1);
+			l_color_attachment.setLoadOp(vk::AttachmentLoadOp::eClear);
+			l_color_attachment.setStoreOp(vk::AttachmentStoreOp::eStore);
+			l_color_attachment.setStencilLoadOp(vk::AttachmentLoadOp::eDontCare);
+			l_color_attachment.setStencilStoreOp(vk::AttachmentStoreOp::eDontCare);
+			l_color_attachment.setInitialLayout(vk::ImageLayout::eUndefined);
+			l_color_attachment.setFinalLayout(vk::ImageLayout::eColorAttachmentOptimal);
 
-				vk::AttachmentDescription& l_depth_attachment = l_attachments[1];
-				l_depth_attachment = vk::AttachmentDescription();
-				l_depth_attachment.setFormat(p_depth_format);
-				l_depth_attachment.setSamples(vk::SampleCountFlagBits::e1);
-				l_depth_attachment.setLoadOp(vk::AttachmentLoadOp::eClear);
-				l_depth_attachment.setStoreOp(vk::AttachmentStoreOp::eDontCare);
-				l_depth_attachment.setStencilLoadOp(vk::AttachmentLoadOp::eDontCare);
-				l_depth_attachment.setStencilStoreOp(vk::AttachmentStoreOp::eDontCare);
-				l_depth_attachment.setInitialLayout(vk::ImageLayout::eUndefined);
-				l_depth_attachment.setFinalLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal);
+			vk::AttachmentDescription& l_depth_attachment = l_attachments[1];
+			l_depth_attachment = vk::AttachmentDescription();
+			l_depth_attachment.setFormat(p_depth_format);
+			l_depth_attachment.setSamples(vk::SampleCountFlagBits::e1);
+			l_depth_attachment.setLoadOp(vk::AttachmentLoadOp::eClear);
+			l_depth_attachment.setStoreOp(vk::AttachmentStoreOp::eDontCare);
+			l_depth_attachment.setStencilLoadOp(vk::AttachmentLoadOp::eDontCare);
+			l_depth_attachment.setStencilStoreOp(vk::AttachmentStoreOp::eDontCare);
+			l_depth_attachment.setInitialLayout(vk::ImageLayout::eUndefined);
+			l_depth_attachment.setFinalLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal);
 
-				vk::AttachmentReference l_color_attachment_ref;
-				l_color_attachment_ref.setAttachment(0);
-				l_color_attachment_ref.setLayout(vk::ImageLayout::eColorAttachmentOptimal);
+			vk::AttachmentReference l_color_attachment_ref;
+			l_color_attachment_ref.setAttachment(0);
+			l_color_attachment_ref.setLayout(vk::ImageLayout::eColorAttachmentOptimal);
 
-				vk::AttachmentReference l_depth_atttachment_ref;
-				l_depth_atttachment_ref.setAttachment(1);
-				l_depth_atttachment_ref.setLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal);
+			vk::AttachmentReference l_depth_atttachment_ref;
+			l_depth_atttachment_ref.setAttachment(1);
+			l_depth_atttachment_ref.setLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal);
 
-				vk::SubpassDescription& l_color_subpass = l_subpasses[0];
-				l_color_subpass = vk::SubpassDescription();
-				l_color_subpass.setPipelineBindPoint(vk::PipelineBindPoint::eGraphics);
-				l_color_subpass.setColorAttachmentCount(1);
-				l_color_subpass.setPColorAttachments(&l_color_attachment_ref);
-				l_color_subpass.setPDepthStencilAttachment(&l_depth_atttachment_ref);
+			vk::SubpassDescription& l_color_subpass = l_subpasses[0];
+			l_color_subpass = vk::SubpassDescription();
+			l_color_subpass.setPipelineBindPoint(vk::PipelineBindPoint::eGraphics);
+			l_color_subpass.setColorAttachmentCount(1);
+			l_color_subpass.setPColorAttachments(&l_color_attachment_ref);
+			l_color_subpass.setPDepthStencilAttachment(&l_depth_atttachment_ref);
 
-				vk::RenderPassCreateInfo l_renderpass_create_info;
-				l_renderpass_create_info.setAttachmentCount((uint32_t)l_attachments.Size);
-				l_renderpass_create_info.setPAttachments(l_attachments.Memory);
-				l_renderpass_create_info.setSubpassCount((uint32_t)l_subpasses.Size);
-				l_renderpass_create_info.setPSubpasses(l_subpasses.Memory);
+			vk::RenderPassCreateInfo l_renderpass_create_info;
+			l_renderpass_create_info.setAttachmentCount((uint32_t)l_attachments.Size);
+			l_renderpass_create_info.setPAttachments(l_attachments.Memory);
+			l_renderpass_create_info.setSubpassCount((uint32_t)l_subpasses.Size);
+			l_renderpass_create_info.setPSubpasses(l_subpasses.Memory);
 
-				this->color_depth_rendertarget.render_pass = p_device.device.createRenderPass(l_renderpass_create_info);
-			}
-			l_subpasses.free();
-			l_subpasses.free();
-		
+			this->color_depth_rendertarget.render_pass = p_device.device.createRenderPass(l_renderpass_create_info);
+		}
+		l_subpasses.free();
+		l_subpasses.free();
+
 	}
 
 	inline void create_color_blit_khr(const Device& p_device, vk::Format p_rendertarget_format, vk::Format p_depth_format, vk::Format p_khr_format)
@@ -1710,7 +1710,7 @@ public:
 		this->create_swapchain();
 
 		this->create_window_images(p_staging_commands);
-		
+
 		this->create_khr_framebuffers(*this->device);
 	};
 
@@ -2453,10 +2453,14 @@ private:
 
 struct ShaderLayout
 {
-	vk::PipelineLayout layout;
+	size_t id = 0;
+	vk::PipelineLayout layout = nullptr;
 
-	inline void allocate(Device& p_device, vk::PipelineLayoutCreateInfo& p_descriptor_set_layout_info)
+	inline ShaderLayout() {};
+
+	inline void allocate(const size_t p_id, Device& p_device, vk::PipelineLayoutCreateInfo& p_descriptor_set_layout_info)
 	{
+		this->id = p_id;
 		this->layout = p_device.device.createPipelineLayout(p_descriptor_set_layout_info);
 	};
 
@@ -2466,50 +2470,12 @@ struct ShaderLayout
 	};
 };
 
-struct ShaderLayouts
+enum class ShaderLayoutParameterType
 {
-	ShaderLayout rt_draw_layout;
-	ShaderLayout khr_blit_layout;
-
-	inline void allocate(RenderAPI& p_render_api)
-	{
-		this->allocate_rt_draw_layout(p_render_api);
-		this->allocate_khr_blit_layout(p_render_api);
-	};
-
-	inline void free(RenderAPI& p_render_api)
-	{
-		this->rt_draw_layout.free(p_render_api.device);
-		this->khr_blit_layout.free(p_render_api.device);
-	};
-
-private:
-	inline void allocate_rt_draw_layout(RenderAPI& p_render_api)
-	{
-		vk::DescriptorSetLayout l_descriptorset_layouts[4];
-		l_descriptorset_layouts[0] = p_render_api.shaderparameter_layouts.uniformbuffer_vertex_layout; //camera (set = 0)
-		l_descriptorset_layouts[1] = p_render_api.shaderparameter_layouts.uniformbuffer_vertex_layout; //model (set = 1)
-		l_descriptorset_layouts[2] = p_render_api.shaderparameter_layouts.texture_fragment_layout; //texture (set = 2)
-		l_descriptorset_layouts[3] = p_render_api.shaderparameter_layouts.uniformbuffer_layout; //parameters (set = 3)
-
-		Array<vk::DescriptorSetLayout> l_descriptorset_layouts_arr = Array<vk::DescriptorSetLayout>(l_descriptorset_layouts, 4);
-		vk::PipelineLayoutCreateInfo l_pipelinelayout_create_info;
-		l_pipelinelayout_create_info.setSetLayoutCount((uint32_t)l_descriptorset_layouts_arr.Capacity);
-		l_pipelinelayout_create_info.setPSetLayouts(l_descriptorset_layouts_arr.Memory);
-		this->rt_draw_layout.allocate(p_render_api.device, l_pipelinelayout_create_info);
-	};
-
-	inline void allocate_khr_blit_layout(RenderAPI& p_render_api)
-	{
-		vk::DescriptorSetLayout l_descriptorset_layouts[1];
-		l_descriptorset_layouts[0] = p_render_api.shaderparameter_layouts.texture_fragment_layout; //texture (set = 2)
-
-		Array<vk::DescriptorSetLayout> l_descriptorset_layouts_arr = Array<vk::DescriptorSetLayout>(l_descriptorset_layouts, 1);
-		vk::PipelineLayoutCreateInfo l_pipelinelayout_create_info;
-		l_pipelinelayout_create_info.setSetLayoutCount((uint32_t)l_descriptorset_layouts_arr.Capacity);
-		l_pipelinelayout_create_info.setPSetLayouts(l_descriptorset_layouts_arr.Memory);
-		this->khr_blit_layout.allocate(p_render_api.device, l_pipelinelayout_create_info);
-	};
+	UNDEFINED = 0,
+	UNIFORM_BUFFER_VERTEX = 1,
+	TEXTURE_FRAGMENT = 2,
+	UNIFORM_BUFFER_VERTEX_FRAGMENT = 3
 };
 
 struct ShaderModule
@@ -2530,20 +2496,23 @@ struct Shader
 		vk::ShaderStageFlagBits stage;
 	};
 
-	const ShaderLayout* pipeline_layout;
+	ShaderLayout pipeline_layout;
+	com::TPoolToken<ShaderLayout> pipeline_layout_token;
 	vk::Pipeline pipeline;
 
-	Shader() : pipeline_layout(nullptr), pipeline(nullptr)
+	Shader() : pipeline(nullptr)
 	{
 
 	}
 
-	Shader(const size_t p_key, const size_t p_execution_order, const ShaderModule& p_vertex_shader, const ShaderModule& p_fragment_shader, const ShaderLayout& p_shader_layout,
+	Shader(const size_t p_key, const size_t p_execution_order, const ShaderModule& p_vertex_shader, const ShaderModule& p_fragment_shader, com::TPoolToken<ShaderLayout>& p_shader_layout_token,
+		ShaderLayout& p_shader_layout,
 		const ShaderAsset::Config& p_shader_config, const RenderPass& p_render_pass, const RenderAPI& p_render_api)
 	{
 		this->key = p_key;
 		this->execution_order = p_execution_order;
-		this->pipeline_layout = &p_shader_layout;
+		this->pipeline_layout = p_shader_layout;
+		this->pipeline_layout_token = p_shader_layout_token;
 		this->createPipeline(p_render_api.device, p_render_pass, p_vertex_shader, p_fragment_shader, p_shader_config);
 	}
 
@@ -2552,7 +2521,6 @@ struct Shader
 		this->destroyPipeline(p_device);
 
 		this->pipeline = nullptr;
-		this->pipeline_layout = nullptr;
 	}
 
 private:
@@ -2574,7 +2542,7 @@ private:
 		{
 
 			vk::GraphicsPipelineCreateInfo l_pipeline_graphcis_create_info;
-			l_pipeline_graphcis_create_info.setLayout(this->pipeline_layout->layout);
+			l_pipeline_graphcis_create_info.setLayout(this->pipeline_layout.layout);
 			l_pipeline_graphcis_create_info.setRenderPass(p_renderPass.render_pass);
 
 			vk::PipelineInputAssemblyStateCreateInfo l_inputassembly_state;
@@ -3140,10 +3108,11 @@ struct ShaderParameter
 
 struct Material
 {
+	MaterialType type;
 	com::Vector<ShaderParameter> parameters;
 
-	Material() {};
-
+	inline Material() {};
+	inline Material(const MaterialType p_type) { this->type = p_type; };
 
 	inline void add_image_parameter(const com::PoolToken& p_parameter)
 	{
@@ -3252,6 +3221,7 @@ struct RenderHeap2
 
 	com::Pool<ShaderModule> shadermodules;
 
+	com::Pool<ShaderLayout> shader_layouts;
 	com::Pool<Shader> shaders;
 	com::Pool<com::Vector<com::TPoolToken<Material>>> shaders_to_materials;
 
@@ -3322,21 +3292,91 @@ struct RenderHeap2
 
 		};
 
+		struct ShaderLayoutResourceAllocator
+		{
+			RenderHeap2* render_heap;
+			com::MemorySlice<ShaderLayoutParameterType>* shaderparameter_layout;
+
+			inline ShaderLayoutResourceAllocator() {};
+			inline ShaderLayoutResourceAllocator(RenderHeap2* p_render_heap, com::MemorySlice<ShaderLayoutParameterType>* p_shaderparameter_layout)
+			{
+				this->render_heap = p_render_heap;
+				this->shaderparameter_layout = p_shaderparameter_layout;
+			};
+
+			inline com::TPoolToken<ShaderLayout> allocate(size_t p_key)
+			{
+				com::Vector<vk::DescriptorSetLayout> l_descriptorset_layouts;
+				l_descriptorset_layouts.allocate(this->shaderparameter_layout->count());
+
+				for (size_t i = 0; i < this->shaderparameter_layout->count(); i++)
+				{
+					switch (this->shaderparameter_layout->operator[](i))
+					{
+					case ShaderLayoutParameterType::UNIFORM_BUFFER_VERTEX:
+					{
+						l_descriptorset_layouts.push_back(this->render_heap->render_api->shaderparameter_layouts.uniformbuffer_vertex_layout);
+					}
+					break;
+					case ShaderLayoutParameterType::UNIFORM_BUFFER_VERTEX_FRAGMENT:
+					{
+						l_descriptorset_layouts.push_back(this->render_heap->render_api->shaderparameter_layouts.uniformbuffer_layout);
+					}
+					break;
+					case ShaderLayoutParameterType::TEXTURE_FRAGMENT:
+					{
+						l_descriptorset_layouts.push_back(this->render_heap->render_api->shaderparameter_layouts.texture_fragment_layout);
+					}
+					break;
+					}
+				}
+
+				vk::PipelineLayoutCreateInfo l_pipelinelayout_create_info;
+				l_pipelinelayout_create_info.setSetLayoutCount((uint32_t)l_descriptorset_layouts.Size);
+				l_pipelinelayout_create_info.setPSetLayouts(l_descriptorset_layouts.Memory);
+
+				ShaderLayout l_shader_layout;
+				l_shader_layout.allocate(p_key, this->render_heap->render_api->device, l_pipelinelayout_create_info);
+
+				l_descriptorset_layouts.free();
+
+				return this->render_heap->shader_layouts.alloc_element(l_shader_layout);
+			}
+		};
+
+		struct ShaderLayoutResrouceDeallocator
+		{
+			RenderHeap2* render_heap;
+
+			inline ShaderLayoutResrouceDeallocator() {};
+			inline ShaderLayoutResrouceDeallocator(RenderHeap2& p_render_heap)
+			{
+				this->render_heap = &p_render_heap;
+			};
+
+			inline void free(const com::TPoolToken<ShaderLayout>& p_shader)
+			{
+				ShaderLayout& l_shader_layout = this->render_heap->shader_layouts[p_shader];
+				l_shader_layout.free(this->render_heap->render_api->device);
+				this->render_heap->shader_layouts.release_element(p_shader);
+			};
+		};
+
 		struct ShaderResourceAllocator
 		{
 			RenderHeap2* render_heap;
 			AssetServerHandle asset_server;
-			ShaderLayout* shader_layout;
+			com::MemorySlice<ShaderLayoutParameterType>* shader_layout;
 			RenderPass* render_pass;
 
 			inline ShaderResourceAllocator() {};
 
-			inline ShaderResourceAllocator(const AssetServerHandle& p_asset_server, RenderHeap2& p_render_heap, ShaderLayout* p_shader_layout,
+			inline ShaderResourceAllocator(const AssetServerHandle& p_asset_server, RenderHeap2& p_render_heap, com::MemorySlice<ShaderLayoutParameterType>& p_shader_layout,
 				RenderPass* p_render_pass)
 			{
 				this->asset_server = p_asset_server;
 				this->render_heap = &p_render_heap;
-				this->shader_layout = p_shader_layout;
+				this->shader_layout = &p_shader_layout;
 				this->render_pass = p_render_pass;
 			};
 
@@ -3348,10 +3388,13 @@ struct RenderHeap2
 
 				auto l_vertex_module = this->render_heap->allocate_shadermodule_internal(l_shader_asset.vertex);
 				auto l_fragment_module = this->render_heap->allocate_shadermodule_internal(l_shader_asset.fragment);
+				auto l_shader_layout = this->render_heap->allocate_shaderlayout(*this->shader_layout);
+
 				Shader l_shader = Shader(p_key, l_shader_asset.execution_order,
 					this->render_heap->shadermodules[l_vertex_module],
 					this->render_heap->shadermodules[l_fragment_module],
-					*this->shader_layout,
+					l_shader_layout,
+					this->render_heap->shader_layouts[l_shader_layout],
 					l_shader_asset.config,
 					*this->render_pass,
 					*(this->render_heap->render_api)
@@ -3375,6 +3418,9 @@ struct RenderHeap2
 			inline void free(const com::TPoolToken<Shader>& p_shader)
 			{
 				Shader& l_shader = this->render_heap->shaders[p_shader];
+
+				this->render_heap->free_shaderlayout(l_shader.pipeline_layout_token);
+
 				l_shader.dispose(this->render_heap->render_api->device);
 				this->render_heap->shaders_to_materials[p_shader.cast<com::Vector<com::TPoolToken<Material>>>()].free();
 				this->render_heap->shaders_to_materials.release_element(p_shader.cast<com::Vector<com::TPoolToken<Material>>>());
@@ -3522,15 +3568,16 @@ struct RenderHeap2
 		};
 
 		ResourceMap<size_t, com::TPoolToken<ShaderModule>, ShaderModuleResourceAllocator> shader_module_resources;
+		ResourceMap2<size_t, com::TPoolToken<ShaderLayout>> shader_layouts;
 		ResourceMap2<size_t, com::TPoolToken<Shader>> shader_resources;
 		ResourceMap<size_t, com::TPoolToken<Mesh>, MeshResourceAllocator> mesh_resources;
 		ResourceMap<size_t, com::TPoolToken<Texture>, TextureResourceAllocator> texture_resources;
 
-		inline void allocate(RenderHeap2& p_render_heap, ShaderLayouts& p_shader_layouts, AssetServerHandle p_asset_server)
+		inline void allocate(RenderHeap2& p_render_heap, AssetServerHandle p_asset_server)
 		{
 			this->shader_module_resources.allocate(1, ShaderModuleResourceAllocator(p_asset_server, p_render_heap));
+			this->shader_layouts.allocate(1);
 			this->shader_resources.allocate(1);
-			//ShaderResourceAllocator(p_asset_server, p_render_heap, p_shader_layouts)
 			this->mesh_resources.allocate(1, MeshResourceAllocator(p_asset_server, p_render_heap));
 			this->texture_resources.allocate(1, TextureResourceAllocator(p_asset_server, p_render_heap));
 		};
@@ -3539,6 +3586,7 @@ struct RenderHeap2
 		{
 			this->shader_module_resources.free();
 			this->shader_resources.free();
+			this->shader_layouts.free();
 			this->mesh_resources.free();
 			this->texture_resources.free();
 		};
@@ -3549,11 +3597,11 @@ struct RenderHeap2
 
 public:
 
-	inline void allocate(AssetServerHandle p_asset_server, RenderAPI& p_render_api, ShaderLayouts& p_shader_layouts)
+	inline void allocate(AssetServerHandle p_asset_server, RenderAPI& p_render_api)
 	{
 		this->render_api = &p_render_api;
 		this->asset_server = p_asset_server;
-		this->resource.allocate(*this, p_shader_layouts, p_asset_server);
+		this->resource.allocate(*this, p_asset_server);
 	};
 
 	inline void free()
@@ -3571,13 +3619,31 @@ public:
 		this->resource.shader_module_resources.free_resource(this->shadermodules[p_shader_module].key);
 	};
 
+	inline com::TPoolToken<ShaderLayout> allocate_shaderlayout(com::MemorySlice<ShaderLayoutParameterType>& p_shaderlayout_parameters)
+	{
+		com::TPoolToken<ShaderLayout> l_shader_layout;
+		size_t l_shaderlayout_parameters_hash = 0;
+		for (size_t i = 0; i < p_shaderlayout_parameters.count(); i++)
+		{
+			l_shaderlayout_parameters_hash = HashCombineFunction<ShaderLayoutParameterType>(l_shaderlayout_parameters_hash, p_shaderlayout_parameters[i]);
+		}
+		
+		this->resource.shader_layouts.allocate_resource(l_shaderlayout_parameters_hash, &l_shader_layout, Resource::ShaderLayoutResourceAllocator(this, &p_shaderlayout_parameters));
 
-	inline com::TPoolToken<Shader> allocate_shader(const std::string& p_key, ShaderLayout* p_layout, RenderPass* p_render_pass)
+		return l_shader_layout;
+	};
+
+	inline void free_shaderlayout(const com::TPoolToken<ShaderLayout> p_shader_layout)
+	{
+		this->resource.shader_layouts.free_resource(this->shader_layouts[p_shader_layout].id, Resource::ShaderLayoutResrouceDeallocator(*this));
+	};
+
+	inline com::TPoolToken<Shader> allocate_shader(const std::string& p_key, com::MemorySlice<ShaderLayoutParameterType>& p_layout, RenderPass* p_render_pass)
 	{
 		return this->allocate_shader(Hash<std::string>::hash(p_key), p_layout, p_render_pass);
 	};
 
-	inline com::TPoolToken<Shader> allocate_shader(const size_t p_key, ShaderLayout* p_layout, RenderPass* p_render_pass)
+	inline com::TPoolToken<Shader> allocate_shader(const size_t p_key, com::MemorySlice<ShaderLayoutParameterType>& p_layout, RenderPass* p_render_pass)
 	{
 		com::TPoolToken<Shader> l_allocated_shader;
 		if (this->resource.shader_resources.allocate_resource(p_key, &l_allocated_shader, Resource::ShaderResourceAllocator(this->asset_server, *this, p_layout, p_render_pass)) == ResourceMapEnum::Step::RESOURCE_ALLOCATED)
@@ -3612,9 +3678,9 @@ public:
 		};
 	};
 
-	inline com::PoolToken allocate_material(const com::PoolToken& p_shader)
+	inline com::PoolToken allocate_material(const MaterialType p_type, const com::PoolToken& p_shader)
 	{
-		com::TPoolToken<Material> l_material_handle = this->materials.alloc_element(Material());
+		com::TPoolToken<Material> l_material_handle = this->materials.alloc_element(Material(p_type));
 		this->material_to_renderableobjects.alloc_element(com::Vector<com::TPoolToken<RenderableObject>>());
 		this->shaders_to_materials[p_shader.Index].push_back(l_material_handle);
 		return l_material_handle;
@@ -3776,13 +3842,13 @@ struct RTDrawStep
 					com::TPoolToken<Material> l_material_heap_token = l_materials[l_material_index];
 					Material& l_material = this->heap->materials[l_material_heap_token];
 
-					l_material.bind_command(p_command_buffer, 2, this->heap->shader_uniform_parameters, this->heap->shader_imagesample_parameters, l_shader.pipeline_layout->layout);
+					l_material.bind_command(p_command_buffer, 2, this->heap->shader_uniform_parameters, this->heap->shader_imagesample_parameters, l_shader.pipeline_layout.layout);
 
 					com::Vector<com::TPoolToken<RenderableObject>>& l_renderableobjects = this->heap->material_to_renderableobjects[l_material_heap_token.Index];
 					for (size_t l_renderableobject_index = 0; l_renderableobject_index < l_renderableobjects.Size; l_renderableobject_index++)
 					{
 						RenderableObject& l_renderableobject = this->heap->renderableobjects[l_renderableobjects[l_renderableobject_index]];
-						l_renderableobject.model_matrix_buffer.bind_command(p_command_buffer, 1, l_shader.pipeline_layout->layout);
+						l_renderableobject.model_matrix_buffer.bind_command(p_command_buffer, 1, l_shader.pipeline_layout.layout);
 						l_renderableobject.draw(p_command_buffer, this->heap->meshes);
 					}
 				}
@@ -3806,14 +3872,17 @@ struct KHRPresentStep
 	ShaderCombinedImageSamplerDescriptorSet render_target_parameter;
 	Mesh quad_mesh;
 
-	inline void allocate(RenderAPI* p_render_api, RenderHeap2& p_render_heap, ShaderLayouts& p_shader_layouts, AssetServerHandle p_asset_server)
+	inline void allocate(RenderAPI* p_render_api, RenderHeap2& p_render_heap, AssetServerHandle p_asset_server)
 	{
 		this->renderApi = p_render_api;
 		this->render_heap = &p_render_heap;
 
 		this->clear_values[0].color.setFloat32({ 0.0f, 0.0f, 0.0f, 1.0f });
 
-		this->khr_draw_shader = p_render_heap.allocate_shader("shader/quaddraw_shader.json", &p_shader_layouts.khr_blit_layout, p_render_api->swap_chain.render_passes.get_renderpass<RenderPass::Type::KHR_BLIT>());
+		com::NMemorySlice<ShaderLayoutParameterType, 1> l_descriptorset_layouts;
+		l_descriptorset_layouts[0] = ShaderLayoutParameterType::TEXTURE_FRAGMENT; //texture (set = 0)
+		
+		this->khr_draw_shader = p_render_heap.allocate_shader("shader/quaddraw_shader.json", l_descriptorset_layouts.to_memoryslice(), p_render_api->swap_chain.render_passes.get_renderpass<RenderPass::Type::KHR_BLIT>());
 
 		this->render_target_parameter.create(*p_render_api);
 		this->render_target_parameter.bind(0, p_render_api->device, p_render_api->image_samplers, p_render_api->swap_chain.rendertarget_image_view);
@@ -3855,7 +3924,7 @@ struct KHRPresentStep
 			Shader& l_shader = this->render_heap->shaders[this->khr_draw_shader];
 			p_command_buffer.command_buffer.bindPipeline(vk::PipelineBindPoint::eGraphics, l_shader.pipeline);
 
-			this->render_target_parameter.bind_command(p_command_buffer, 0, l_shader.pipeline_layout->layout);
+			this->render_target_parameter.bind_command(p_command_buffer, 0, l_shader.pipeline_layout.layout);
 
 			vk::DeviceSize l_offsets[1] = { 0 };
 			p_command_buffer.command_buffer.bindVertexBuffers(0, 1, &this->quad_mesh.vertices.buffer, l_offsets);
@@ -3873,7 +3942,6 @@ struct Render
 	RenderAPI renderApi;
 
 	GlobalUniformBuffer<CameraMatrices> camera_matrices_globalbuffer;
-	ShaderLayouts shader_layouts;
 	RenderHeap2 heap;
 
 	RTDrawStep rt_draw_step;
@@ -3884,10 +3952,9 @@ struct Render
 		this->window.allocate(1280, 720, "MyGame");
 		this->renderApi.init(window);
 		this->create_global_buffers();
-		this->shader_layouts.allocate(this->renderApi);
-		this->heap.allocate(p_asset_server, this->renderApi, this->shader_layouts);
+		this->heap.allocate(p_asset_server, this->renderApi);
 		this->rt_draw_step.allocate(&this->renderApi, &this->heap, &this->camera_matrices_globalbuffer);
-		this->khr_present_step.allocate(&this->renderApi, this->heap, this->shader_layouts, p_asset_server);
+		this->khr_present_step.allocate(&this->renderApi, this->heap, p_asset_server);
 	};
 
 	inline void dispose()
@@ -3895,7 +3962,6 @@ struct Render
 		this->rt_draw_step.free();
 		this->khr_present_step.free();
 		this->heap.free();
-		this->shader_layouts.free(this->renderApi);
 		this->destroy_global_buffers();
 		this->renderApi.dispose();
 		this->window.dispose();

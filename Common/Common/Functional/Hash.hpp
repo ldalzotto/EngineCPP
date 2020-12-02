@@ -21,7 +21,13 @@ template<class TYPE>
 inline size_t HashFunction(const TYPE& p_value)
 {
 	return HashFunctionRaw((char*)&p_value, sizeof(TYPE));
-}
+};
+
+template<class TYPE>
+inline size_t HashCombineFunction(const size_t p_hash, const TYPE& p_value)
+{
+	return p_hash ^ (HashFunction<TYPE>(p_value) + 0x9e3779b9 + (p_hash << 6) + (p_hash >> 2));
+};
 
 
 template<class Key>
