@@ -143,3 +143,62 @@ struct ResourceMap
 		return l_step;
 	};
 };
+
+template<class Key, class Value, class Allocator = HeapAllocator>
+struct ResourceMap2
+{
+	HashMap<Key, CountedResource<Value>> map;
+
+	inline void allocate(size_t p_initial_size, Allocator& l_allocator = HeapAllocator())
+	{
+		this->map.allocate(p_initial_size, l_allocator);
+	};
+
+	inline void free()
+	{
+		this->map.free();
+	};
+
+	template<class ResourceAllocation>
+	inline ResourceMapEnum::Step allocate_resource(const Key& p_key, Value* out_value, ResourceAllocation& p_resource_allocation)
+	{
+		CountedResource<Value>* l_existing_resourece;
+		if (this->map.get(p_key, &l_existing_resourece))
+		{
+			l_existing_resourece->usage += 1;
+			*out_value = l_existing_resourece->value;
+			return ResourceMapEnum::Step::RESOURCE_INCREMENTED;
+		}
+		else
+		{
+			CountedResource<Value> l_counted_resource;
+			l_counted_resource.value = p_resource_allocation.allocate(p_key);
+			l_counted_resource.usage = 1;
+			this->map.push_entry(HashMap<Key, CountedResource<Value>>::Entry(p_key, l_counted_resource));
+			*out_value = l_counted_resource.value;
+			return ResourceMapEnum::Step::RESOURCE_ALLOCATED;
+		}
+	};
+
+	template<class ResourceDeallocation>
+	inline ResourceMapEnum::Step free_resource(const Key& p_key, ResourceDeallocation& p_resrouce_deallocation)
+	{
+		CountedResource<Value>* l_existing_resourece;
+		if (this->map.get(p_key, &l_existing_resourece))
+		{
+			l_existing_resourece->usage -= 1;
+			if (l_existing_resourece->usage == 0)
+			{
+				p_resrouce_deallocation.free(this->map[p_key].value);
+				this->map.remove(p_key);
+				return ResourceMapEnum::Step::RESOURCE_DEALLOCATED;
+			}
+			else
+			{
+				return ResourceMapEnum::Step::RESOURCE_DECREMENTED;
+			}
+		}
+
+		return ResourceMapEnum::Step::UNDEFINED;
+	};
+};

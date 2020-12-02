@@ -3248,6 +3248,7 @@ struct RenderableObject
 struct RenderHeap2
 {
 	RenderAPI* render_api;
+	AssetServerHandle asset_server;
 
 	com::Pool<ShaderModule> shadermodules;
 
@@ -3324,16 +3325,19 @@ struct RenderHeap2
 		struct ShaderResourceAllocator
 		{
 			RenderHeap2* render_heap;
-			ShaderLayouts* shader_layouts;
 			AssetServerHandle asset_server;
+			ShaderLayout* shader_layout;
+			RenderPass* render_pass;
 
 			inline ShaderResourceAllocator() {};
 
-			inline ShaderResourceAllocator(const AssetServerHandle& p_asset_server, RenderHeap2& p_render_heap, ShaderLayouts& p_shader_layouts)
+			inline ShaderResourceAllocator(const AssetServerHandle& p_asset_server, RenderHeap2& p_render_heap, ShaderLayout* p_shader_layout,
+				RenderPass* p_render_pass)
 			{
 				this->asset_server = p_asset_server;
 				this->render_heap = &p_render_heap;
-				this->shader_layouts = &p_shader_layouts;
+				this->shader_layout = p_shader_layout;
+				this->render_pass = p_render_pass;
 			};
 
 			inline com::TPoolToken<Shader> allocate(const size_t& p_key)
@@ -3347,14 +3351,25 @@ struct RenderHeap2
 				Shader l_shader = Shader(p_key, l_shader_asset.execution_order,
 					this->render_heap->shadermodules[l_vertex_module],
 					this->render_heap->shadermodules[l_fragment_module],
-					this->shader_layouts->rt_draw_layout,
+					*this->shader_layout,
 					l_shader_asset.config,
-					*this->render_heap->render_api->swap_chain.render_passes.get_renderpass<RenderPass::Type::RT_COLOR_DEPTH>(),
+					*this->render_pass,
 					*(this->render_heap->render_api)
 				);
 
 				this->render_heap->shaders_to_materials.alloc_element(com::Vector<com::TPoolToken<Material>>());
 				return this->render_heap->shaders.alloc_element(l_shader);
+			};
+		};
+
+		struct ShaderResourceDeallocator
+		{
+			RenderHeap2* render_heap;
+
+			inline ShaderResourceDeallocator() {};
+			inline ShaderResourceDeallocator(RenderHeap2& p_render_heap)
+			{
+				this->render_heap = &p_render_heap;
 			};
 
 			inline void free(const com::TPoolToken<Shader>& p_shader)
@@ -3507,14 +3522,15 @@ struct RenderHeap2
 		};
 
 		ResourceMap<size_t, com::TPoolToken<ShaderModule>, ShaderModuleResourceAllocator> shader_module_resources;
-		ResourceMap<size_t, com::TPoolToken<Shader>, ShaderResourceAllocator> shader_resources;
+		ResourceMap2<size_t, com::TPoolToken<Shader>> shader_resources;
 		ResourceMap<size_t, com::TPoolToken<Mesh>, MeshResourceAllocator> mesh_resources;
 		ResourceMap<size_t, com::TPoolToken<Texture>, TextureResourceAllocator> texture_resources;
 
 		inline void allocate(RenderHeap2& p_render_heap, ShaderLayouts& p_shader_layouts, AssetServerHandle p_asset_server)
 		{
 			this->shader_module_resources.allocate(1, ShaderModuleResourceAllocator(p_asset_server, p_render_heap));
-			this->shader_resources.allocate(1, ShaderResourceAllocator(p_asset_server, p_render_heap, p_shader_layouts));
+			this->shader_resources.allocate(1);
+			//ShaderResourceAllocator(p_asset_server, p_render_heap, p_shader_layouts)
 			this->mesh_resources.allocate(1, MeshResourceAllocator(p_asset_server, p_render_heap));
 			this->texture_resources.allocate(1, TextureResourceAllocator(p_asset_server, p_render_heap));
 		};
@@ -3536,6 +3552,7 @@ public:
 	inline void allocate(AssetServerHandle p_asset_server, RenderAPI& p_render_api, ShaderLayouts& p_shader_layouts)
 	{
 		this->render_api = &p_render_api;
+		this->asset_server = p_asset_server;
 		this->resource.allocate(*this, p_shader_layouts, p_asset_server);
 	};
 
@@ -3555,15 +3572,15 @@ public:
 	};
 
 
-	inline com::TPoolToken<Shader> allocate_shader(const std::string& p_key)
+	inline com::TPoolToken<Shader> allocate_shader(const std::string& p_key, ShaderLayout* p_layout, RenderPass* p_render_pass)
 	{
-		return this->allocate_shader(Hash<std::string>::hash(p_key));
+		return this->allocate_shader(Hash<std::string>::hash(p_key), p_layout, p_render_pass);
 	};
 
-	inline com::TPoolToken<Shader> allocate_shader(const size_t p_key)
+	inline com::TPoolToken<Shader> allocate_shader(const size_t p_key, ShaderLayout* p_layout, RenderPass* p_render_pass)
 	{
 		com::TPoolToken<Shader> l_allocated_shader;
-		if (this->resource.shader_resources.allocate_resource(p_key, &l_allocated_shader) == ResourceMapEnum::Step::RESOURCE_ALLOCATED)
+		if (this->resource.shader_resources.allocate_resource(p_key, &l_allocated_shader, Resource::ShaderResourceAllocator(this->asset_server, *this, p_layout, p_render_pass)) == ResourceMapEnum::Step::RESOURCE_ALLOCATED)
 		{
 			struct ShaderExecution_Sorter_V2
 			{
@@ -3582,7 +3599,7 @@ public:
 
 	inline void free_shader(const com::TPoolToken<Shader>& p_shader)
 	{
-		if (this->resource.shader_resources.free_resource_step(this->shaders[p_shader].key) == ResourceMapEnum::Step::RESOURCE_DEALLOCATED)
+		if (this->resource.shader_resources.free_resource(this->shaders[p_shader].key, Resource::ShaderResourceDeallocator(*this)) == ResourceMapEnum::Step::RESOURCE_DEALLOCATED)
 		{
 			for (size_t i = 0; i < this->shaders_sortedBy_executionOrder.Size; i++)
 			{
@@ -3780,33 +3797,23 @@ struct RTDrawStep
 struct KHRPresentStep
 {
 	RenderAPI* renderApi;
+	RenderHeap2* render_heap;
 
 	com::NMemorySlice<vk::ClearValue, 1> clear_values;
 
-	ShaderModule khr_draw_shader_vertex;
-	ShaderModule khr_draw_shader_fragment;
-	Shader khr_draw_shader;
+	com::TPoolToken<Shader> khr_draw_shader;
 
 	ShaderCombinedImageSamplerDescriptorSet render_target_parameter;
 	Mesh quad_mesh;
 
-	inline void allocate(RenderAPI* p_render_api, ShaderLayouts& p_shader_layouts, AssetServerHandle p_asset_server)
+	inline void allocate(RenderAPI* p_render_api, RenderHeap2& p_render_heap, ShaderLayouts& p_shader_layouts, AssetServerHandle p_asset_server)
 	{
 		this->renderApi = p_render_api;
+		this->render_heap = &p_render_heap;
 
 		this->clear_values[0].color.setFloat32({ 0.0f, 0.0f, 0.0f, 1.0f });
 
-		this->khr_draw_shader_vertex.key = Hash<StringSlice>::hash(StringSlice("shader/QuadDraw.vert"));
-		this->khr_draw_shader_vertex.shader_module = RenderHeap2::Resource::ShaderModuleResourceAllocator::load_shadermodule(p_asset_server, p_render_api->device, khr_draw_shader_vertex.key);
-
-		this->khr_draw_shader_fragment.key = Hash<StringSlice>::hash(StringSlice("shader/QuadDraw.frag"));
-		this->khr_draw_shader_fragment.shader_module = RenderHeap2::Resource::ShaderModuleResourceAllocator::load_shadermodule(p_asset_server, p_render_api->device, khr_draw_shader_fragment.key);
-
-		ShaderAsset::Config l_shader_config;
-		l_shader_config.ztest = ShaderCompareOp::Type::Invalid;
-		l_shader_config.zwrite = false;
-		this->khr_draw_shader = Shader(Hash<StringSlice>::hash(StringSlice("shader/quaddraw_shader.json")), -1, this->khr_draw_shader_vertex, this->khr_draw_shader_fragment, p_shader_layouts.khr_blit_layout, l_shader_config,
-			*p_render_api->swap_chain.render_passes.get_renderpass<RenderPass::Type::KHR_BLIT>(), *this->renderApi);
+		this->khr_draw_shader = p_render_heap.allocate_shader("shader/quaddraw_shader.json", &p_shader_layouts.khr_blit_layout, p_render_api->swap_chain.render_passes.get_renderpass<RenderPass::Type::KHR_BLIT>());
 
 		this->render_target_parameter.create(*p_render_api);
 		this->render_target_parameter.bind(0, p_render_api->device, p_render_api->image_samplers, p_render_api->swap_chain.rendertarget_image_view);
@@ -3834,9 +3841,7 @@ struct KHRPresentStep
 	inline void free()
 	{
 		this->render_target_parameter.dispose(*this->renderApi);
-		this->khr_draw_shader.dispose(this->renderApi->device);
-		RenderHeap2::Resource::ShaderModuleResourceAllocator::dispose_shaderModule(this->renderApi->device, this->khr_draw_shader_fragment.shader_module);
-		RenderHeap2::Resource::ShaderModuleResourceAllocator::dispose_shaderModule(this->renderApi->device, this->khr_draw_shader_vertex.shader_module);
+		this->render_heap->free_shader(this->khr_draw_shader);
 		this->quad_mesh.dispose(*this->renderApi, this->renderApi->device);
 	};
 
@@ -3847,9 +3852,10 @@ struct KHRPresentStep
 
 		p_command_buffer.beginRenderPass2(this->renderApi->swap_chain.khr_framebuffers[p_image_count], this->clear_values.to_memoryslice(), vk::Offset2D(0, 0), this->renderApi->swap_chain.window_extend);
 		{
-			p_command_buffer.command_buffer.bindPipeline(vk::PipelineBindPoint::eGraphics, this->khr_draw_shader.pipeline);
+			Shader& l_shader = this->render_heap->shaders[this->khr_draw_shader];
+			p_command_buffer.command_buffer.bindPipeline(vk::PipelineBindPoint::eGraphics, l_shader.pipeline);
 
-			this->render_target_parameter.bind_command(p_command_buffer, 0, this->khr_draw_shader.pipeline_layout->layout);
+			this->render_target_parameter.bind_command(p_command_buffer, 0, l_shader.pipeline_layout->layout);
 
 			vk::DeviceSize l_offsets[1] = { 0 };
 			p_command_buffer.command_buffer.bindVertexBuffers(0, 1, &this->quad_mesh.vertices.buffer, l_offsets);
@@ -3881,7 +3887,7 @@ struct Render
 		this->shader_layouts.allocate(this->renderApi);
 		this->heap.allocate(p_asset_server, this->renderApi, this->shader_layouts);
 		this->rt_draw_step.allocate(&this->renderApi, &this->heap, &this->camera_matrices_globalbuffer);
-		this->khr_present_step.allocate(&this->renderApi, this->shader_layouts, p_asset_server);
+		this->khr_present_step.allocate(&this->renderApi, this->heap, this->shader_layouts, p_asset_server);
 	};
 
 	inline void dispose()

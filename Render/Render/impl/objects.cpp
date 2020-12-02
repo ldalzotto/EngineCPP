@@ -37,13 +37,13 @@ void RenderableObjectHandle::free(const RenderHandle& p_render)
 void ShaderHandle::allocate(const RenderHandle& p_render, const std::string& p_sahder_path)
 {
 	Render* l_render = (Render*)p_render;
-	this->handle = l_render->heap.allocate_shader(p_sahder_path).Index;
+	this->handle = l_render->heap.allocate_shader(p_sahder_path, &l_render->shader_layouts.rt_draw_layout, l_render->renderApi.swap_chain.render_passes.get_renderpass<RenderPass::Type::RT_COLOR_DEPTH>()).Index;
 };
 
 void ShaderHandle::allocate(const RenderHandle& p_render, const size_t p_shader_path)
 {
 	Render* l_render = (Render*)p_render;
-	this->handle = l_render->heap.allocate_shader(p_shader_path).Index;
+	this->handle = l_render->heap.allocate_shader(p_shader_path, &l_render->shader_layouts.rt_draw_layout, l_render->renderApi.swap_chain.render_passes.get_renderpass<RenderPass::Type::RT_COLOR_DEPTH>()).Index;
 };
 
 void ShaderHandle::free(const RenderHandle& p_render)
