@@ -37,27 +37,13 @@ void RenderableObjectHandle::free(const RenderHandle& p_render)
 void ShaderHandle::allocate(const RenderHandle& p_render, const std::string& p_sahder_path)
 {
 	Render* l_render = (Render*)p_render;
-
-	com::NMemorySlice<ShaderLayoutParameterType, 4> l_descriptorset_layouts;
-	l_descriptorset_layouts[0] = ShaderLayoutParameterType::UNIFORM_BUFFER_VERTEX; //camera (set = 0)
-	l_descriptorset_layouts[1] = ShaderLayoutParameterType::UNIFORM_BUFFER_VERTEX; //model (set = 1)
-	l_descriptorset_layouts[2] = ShaderLayoutParameterType::TEXTURE_FRAGMENT; //texture (set = 2)
-	l_descriptorset_layouts[3] = ShaderLayoutParameterType::UNIFORM_BUFFER_VERTEX_FRAGMENT; //parameters (set = 3)
-
-	this->handle = l_render->heap.allocate_shader(p_sahder_path, l_descriptorset_layouts.to_memoryslice(), l_render->renderApi.swap_chain.render_passes.get_renderpass<RenderPass::Type::RT_COLOR_DEPTH>()).Index;
+	this->handle = l_render->heap.allocate_shader(p_sahder_path, l_render->renderApi.swap_chain.render_passes.get_renderpass<RenderPass::Type::RT_COLOR_DEPTH>()).Index;
 };
 
 void ShaderHandle::allocate(const RenderHandle& p_render, const size_t p_shader_path)
 {
 	Render* l_render = (Render*)p_render;
-
-	com::NMemorySlice<ShaderLayoutParameterType, 4> l_descriptorset_layouts;
-	l_descriptorset_layouts[0] = ShaderLayoutParameterType::UNIFORM_BUFFER_VERTEX; //camera (set = 0)
-	l_descriptorset_layouts[1] = ShaderLayoutParameterType::UNIFORM_BUFFER_VERTEX; //model (set = 1)
-	l_descriptorset_layouts[2] = ShaderLayoutParameterType::TEXTURE_FRAGMENT; //texture (set = 2)
-	l_descriptorset_layouts[3] = ShaderLayoutParameterType::UNIFORM_BUFFER_VERTEX_FRAGMENT; //parameters (set = 3)
-
-	this->handle = l_render->heap.allocate_shader(p_shader_path, l_descriptorset_layouts.to_memoryslice(), l_render->renderApi.swap_chain.render_passes.get_renderpass<RenderPass::Type::RT_COLOR_DEPTH>()).Index;
+	this->handle = l_render->heap.allocate_shader(p_shader_path, l_render->renderApi.swap_chain.render_passes.get_renderpass<RenderPass::Type::RT_COLOR_DEPTH>()).Index;
 };
 
 void ShaderHandle::free(const RenderHandle& p_render)

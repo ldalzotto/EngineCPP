@@ -313,7 +313,12 @@ private:
 						ShaderAsset l_shader_asset = JSONDeserializer<ShaderAsset>::deserialize(l_json_deserializer);
 						l_shader_asset.serialize(l_asset_bytes);
 					}
-
+					else if (l_json_type.value.equals(StringSlice("shader_layout")))
+					{
+						l_json_deserializer.free();
+						ShaderLayoutAsset l_shaderlayout_asset = JSONDeserializer<ShaderLayoutAsset>::deserialize(l_json_deserializer);
+						l_shaderlayout_asset.serialize(l_asset_bytes);
+					}
 					if (l_asset_bytes.Memory != nullptr)
 					{
 						this->asset_server.insert_or_update_resource(std::string(l_asset_folder_relative.Memory + l_asset_folder_relative.Begin), l_asset_bytes);

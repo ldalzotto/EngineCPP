@@ -132,11 +132,91 @@ struct ShaderBlendOp
 
 };
 
+struct ShaderLayoutParameter
+{
+	enum Type
+	{
+		UNDEFINED = 0,
+		UNIFORM_BUFFER_VERTEX = 1,
+		TEXTURE_FRAGMENT = 2,
+		UNIFORM_BUFFER_VERTEX_FRAGMENT = 3
+	};
+
+	//TODO -> update hashes
+	inline static const size_t UNIFORM_BUFFER_VERTEX_Hash = 1470805825648346875;
+	inline static const size_t TEXTURE_FRAGMENT_Hash = 8282991955269238249;
+	inline static const size_t UNIFORM_BUFFER_VERTEX_FRAGMENT_Hash = 14933577130234638798;
+
+
+	inline static ShaderLayoutParameter::Type from_string(StringSlice& p_str)
+	{
+		size_t p_str_hash = Hash<StringSlice>::hash(p_str);
+		switch (p_str_hash)
+		{
+		case UNIFORM_BUFFER_VERTEX_Hash: return ShaderLayoutParameter::Type::UNIFORM_BUFFER_VERTEX;
+		case TEXTURE_FRAGMENT_Hash: return ShaderLayoutParameter::Type::TEXTURE_FRAGMENT;
+		case UNIFORM_BUFFER_VERTEX_FRAGMENT_Hash: return ShaderLayoutParameter::Type::UNIFORM_BUFFER_VERTEX_FRAGMENT;
+		default: return ShaderLayoutParameter::Type::UNDEFINED;
+		}
+	};
+};
+
+
+struct ShaderLayoutAsset
+{
+	com::Vector<ShaderLayoutParameter::Type> parameters;
+
+	inline void free()
+	{
+		this->parameters.free();
+	};
+
+	inline void serialize(com::Vector<char>& out_target)
+	{
+		Serialization::Binary::serialize_vector(this->parameters, out_target);
+	};
+
+	inline static ShaderLayoutAsset deserialize(const char* p_source)
+	{
+		ShaderLayoutAsset l_shaderlayout_asset;
+		size_t l_current_pointer = 0;
+		l_shaderlayout_asset.parameters = Serialization::Binary::deserialize_vector<ShaderLayoutParameter::Type>(l_current_pointer, p_source);
+		
+		return l_shaderlayout_asset;
+	};
+};
+
+template<>
+struct JSONDeserializer<ShaderLayoutAsset>
+{
+	inline static ShaderLayoutAsset deserialize(Deserialization::JSON::JSONObjectIterator& p_iterator)
+	{
+		ShaderLayoutAsset l_asset;
+
+		p_iterator.next_field("type");
+
+		Deserialization::JSON::JSONObjectIterator l_parameters_iterator;
+		p_iterator.next_array("parameters", &l_parameters_iterator);
+		Deserialization::JSON::JSONObjectIterator l_parameter_iterator;
+		while (l_parameters_iterator.next_array_object(&l_parameter_iterator))
+		{
+			l_parameter_iterator.next_field("type");
+			l_asset.parameters.push_back(ShaderLayoutParameter::from_string(l_parameter_iterator.get_currentfield().value));
+		}
+		l_parameter_iterator.free();
+		l_parameters_iterator.free();
+
+		p_iterator.free();
+		return l_asset;
+	}
+};
+
 struct ShaderAsset
 {
 	short execution_order;
 	size_t vertex;
 	size_t fragment;
+	size_t layout;
 
 	struct Config
 	{
@@ -160,6 +240,7 @@ struct ShaderAsset
 		Serialization::Binary::serialize_field<short>(&this->execution_order, out_target);
 		Serialization::Binary::serialize_field<size_t>(&this->vertex, out_target);
 		Serialization::Binary::serialize_field<size_t>(&this->fragment, out_target);
+		Serialization::Binary::serialize_field<size_t>(&this->layout, out_target);
 		Serialization::Binary::serialize_field<ShaderCompareOp::Type>(&this->config.ztest, out_target);
 		Serialization::Binary::serialize_field<bool>(&this->config.zwrite, out_target);
 
@@ -181,6 +262,7 @@ struct ShaderAsset
 		l_resource.execution_order = *Serialization::Binary::deserialize_field<short>(l_current_pointer, p_source);
 		l_resource.vertex = *Serialization::Binary::deserialize_field<size_t>(l_current_pointer, p_source);
 		l_resource.fragment = *Serialization::Binary::deserialize_field<size_t>(l_current_pointer, p_source);
+		l_resource.layout = *Serialization::Binary::deserialize_field<size_t>(l_current_pointer, p_source);
 		l_resource.config.ztest = *Serialization::Binary::deserialize_field<ShaderCompareOp::Type>(l_current_pointer, p_source);
 		l_resource.config.zwrite = *Serialization::Binary::deserialize_field<bool>(l_current_pointer, p_source);
 
@@ -209,6 +291,7 @@ struct JSONDeserializer<ShaderAsset>
 		p_iterator.next_field("execution_order"); l_asset.execution_order = JSONDeserializer<short>::deserialize(p_iterator);
 		p_iterator.next_field("vertex"); l_asset.vertex = Hash<StringSlice>::hash(p_iterator.get_currentfield().value);
 		p_iterator.next_field("fragment"); l_asset.fragment = Hash<StringSlice>::hash(p_iterator.get_currentfield().value);
+		p_iterator.next_field("layout"); l_asset.layout = Hash<StringSlice>::hash(p_iterator.get_currentfield().value);
 
 		if (p_iterator.next_field("ztest"))
 		{

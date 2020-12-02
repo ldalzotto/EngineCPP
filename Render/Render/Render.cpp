@@ -2470,14 +2470,6 @@ struct ShaderLayout
 	};
 };
 
-enum class ShaderLayoutParameterType
-{
-	UNDEFINED = 0,
-	UNIFORM_BUFFER_VERTEX = 1,
-	TEXTURE_FRAGMENT = 2,
-	UNIFORM_BUFFER_VERTEX_FRAGMENT = 3
-};
-
 struct ShaderModule
 {
 	size_t key;
@@ -3295,35 +3287,38 @@ struct RenderHeap2
 		struct ShaderLayoutResourceAllocator
 		{
 			RenderHeap2* render_heap;
-			com::MemorySlice<ShaderLayoutParameterType>* shaderparameter_layout;
-
+			AssetServerHandle asset_server;
+			
 			inline ShaderLayoutResourceAllocator() {};
-			inline ShaderLayoutResourceAllocator(RenderHeap2* p_render_heap, com::MemorySlice<ShaderLayoutParameterType>* p_shaderparameter_layout)
+			inline ShaderLayoutResourceAllocator(const AssetServerHandle& p_asset_server, RenderHeap2* p_render_heap)
 			{
 				this->render_heap = p_render_heap;
-				this->shaderparameter_layout = p_shaderparameter_layout;
+				this->asset_server = p_asset_server;
 			};
 
 			inline com::TPoolToken<ShaderLayout> allocate(size_t p_key)
 			{
-				com::Vector<vk::DescriptorSetLayout> l_descriptorset_layouts;
-				l_descriptorset_layouts.allocate(this->shaderparameter_layout->count());
+				com::Vector<char> l_shader_resource_binary = this->asset_server.get_resource(p_key);
+				ShaderLayoutAsset l_shaderlayout_asset = ShaderLayoutAsset::deserialize(l_shader_resource_binary.Memory);
 
-				for (size_t i = 0; i < this->shaderparameter_layout->count(); i++)
+				com::Vector<vk::DescriptorSetLayout> l_descriptorset_layouts;
+				l_descriptorset_layouts.allocate(l_shaderlayout_asset.parameters.Size);
+
+				for (size_t i = 0; i < l_shaderlayout_asset.parameters.Size; i++)
 				{
-					switch (this->shaderparameter_layout->operator[](i))
+					switch (l_shaderlayout_asset.parameters[i])
 					{
-					case ShaderLayoutParameterType::UNIFORM_BUFFER_VERTEX:
+					case ShaderLayoutParameter::Type::UNIFORM_BUFFER_VERTEX:
 					{
 						l_descriptorset_layouts.push_back(this->render_heap->render_api->shaderparameter_layouts.uniformbuffer_vertex_layout);
 					}
 					break;
-					case ShaderLayoutParameterType::UNIFORM_BUFFER_VERTEX_FRAGMENT:
+					case ShaderLayoutParameter::Type::UNIFORM_BUFFER_VERTEX_FRAGMENT:
 					{
 						l_descriptorset_layouts.push_back(this->render_heap->render_api->shaderparameter_layouts.uniformbuffer_layout);
 					}
 					break;
-					case ShaderLayoutParameterType::TEXTURE_FRAGMENT:
+					case ShaderLayoutParameter::Type::TEXTURE_FRAGMENT:
 					{
 						l_descriptorset_layouts.push_back(this->render_heap->render_api->shaderparameter_layouts.texture_fragment_layout);
 					}
@@ -3338,20 +3333,10 @@ struct RenderHeap2
 				ShaderLayout l_shader_layout;
 				l_shader_layout.allocate(p_key, this->render_heap->render_api->device, l_pipelinelayout_create_info);
 
+				l_shader_resource_binary.free();
 				l_descriptorset_layouts.free();
 
 				return this->render_heap->shader_layouts.alloc_element(l_shader_layout);
-			}
-		};
-
-		struct ShaderLayoutResrouceDeallocator
-		{
-			RenderHeap2* render_heap;
-
-			inline ShaderLayoutResrouceDeallocator() {};
-			inline ShaderLayoutResrouceDeallocator(RenderHeap2& p_render_heap)
-			{
-				this->render_heap = &p_render_heap;
 			};
 
 			inline void free(const com::TPoolToken<ShaderLayout>& p_shader)
@@ -3366,17 +3351,14 @@ struct RenderHeap2
 		{
 			RenderHeap2* render_heap;
 			AssetServerHandle asset_server;
-			com::MemorySlice<ShaderLayoutParameterType>* shader_layout;
 			RenderPass* render_pass;
 
 			inline ShaderResourceAllocator() {};
 
-			inline ShaderResourceAllocator(const AssetServerHandle& p_asset_server, RenderHeap2& p_render_heap, com::MemorySlice<ShaderLayoutParameterType>& p_shader_layout,
-				RenderPass* p_render_pass)
+			inline ShaderResourceAllocator(const AssetServerHandle& p_asset_server, RenderHeap2& p_render_heap, RenderPass* p_render_pass)
 			{
 				this->asset_server = p_asset_server;
 				this->render_heap = &p_render_heap;
-				this->shader_layout = &p_shader_layout;
 				this->render_pass = p_render_pass;
 			};
 
@@ -3388,7 +3370,7 @@ struct RenderHeap2
 
 				auto l_vertex_module = this->render_heap->allocate_shadermodule_internal(l_shader_asset.vertex);
 				auto l_fragment_module = this->render_heap->allocate_shadermodule_internal(l_shader_asset.fragment);
-				auto l_shader_layout = this->render_heap->allocate_shaderlayout(*this->shader_layout);
+				auto l_shader_layout = this->render_heap->allocate_shaderlayout(l_shader_asset.layout);
 
 				Shader l_shader = Shader(p_key, l_shader_asset.execution_order,
 					this->render_heap->shadermodules[l_vertex_module],
@@ -3426,6 +3408,7 @@ struct RenderHeap2
 				this->render_heap->shaders_to_materials.release_element(p_shader.cast<com::Vector<com::TPoolToken<Material>>>());
 				this->render_heap->shaders.release_element(p_shader);
 			};
+			
 		};
 
 		struct MeshResourceAllocator
@@ -3568,7 +3551,7 @@ struct RenderHeap2
 		};
 
 		ResourceMap<size_t, com::TPoolToken<ShaderModule>, ShaderModuleResourceAllocator> shader_module_resources;
-		ResourceMap2<size_t, com::TPoolToken<ShaderLayout>> shader_layouts;
+		ResourceMap<size_t, com::TPoolToken<ShaderLayout>, ShaderLayoutResourceAllocator> shader_layouts;
 		ResourceMap2<size_t, com::TPoolToken<Shader>> shader_resources;
 		ResourceMap<size_t, com::TPoolToken<Mesh>, MeshResourceAllocator> mesh_resources;
 		ResourceMap<size_t, com::TPoolToken<Texture>, TextureResourceAllocator> texture_resources;
@@ -3576,7 +3559,7 @@ struct RenderHeap2
 		inline void allocate(RenderHeap2& p_render_heap, AssetServerHandle p_asset_server)
 		{
 			this->shader_module_resources.allocate(1, ShaderModuleResourceAllocator(p_asset_server, p_render_heap));
-			this->shader_layouts.allocate(1);
+			this->shader_layouts.allocate(1, ShaderLayoutResourceAllocator(p_asset_server, &p_render_heap));
 			this->shader_resources.allocate(1);
 			this->mesh_resources.allocate(1, MeshResourceAllocator(p_asset_server, p_render_heap));
 			this->texture_resources.allocate(1, TextureResourceAllocator(p_asset_server, p_render_heap));
@@ -3619,34 +3602,25 @@ public:
 		this->resource.shader_module_resources.free_resource(this->shadermodules[p_shader_module].key);
 	};
 
-	inline com::TPoolToken<ShaderLayout> allocate_shaderlayout(com::MemorySlice<ShaderLayoutParameterType>& p_shaderlayout_parameters)
+	inline com::TPoolToken<ShaderLayout> allocate_shaderlayout(const size_t& p_path)
 	{
-		com::TPoolToken<ShaderLayout> l_shader_layout;
-		size_t l_shaderlayout_parameters_hash = 0;
-		for (size_t i = 0; i < p_shaderlayout_parameters.count(); i++)
-		{
-			l_shaderlayout_parameters_hash = HashCombineFunction<ShaderLayoutParameterType>(l_shaderlayout_parameters_hash, p_shaderlayout_parameters[i]);
-		}
-		
-		this->resource.shader_layouts.allocate_resource(l_shaderlayout_parameters_hash, &l_shader_layout, Resource::ShaderLayoutResourceAllocator(this, &p_shaderlayout_parameters));
-
-		return l_shader_layout;
+		return this->resource.shader_layouts.allocate_resource(p_path);
 	};
 
 	inline void free_shaderlayout(const com::TPoolToken<ShaderLayout> p_shader_layout)
 	{
-		this->resource.shader_layouts.free_resource(this->shader_layouts[p_shader_layout].id, Resource::ShaderLayoutResrouceDeallocator(*this));
+		this->resource.shader_layouts.free_resource(this->shader_layouts[p_shader_layout].id);
 	};
 
-	inline com::TPoolToken<Shader> allocate_shader(const std::string& p_key, com::MemorySlice<ShaderLayoutParameterType>& p_layout, RenderPass* p_render_pass)
+	inline com::TPoolToken<Shader> allocate_shader(const std::string& p_key, RenderPass* p_render_pass)
 	{
-		return this->allocate_shader(Hash<std::string>::hash(p_key), p_layout, p_render_pass);
+		return this->allocate_shader(Hash<std::string>::hash(p_key), p_render_pass);
 	};
 
-	inline com::TPoolToken<Shader> allocate_shader(const size_t p_key, com::MemorySlice<ShaderLayoutParameterType>& p_layout, RenderPass* p_render_pass)
+	inline com::TPoolToken<Shader> allocate_shader(const size_t p_key, RenderPass* p_render_pass)
 	{
 		com::TPoolToken<Shader> l_allocated_shader;
-		if (this->resource.shader_resources.allocate_resource(p_key, &l_allocated_shader, Resource::ShaderResourceAllocator(this->asset_server, *this, p_layout, p_render_pass)) == ResourceMapEnum::Step::RESOURCE_ALLOCATED)
+		if (this->resource.shader_resources.allocate_resource(p_key, &l_allocated_shader, Resource::ShaderResourceAllocator(this->asset_server, *this, p_render_pass)) == ResourceMapEnum::Step::RESOURCE_ALLOCATED)
 		{
 			struct ShaderExecution_Sorter_V2
 			{
@@ -3879,10 +3853,7 @@ struct KHRPresentStep
 
 		this->clear_values[0].color.setFloat32({ 0.0f, 0.0f, 0.0f, 1.0f });
 
-		com::NMemorySlice<ShaderLayoutParameterType, 1> l_descriptorset_layouts;
-		l_descriptorset_layouts[0] = ShaderLayoutParameterType::TEXTURE_FRAGMENT; //texture (set = 0)
-		
-		this->khr_draw_shader = p_render_heap.allocate_shader("shader/quaddraw_shader.json", l_descriptorset_layouts.to_memoryslice(), p_render_api->swap_chain.render_passes.get_renderpass<RenderPass::Type::KHR_BLIT>());
+		this->khr_draw_shader = p_render_heap.allocate_shader("shader/quaddraw_shader.json", p_render_api->swap_chain.render_passes.get_renderpass<RenderPass::Type::KHR_BLIT>());
 
 		this->render_target_parameter.create(*p_render_api);
 		this->render_target_parameter.bind(0, p_render_api->device, p_render_api->image_samplers, p_render_api->swap_chain.rendertarget_image_view);

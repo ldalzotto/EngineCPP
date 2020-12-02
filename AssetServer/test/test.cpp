@@ -5,6 +5,9 @@
 
 void main(int argc, char** argv)
 {
+	size_t UniformBufferVertex = Hash<StringSlice>::hash(StringSlice("UNIFORM_BUFFER_VERTEX"));
+	size_t TextureFragment = Hash<StringSlice>::hash(StringSlice("TEXTURE_FRAGMENT"));
+	size_t UniformBufferVertexFragment = Hash<StringSlice>::hash(StringSlice("UNIFORM_BUFFER_VERTEX_FRAGMENT"));
 
 	size_t One = Hash<StringSlice>::hash(StringSlice("One"));
 	size_t Zero = Hash<StringSlice>::hash(StringSlice("Zero"));
