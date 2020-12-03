@@ -23,7 +23,7 @@ struct SceneNodeComponentToken : public com::TPoolToken<GeneralPurposeHeapMemory
 struct SceneNodeComponentHeader
 {
 	size_t id = -1;
-	
+
 	template<class ComponentType>
 	inline ComponentType* cast()
 	{
@@ -77,7 +77,7 @@ struct ComponentAddedParameter
 	SceneNodeComponentHeader* component;
 
 	ComponentAddedParameter() {};
-	inline ComponentAddedParameter(const SceneNodeToken p_node_token, const NTreeResolve<SceneNode>& p_node,const SceneNodeComponentToken& p_component_token, SceneNodeComponentHeader* p_component)
+	inline ComponentAddedParameter(const SceneNodeToken p_node_token, const NTreeResolve<SceneNode>& p_node, const SceneNodeComponentToken& p_component_token, SceneNodeComponentHeader* p_component)
 	{
 		this->node_token = p_node_token;
 		this->node = p_node;
@@ -119,11 +119,11 @@ struct ComponentAssetPushParameter
 
 struct SceneHeap
 {
-	GeneralPurposeHeap<> component_heap;
+	GeneralPurposeHeap2<GeneralPurposeHeap2_Times2Allocation> component_heap;
 
 	inline void allocate()
 	{
-		this->component_heap.allocate(3000); //TODO -> tune
+		this->component_heap.allocate(1); //TODO -> tune
 	}
 
 	inline SceneHeap clone()
@@ -146,11 +146,7 @@ struct SceneHeap
 		SceneNodeComponentToken l_memory_allocated;
 		if (!this->component_heap.allocate_element<>(l_allocationsize, l_memory_allocated.cast_to_parent()))
 		{
-			this->component_heap.realloc((this->component_heap.memory.Size * 2) + l_allocationsize);
-			if (!this->component_heap.allocate_element<>(l_allocationsize, l_memory_allocated.cast_to_parent()))
-			{
-				abort();
-			};
+			abort();
 		}
 
 		SceneNodeComponentHeader* l_header = this->component_heap.map<SceneNodeComponentHeader>(l_memory_allocated);

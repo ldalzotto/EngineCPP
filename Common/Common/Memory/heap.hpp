@@ -53,7 +53,7 @@ struct GeneralPurposeHeap
 		this->free_chunks.push_back(l_whole_chunk);
 	}
 
-	inline void realloc(size_t p_newsize, Allocator& p_allocator = HeapAllocator())
+	inline void realloc(size_t p_newsize)
 	{
 		size_t l_old_size = this->memory.Size;
 		if (this->memory.resize(p_newsize))
@@ -125,6 +125,13 @@ struct GeneralPurposeHeap
 		return false;
 	};
 
+	template<class ElementType>
+	inline bool allocate_element(com::TPoolToken<ElementType>* out_chunk, ElementType* p_initial_value)
+	{
+		this->allcate_element(sizeof(ElementType), out_chunk);
+		*this->map<ElementType>(*out_chunk) = *p_initial_value;
+	};
+
 	inline bool allocate_element(size_t p_size, AllocationAlignementConstraint& p_alignment_constraint, com::PoolToken* out_token)
 	{
 		for (size_t i = 0; i < this->free_chunks.Size; i++)
@@ -165,7 +172,7 @@ struct GeneralPurposeHeap
 						GeneralPurposeHeapMemoryChunk l_new_allocated_chunk;
 						this->slice_memorychunk(l_chunk, l_chunk.offset + l_chunk_offset_delta, l_chunk, l_new_allocated_chunk);
 						*out_token = this->allocated_chunks.alloc_element(l_new_allocated_chunk);
-						
+
 						return true;
 					}
 				}
@@ -202,4 +209,68 @@ private:
 		out_right.chunk_size = l_source_chunk_size - out_left.chunk_size;
 		out_right.offset = p_slice_offset;
 	}
+};
+
+struct GeneralPurposeHeap2DefaultReallocStrategyFn
+{
+	inline static bool calculate_realloc_size(const size_t p_current, const size_t p_allocate_element_size, size_t* out_new)
+	{
+		return false;
+	};
+};
+
+struct GeneralPurposeHeap2_Times2Allocation
+{
+	inline static bool calculate_realloc_size(const size_t p_current, const size_t p_allocate_element_size, size_t* out_new)
+	{
+		*out_new = (p_current * 2) + p_allocate_element_size;
+		return true;
+	};
+};
+
+template<class ReallocStrategyFn = GeneralPurposeHeap2DefaultReallocStrategyFn, class Allocator = HeapAllocator>
+struct GeneralPurposeHeap2
+{
+	GeneralPurposeHeap<Allocator> heap;
+
+	inline void allocate(size_t p_size, Allocator& p_allocator = HeapAllocator()) { this->heap.allocate(p_size, p_allocator); }
+	inline GeneralPurposeHeap2<ReallocStrategyFn, Allocator> clone() {
+		GeneralPurposeHeap2<ReallocStrategyFn, Allocator> l_heap; 
+		l_heap.heap = this->heap.clone();
+		return l_heap;
+	};
+	inline void dispose() { this->heap.dispose(); };
+
+	template<class ElementType>
+	inline ElementType* map(com::TPoolToken<GeneralPurposeHeapMemoryChunk> p_memory) { return this->heap.map<ElementType>(p_memory); };
+	
+	inline GeneralPurposeHeapMemoryChunk& resolve_allocated_chunk(const com::TPoolToken<GeneralPurposeHeapMemoryChunk> p_memory) { return this->heap.resolve_allocated_chunk(p_memory); };
+
+	template<class ReturnType = com::TPoolToken<GeneralPurposeHeapMemoryChunk>&, class MemoryChunkMapper = DefaultMemoryChunkMapper >
+	inline bool allocate_element(size_t p_size, ReturnType* out_chunk, MemoryChunkMapper& p_memorychunk_mapper = DefaultMemoryChunkMapper())
+	{
+		if (!this->heap.allocate_element(p_size, out_chunk, p_memorychunk_mapper))
+		{
+			size_t l_new_size;
+			if (ReallocStrategyFn::calculate_realloc_size(this->heap.memory.Size, p_size, &l_new_size))
+			{
+				this->heap.realloc(l_new_size);
+				return this->heap.allocate_element(p_size, out_chunk, p_memorychunk_mapper);
+			}
+
+			return false;
+		}
+
+		return true;
+	};
+
+	template<class ElementType>
+	inline bool allocate_element(com::TPoolToken<GeneralPurposeHeapMemoryChunk>* out_chunk, const ElementType* p_initial_value)
+	{
+		bool l_return = this->allocate_element(sizeof(ElementType), out_chunk);
+		*this->heap.map<ElementType>(*out_chunk) = *p_initial_value;
+		return l_return;
+	};
+
+	inline void release_element(const com::TPoolToken<GeneralPurposeHeapMemoryChunk> p_buffer) { this->heap.release_element(p_buffer); };
 };

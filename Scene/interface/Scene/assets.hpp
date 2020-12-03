@@ -29,11 +29,11 @@ struct SceneAsset
 {
 	com::Vector<NodeAsset> nodes;
 	com::Vector<ComponentAsset> components;
-	GeneralPurposeHeap<> component_asset_heap;
+	GeneralPurposeHeap2<GeneralPurposeHeap2_Times2Allocation> component_asset_heap;
 
 	inline void allocate()
 	{
-		this->component_asset_heap.allocate(0);
+		this->component_asset_heap.allocate(1);
 	};
 
 	inline void free()
@@ -55,7 +55,7 @@ struct SceneAsset
 		SceneAsset l_scene_asset;
 		l_scene_asset.nodes = Serialization::Binary::deserialize_vector<NodeAsset>(p_current_pointer, p_source);
 		l_scene_asset.components = Serialization::Binary::deserialize_vector<ComponentAsset>(p_current_pointer, p_source);
-		l_scene_asset.component_asset_heap = Serialization::Binary::deserialize_heap(p_current_pointer, p_source);
+		Serialization::Binary::deserialize_heap(p_current_pointer, p_source, &l_scene_asset.component_asset_heap);
 		return l_scene_asset;
 	}
 };

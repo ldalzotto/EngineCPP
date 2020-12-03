@@ -115,7 +115,7 @@ struct JSONSerializer<CameraAsset>
 struct ComponentAssetSerializer
 {
 	inline static bool deserializeJSON(StringSlice& p_component_type, Deserialization::JSON::JSONObjectIterator& p_component_object_iterator,
-		com::Vector<ComponentAsset>& p_component_assets, GeneralPurposeHeap<>& p_compoent_asset_heap, ComponentAsset* out_component_asset)
+		com::Vector<ComponentAsset>& p_component_assets, GeneralPurposeHeap2<GeneralPurposeHeap2_Times2Allocation>& p_compoent_asset_heap, ComponentAsset* out_component_asset)
 	{
 		if (p_component_type.equals(ComponentSerializationConstants::MeshRenderer::Name))
 		{
@@ -142,7 +142,7 @@ struct ComponentAssetSerializer
 		return false;
 	};
 
-	inline static void serializeJSON(ComponentAsset& p_component_asset, Serialization::JSON::Deserializer& p_serializer, GeneralPurposeHeap<>& p_compoent_asset_heap, AssetServerHandle p_asset_server)
+	inline static void serializeJSON(ComponentAsset& p_component_asset, Serialization::JSON::Deserializer& p_serializer, GeneralPurposeHeap2<GeneralPurposeHeap2_Times2Allocation>& p_compoent_asset_heap, AssetServerHandle p_asset_server)
 	{
 		StringSlice l_component_type;
 		bool l_component_detected = false;
@@ -205,7 +205,7 @@ struct ComponentAssetSerializer
 		}
 	};
 
-	inline static bool Component_to_ComponentAsset(SceneNodeComponentHeader* p_component_header, GeneralPurposeHeap<>& p_compoent_asset_heap, ComponentAsset* out_componentasset)
+	inline static bool Component_to_ComponentAsset(SceneNodeComponentHeader* p_component_header, GeneralPurposeHeap2<GeneralPurposeHeap2_Times2Allocation>& p_compoent_asset_heap, ComponentAsset* out_componentasset)
 	{
 		switch (p_component_header->id)
 		{
@@ -239,13 +239,9 @@ struct ComponentAssetSerializer
 
 private:
 	template<class ComponentAssetType>
-	inline static bool allocate_component_asset(GeneralPurposeHeap<>& p_compoent_asset_heap, com::PoolToken* out_index)
+	inline static bool allocate_component_asset(GeneralPurposeHeap2<GeneralPurposeHeap2_Times2Allocation>& p_compoent_asset_heap, com::PoolToken* out_index)
 	{
-		while (!p_compoent_asset_heap.allocate_element(sizeof(ComponentAssetType), out_index))
-		{
-			p_compoent_asset_heap.realloc(p_compoent_asset_heap.memory.Capacity == 0 ? 100 : p_compoent_asset_heap.memory.Capacity * 2);
-		};
-		return true;
+		return p_compoent_asset_heap.allocate_element(sizeof(ComponentAssetType), out_index);
 	};
 };
 
@@ -402,14 +398,14 @@ private:
 	};
 
 	inline static void JSONSceneNode_pushTo_SceneAsset(Deserialization::JSON::JSONObjectIterator& p_iterator, size_t p_parent_nodeasset_index, com::Vector<NodeAsset>& p_node_assets,
-		com::Vector<ComponentAsset>& p_component_assets, GeneralPurposeHeap<>& p_compoent_asset_heap)
+		com::Vector<ComponentAsset>& p_component_assets, GeneralPurposeHeap2<GeneralPurposeHeap2_Times2Allocation>& p_compoent_asset_heap)
 	{
 		struct NodeAssetBuilder
 		{
 			com::Vector<ComponentAsset>* component_assets;
-			GeneralPurposeHeap<>* compoent_asset_heap;
+			GeneralPurposeHeap2<GeneralPurposeHeap2_Times2Allocation>* compoent_asset_heap;
 
-			inline NodeAssetBuilder(com::Vector<ComponentAsset>& p_component_assets, GeneralPurposeHeap<>& p_compoent_asset_heap)
+			inline NodeAssetBuilder(com::Vector<ComponentAsset>& p_component_assets, GeneralPurposeHeap2<GeneralPurposeHeap2_Times2Allocation>& p_compoent_asset_heap)
 			{
 				this->component_assets = &p_component_assets;
 				this->compoent_asset_heap = &p_compoent_asset_heap;
@@ -436,7 +432,7 @@ private:
 	};
 
 	inline static NodeAsset JSONSceneNode_to_NodeAsset_withoutchilds(Deserialization::JSON::JSONObjectIterator& p_iterator, size_t p_parent_nodeasset_index,
-		com::Vector<ComponentAsset>& p_component_assets, GeneralPurposeHeap<>& p_compoent_asset_heap)
+		com::Vector<ComponentAsset>& p_component_assets, GeneralPurposeHeap2<GeneralPurposeHeap2_Times2Allocation>& p_compoent_asset_heap)
 	{
 		NodeAsset l_asset;
 		l_asset.parent = (int)p_parent_nodeasset_index;
@@ -568,7 +564,7 @@ private:
 	}
 
 	inline static NodeAsset SceneNode_to_NodeAsset_withoutchilds(NTreeResolve<SceneNode>& p_node, size_t p_parent_sceneasset_node_index, Scene* p_scene,
-		com::Vector<ComponentAsset>& p_component_assets, GeneralPurposeHeap<>& p_compoent_asset_heap)
+		com::Vector<ComponentAsset>& p_component_assets, GeneralPurposeHeap2<GeneralPurposeHeap2_Times2Allocation>& p_compoent_asset_heap)
 	{
 		NodeAsset l_node_asset;
 		l_node_asset.parent = (int)p_parent_sceneasset_node_index;

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Common/Container/vector.hpp"
+#include "Common/Container/varying_vector.hpp"
 #include "Common/Memory/heap.hpp"
 
 namespace Serialization
@@ -20,6 +21,13 @@ namespace Serialization
 			p_target_data.insert_at(com::MemorySlice<char>((const char*)p_source.Memory, p_source.size_in_bytes()), p_target_data.Size);
 		};
 
+		template<class HeaderElementType>
+		inline static void serialize_varyingvector(const VaryingVector<HeaderElementType>& p_source, com::Vector<char>& p_target_data)
+		{
+			serialize_vector(p_source.memory, p_target_data);
+			serialize_heap(p_source.heap, p_target_data);
+		};
+
 		template<class PoolElementType>
 		inline static void serialize_pool(const com::Pool<PoolElementType>& p_source, com::Vector<char>& p_target_data)
 		{
@@ -32,6 +40,12 @@ namespace Serialization
 			serialize_vector<char>(p_source.memory, p_target_data);
 			serialize_pool<GeneralPurposeHeapMemoryChunk>(p_source.allocated_chunks, p_target_data);
 			serialize_vector<GeneralPurposeHeapMemoryChunk>(p_source.free_chunks, p_target_data);
+		};
+
+		template<class ReallocStrategyFn, class Allocator>
+		inline static void serialize_heap(const GeneralPurposeHeap2<ReallocStrategyFn, Allocator>& p_source, com::Vector<char>& p_target_data)
+		{
+			serialize_heap(p_source.heap, p_target_data);
 		};
 
 		template<class FieldType>
@@ -57,6 +71,16 @@ namespace Serialization
 			return l_return;
 		};
 
+		template<class HeaderElementType>
+		inline static VaryingVector<HeaderElementType> deserialize_varyingvector(size_t& p_current_pointer, const char* p_source)
+		{
+			VaryingVector<HeaderElementType> l_return;
+			l_return.memory = deserialize_vector<VaryingVectorHeader<HeaderElementType>>(p_current_pointer, p_source);
+			l_return.heap = deserialize_heap<GeneralPurposeHeap2_Times2Allocation>(p_current_pointer, p_source);
+			return l_return;
+		};
+
+
 		template<class PoolElementType>
 		inline static com::Pool<PoolElementType> deserialize_pool(size_t& p_current_pointer, const char* p_source)
 		{
@@ -73,6 +97,12 @@ namespace Serialization
 			l_heap.allocated_chunks = deserialize_pool<GeneralPurposeHeapMemoryChunk>(p_current_pointer, p_source);
 			l_heap.free_chunks = deserialize_vector<GeneralPurposeHeapMemoryChunk>(p_current_pointer, p_source);
 			return l_heap;
+		};
+
+		template<class ReallocStrategyFn, class Allocator>
+		inline static void deserialize_heap(size_t& p_current_pointer, const char* p_source, GeneralPurposeHeap2<ReallocStrategyFn, Allocator>* out_heap)
+		{
+			out_heap->heap = deserialize_heap(p_current_pointer, p_source);
 		};
 
 	};
