@@ -390,6 +390,7 @@ struct JSONDeserializer<MaterialAsset>
 				Math::vec4f l_param = JSONDeserializer<Math::vec4f>::deserialize(l_value_iterator);
 				l_asset.parameters.push_back(MaterialAssetParameterType::VEC4F, l_param);
 			}
+			//TODO -> implementing object as parameter that are a nested list of non obejct material parameter
 
 		}
 

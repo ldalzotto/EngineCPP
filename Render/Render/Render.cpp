@@ -743,7 +743,7 @@ struct CommandBuffer
 		l_renderArea.setOffset(p_render_offset);
 		l_renderArea.setExtent(p_render_extent);
 		l_renderpass_begin.setRenderArea(l_renderArea);
-		l_renderpass_begin.setClearValueCount(p_clear_values.count());
+		l_renderpass_begin.setClearValueCount((uint32_t)p_clear_values.count());
 		l_renderpass_begin.setPClearValues(p_clear_values.Memory);
 		l_renderpass_begin.setFramebuffer(p_framebuffer.frame_buffer);
 
@@ -3100,12 +3100,10 @@ struct ShaderParameter
 
 struct Material
 {
-	MaterialType type;
 	com::Vector<ShaderParameter> parameters;
 
 	inline Material() {};
-	inline Material(const MaterialType p_type) { this->type = p_type; };
-
+	
 	inline void add_image_parameter(const com::PoolToken& p_parameter)
 	{
 		this->parameters.push_back(ShaderParameter(ShaderParameter::Type::TEXTURE, p_parameter));
@@ -3652,9 +3650,9 @@ public:
 		};
 	};
 
-	inline com::PoolToken allocate_material(const MaterialType p_type, const size_t p_material, com::PoolToken* out_shader)
+	inline com::PoolToken allocate_material(const size_t p_material, com::PoolToken* out_shader)
 	{
-		Material l_material = Material(p_type);
+		Material l_material = Material();
 		com::Vector<char> l_material_binary = this->asset_server.get_resource(p_material);
 		{
 			MaterialAsset l_material_asset = MaterialAsset::deserialize(l_material_binary.Memory);

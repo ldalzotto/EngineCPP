@@ -476,15 +476,11 @@ private:
 	struct SelectedNodeRenderer
 	{
 		SceneNodeToken node;
-		Math::vec4f original_color;
+		size_t original_material;
 
 		inline void set_original_meshrenderer(Scene* p_scene, RenderMiddlewareHandle p_render_middleware)
 		{
-			TMaterial<MaterialTypeEnum::DEFAULT> l_material;
-			if (TMaterialCaster<MaterialTypeEnum::DEFAULT>::cast(p_render_middleware->get_renderable_object(SceneKernel::get_component<MeshRenderer>(p_scene, this->node))->default_material, p_render_middleware->render, &l_material))
-			{
-				l_material.set_color(p_render_middleware->render, this->original_color);
-			}
+			p_render_middleware->set_material(SceneKernel::get_component<MeshRenderer>(p_scene, this->node), this->original_material);
 		};
 	};
 
@@ -535,14 +531,8 @@ public:
 					
 						SelectedNodeRenderer l_selected_node_renderer;
 						l_selected_node_renderer.node = p_node.node->index;
-						
-						TMaterial<MaterialTypeEnum::DEFAULT> l_renderableobject_material;
-						if (TMaterialCaster<MaterialTypeEnum::DEFAULT>::cast(this->render_middleware->get_renderable_object(l_mesh_renderer)->default_material, this->render_middleware->render, &l_renderableobject_material))
-						{
-							l_selected_node_renderer.original_color = l_renderableobject_material.get_color(this->render_middleware->render);
-							l_renderableobject_material.set_color(this->render_middleware->render, Math::vec4f(3.0f, 3.0f, 3.0f, 1.0f));
-						}
-
+						l_selected_node_renderer.original_material = l_mesh_renderer->material.key;
+						this->render_middleware->set_material(l_mesh_renderer, Hash<StringSlice>::hash(StringSlice("materials/editor_selected.json")));
 						this->out_selected_node_renderers->push_back(l_selected_node_renderer);
 					}
 				};
