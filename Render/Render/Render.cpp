@@ -1812,7 +1812,7 @@ private:
 
 	inline void pick_rendertarget_extent()
 	{
-		this->rendertarget_extend = vk::Extent2D(256, 224);
+		this->rendertarget_extend = vk::Extent2D(320, 240);
 
 	}
 
@@ -3952,7 +3952,7 @@ struct Render
 
 	inline Render(const AssetServerHandle p_asset_server)
 	{
-		this->window.allocate(1280, 720, "MyGame");
+		this->window.allocate(800, 600, "MyGame");
 		this->renderApi.init(window);
 		this->create_global_buffers();
 		this->heap.allocate(p_asset_server, this->renderApi);

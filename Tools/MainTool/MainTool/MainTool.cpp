@@ -638,12 +638,10 @@ public:
 					break;
 					}
 
-					l_delta = mul(SceneKernel::get_worldtolocal(l_node.element, p_scene), l_delta);
-
 					if (!Math::EqualsVec(l_delta, Math::vec4f(0.0f, 0.0f, 0.0f, 0.0f)))
 					{
+						l_delta.Vec3 = Math::rotate(l_delta.Vec3, SceneKernel::get_localrotation(l_node.element));
 						p_engine_running_module.editor_scene.set_localposition(l_node, SceneKernel::get_localposition(l_node.element) + l_delta.Vec3);
-						// SceneKernel::set_localposition(l_node.element, p_scene, SceneKernel::get_localposition(l_node.element) + l_delta.Vec3);
 					}
 				}
 				break;
