@@ -76,7 +76,7 @@ namespace Serialization
 		{
 			VaryingVector<HeaderElementType> l_return;
 			l_return.memory = deserialize_vector<VaryingVectorHeader<HeaderElementType>>(p_current_pointer, p_source);
-			l_return.heap = deserialize_heap<GeneralPurposeHeap2_Times2Allocation>(p_current_pointer, p_source);
+			deserialize_heap<GeneralPurposeHeap2_Times2Allocation>(p_current_pointer, p_source, &l_return.heap);
 			return l_return;
 		};
 

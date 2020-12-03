@@ -295,17 +295,14 @@ private:
 						l_json_deserializer.free();
 						MaterialAsset l_material_asset = JSONDeserializer<MaterialAsset>::deserialize(l_json_deserializer);
 						l_material_asset.serialize(l_asset_bytes);
+
+						l_material_asset.free();
 					}
 					else if (l_json_type.value.equals(StringSlice("scene")))
 					{
 						l_json_deserializer.free();
 						SceneAsset l_scene_asset = SceneSerializer2::JSON_to_SceneAsset(l_json_deserializer);
 						l_scene_asset.serialize(l_asset_bytes);
-
-						//com::Vector<char> l_test = SceneSerializer::serialize_to_json<ComponentAssetSerializer>(l_scene_asset, this->asset_server);
-						//printf(l_test.Memory);
-						//l_test.free();
-
 					}
 					else if (l_json_type.value.equals(StringSlice("shader")))
 					{

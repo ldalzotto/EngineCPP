@@ -3288,7 +3288,7 @@ struct RenderHeap2
 		{
 			RenderHeap2* render_heap;
 			AssetServerHandle asset_server;
-			
+
 			inline ShaderLayoutResourceAllocator() {};
 			inline ShaderLayoutResourceAllocator(const AssetServerHandle& p_asset_server, RenderHeap2* p_render_heap)
 			{
@@ -3408,7 +3408,7 @@ struct RenderHeap2
 				this->render_heap->shaders_to_materials.release_element(p_shader.cast<com::Vector<com::TPoolToken<Material>>>());
 				this->render_heap->shaders.release_element(p_shader);
 			};
-			
+
 		};
 
 		struct MeshResourceAllocator
@@ -3652,29 +3652,46 @@ public:
 		};
 	};
 
-	inline com::PoolToken allocate_material(const MaterialType p_type, const com::PoolToken& p_shader)
+	inline com::PoolToken allocate_material(const MaterialType p_type, const size_t p_material, com::PoolToken* out_shader)
 	{
-		com::TPoolToken<Material> l_material_handle = this->materials.alloc_element(Material(p_type));
+		Material l_material = Material(p_type);
+		com::Vector<char> l_material_binary = this->asset_server.get_resource(p_material);
+		{
+			MaterialAsset l_material_asset = MaterialAsset::deserialize(l_material_binary.Memory);
+
+			*out_shader = this->allocate_shader(l_material_asset.shader, this->render_api->swap_chain.render_passes.get_renderpass<RenderPass::Type::RT_COLOR_DEPTH>());
+
+			for (size_t i = 0; i < l_material_asset.parameters.size(); i++)
+			{
+				VaryingVectorHeader<MaterialAssetParameterType>& l_parameter_header = l_material_asset.parameters.get_header(i);
+				switch (l_parameter_header.header)
+				{
+				case MaterialAssetParameterType::TEXTURE:
+				{
+					size_t* l_texture = l_material_asset.parameters.get_element<size_t>(l_parameter_header.chunk);
+					l_material.add_image_parameter(this->allocate_material_image_parameter(this->allocate_texture(*l_texture)));
+				}
+				break;
+				case MaterialAssetParameterType::VEC4F:
+				{
+					vec4f* l_value = l_material_asset.parameters.get_element<vec4f>(l_parameter_header.chunk);
+					l_material.add_uniform_parameter(
+						this->allocate_material_uniform_parameter(GPtr::fromType(l_value))
+					);
+				}
+				break;
+				}
+			}
+		
+		}
+		l_material_binary.free();
+
+
+		com::TPoolToken<Material> l_material_handle = this->materials.alloc_element(l_material);
 		this->material_to_renderableobjects.alloc_element(com::Vector<com::TPoolToken<RenderableObject>>());
-		this->shaders_to_materials[p_shader.Index].push_back(l_material_handle);
+		this->shaders_to_materials[out_shader->Index].push_back(l_material_handle);
+
 		return l_material_handle;
-	};
-
-	inline void material_add_image_parameter(const com::TPoolToken<Material>& p_material, const com::TPoolToken<Texture>& p_texture)
-	{
-		ShaderCombinedImageSamplerParameter l_diffuse_texture;
-		l_diffuse_texture.create(p_texture, *this->render_api);
-		l_diffuse_texture.bind(0, this->render_api->device, this->render_api->image_samplers, this->textures);
-		this->materials[p_material].add_image_parameter(this->shader_imagesample_parameters.alloc_element(l_diffuse_texture));
-	};
-
-	inline void material_add_uniform_parameter(const com::TPoolToken<Material>& p_material, const GPtr& p_initial_value)
-	{
-		ShaderUniformBufferParameter l_diffuse_color;
-		l_diffuse_color.create(*this->render_api, p_initial_value.element_size, this->render_api->shaderparameter_layouts.uniformbuffer_layout);
-		l_diffuse_color.bind(0, p_initial_value.element_size, this->render_api->device);
-		l_diffuse_color.pushbuffer(p_initial_value, this->render_api->device);
-		this->materials[p_material].add_uniform_parameter(this->shader_uniform_parameters.alloc_element(l_diffuse_color));
 	};
 
 	inline void material_set_uniform_paramter(const com::TPoolToken<Material>& p_material, size_t p_parameter_index, const GPtr& p_value)
@@ -3766,6 +3783,23 @@ private:
 	inline com::TPoolToken<ShaderModule> allocate_shadermodule_internal(size_t p_key)
 	{
 		return this->resource.shader_module_resources.allocate_resource(p_key);
+	};
+
+	inline com::TPoolToken<ShaderCombinedImageSamplerParameter> allocate_material_image_parameter(const com::TPoolToken<Texture>& p_texture)
+	{
+		ShaderCombinedImageSamplerParameter l_diffuse_texture;
+		l_diffuse_texture.create(p_texture, *this->render_api);
+		l_diffuse_texture.bind(0, this->render_api->device, this->render_api->image_samplers, this->textures);
+		return this->shader_imagesample_parameters.alloc_element(l_diffuse_texture);
+	};
+
+	inline com::TPoolToken<ShaderUniformBufferParameter> allocate_material_uniform_parameter(const GPtr& p_initial_value)
+	{
+		ShaderUniformBufferParameter l_diffuse_color;
+		l_diffuse_color.create(*this->render_api, p_initial_value.element_size, this->render_api->shaderparameter_layouts.uniformbuffer_layout);
+		l_diffuse_color.bind(0, p_initial_value.element_size, this->render_api->device);
+		l_diffuse_color.pushbuffer(p_initial_value, this->render_api->device);
+		return this->shader_uniform_parameters.alloc_element(l_diffuse_color);
 	};
 
 };

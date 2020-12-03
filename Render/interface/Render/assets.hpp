@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Common/Container/vector.hpp"
+#include "Common/Container/varying_vector.hpp"
 #include "Common/Functional/hash.hpp"
 #include "Common/Serialization/json.hpp"
 #include "Common/Serialization/binary.hpp"
@@ -326,18 +327,27 @@ struct JSONDeserializer<ShaderAsset>
 	}
 };
 
+enum class MaterialAssetParameterType
+{
+	UNKNOWN = 0,
+	TEXTURE = 1,
+	VEC4F = 2
+};
 
 struct MaterialAsset
 {
 	size_t shader;
-	size_t texture;
-	Math::vec4f color;
+	VaryingVector<MaterialAssetParameterType> parameters;
+
+	inline void free()
+	{
+		this->parameters.free();
+	}
 
 	inline void serialize(com::Vector<char>& out_target)
 	{
 		Serialization::Binary::serialize_field<size_t>(&this->shader, out_target);
-		Serialization::Binary::serialize_field<size_t>(&this->texture, out_target);
-		Serialization::Binary::serialize_field<Math::vec4f>(&this->color, out_target);
+		Serialization::Binary::serialize_varyingvector(this->parameters, out_target);
 	};
 
 	inline static MaterialAsset deserialize(const char* p_source)
@@ -345,8 +355,7 @@ struct MaterialAsset
 		MaterialAsset l_resource;
 		size_t l_current_pointer = 0;
 		l_resource.shader = *Serialization::Binary::deserialize_field<size_t>(l_current_pointer, p_source);
-		l_resource.texture = *Serialization::Binary::deserialize_field<size_t>(l_current_pointer, p_source);
-		l_resource.color = *Serialization::Binary::deserialize_field<Math::vec4f>(l_current_pointer, p_source);
+		l_resource.parameters = Serialization::Binary::deserialize_varyingvector<MaterialAssetParameterType>(l_current_pointer, p_source);
 		return l_resource;
 	};
 };
@@ -361,18 +370,31 @@ struct JSONDeserializer<MaterialAsset>
 		p_iterator.next_field("type");
 		p_iterator.next_field("shader");
 		l_asset.shader = Hash<StringSlice>::hash(p_iterator.get_currentfield().value);
-		p_iterator.next_field("texture");
-		l_asset.texture = Hash<StringSlice>::hash(p_iterator.get_currentfield().value);
 
-		Deserialization::JSON::JSONObjectIterator l_color_iterator;
-		if (p_iterator.next_object("color", &l_color_iterator))
+		Deserialization::JSON::JSONObjectIterator l_parameters_iterator;
+		p_iterator.next_array("parameters", &l_parameters_iterator);
+		Deserialization::JSON::JSONObjectIterator l_parameter_iterator;
+		while (l_parameters_iterator.next_array_object(&l_parameter_iterator))
 		{
-			l_asset.color = JSONDeserializer<Math::vec4f>::deserialize(l_color_iterator);
+			l_parameter_iterator.next_field("type");
+			if (l_parameter_iterator.get_currentfield().value.equals(StringSlice("TEXTURE")))
+			{
+				l_parameter_iterator.next_field("object");
+				size_t l_texture = Hash<StringSlice>::hash(l_parameter_iterator.get_currentfield().value);
+				l_asset.parameters.push_back(MaterialAssetParameterType::TEXTURE, l_texture);
+			}
+			else if (l_parameter_iterator.get_currentfield().value.equals(StringSlice("VEC4F")))
+			{
+				Deserialization::JSON::JSONObjectIterator l_value_iterator;
+				l_parameter_iterator.next_object("object", &l_value_iterator);
+				Math::vec4f l_param = JSONDeserializer<Math::vec4f>::deserialize(l_value_iterator);
+				l_asset.parameters.push_back(MaterialAssetParameterType::VEC4F, l_param);
+			}
+
 		}
-		else
-		{
-			l_asset.color = Math::vec4f(1.0f, 1.0f, 1.0f, 1.0f);
-		}
+
+		l_parameters_iterator.free();
+		l_parameter_iterator.free();
 		p_iterator.free();
 
 		return l_asset;

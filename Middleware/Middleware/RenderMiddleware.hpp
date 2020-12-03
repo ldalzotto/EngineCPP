@@ -20,7 +20,7 @@ struct RenderableObjectEntry
 
 	inline void set_material(MeshRenderer* p_mesh_renderer, size_t p_new_material, AssetServerHandle& p_asset_server, RenderHandle& p_render)
 	{
-		this->default_material = TMaterial<MaterialTypeEnum::DEFAULT>::allocate(p_new_material, p_asset_server, p_render).material;
+		this->default_material.allocate(p_render, MaterialType((unsigned int)MaterialTypeEnum::DEFAULT), p_new_material);
 		this->renderableobject.set_material(p_render, this->default_material);
 		p_mesh_renderer->material = p_new_material;
 	};
@@ -79,7 +79,8 @@ struct RenderMiddleware
 
 	inline void on_elligible(const SceneNodeToken p_node_token, const NTreeResolve<SceneNode>& p_node, MeshRenderer& p_mesh_renderer)
 	{
-		MaterialHandle l_material = TMaterial<MaterialTypeEnum::DEFAULT>::allocate(p_mesh_renderer.material.key, this->asset_server, this->render).material;
+		MaterialHandle l_material;
+		l_material.allocate(this->render, MaterialType((unsigned int)MaterialTypeEnum::DEFAULT), p_mesh_renderer.material.key);
 
 		MeshHandle l_mesh;
 		l_mesh.allocate(this->render, p_mesh_renderer.model.key);

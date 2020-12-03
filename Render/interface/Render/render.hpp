@@ -52,11 +52,9 @@ struct MaterialHandle : public Handle
 {
 	ShaderHandle shader;
 
-	void allocate(const RenderHandle& p_render, const MaterialType p_type, const ShaderHandle& p_shader);
+	void allocate(const RenderHandle& p_render, const MaterialType p_type, const size_t p_material);
 	MaterialType get_type(const RenderHandle& p_render);
 
-	void add_image_parameter(const RenderHandle& p_render, const TextureHandle& p_texture);
-	void add_uniform_parameter(const RenderHandle& p_render, const GPtr& p_initial_value);
 	void set_uniform_parameter(const RenderHandle& p_render, const size_t p_parameter_index, const GPtr& p_value);
 	void get_uniform_paramter(const RenderHandle& p_render, size_t p_parameter_index, GPtr& out_value);
 
@@ -103,26 +101,6 @@ struct TMaterial<MaterialTypeEnum::DEFAULT>
 	inline static const size_t COLOR_INDEX = 1;
 
 	MaterialHandle material;
-	
-	inline static TMaterial<MaterialTypeEnum::DEFAULT> allocate(size_t p_material_key, AssetServerHandle& p_asset_server, RenderHandle& p_render)
-	{
-
-		com::Vector<char> l_material_binary = p_asset_server.get_resource(p_material_key);
-		MaterialAsset l_material_asset = MaterialAsset::deserialize(l_material_binary.Memory);
-		l_material_binary.free();
-
-		ShaderHandle l_shader;
-		l_shader.allocate(p_render, l_material_asset.shader);
-		TextureHandle l_texture;
-		l_texture.allocate(p_render, l_material_asset.texture);
-
-		TMaterial<MaterialTypeEnum::DEFAULT> l_material;
-		l_material.material.allocate(p_render, MaterialType((unsigned short int)Type), l_shader);
-		l_material.material.add_image_parameter(p_render, l_texture);
-		l_material.material.add_uniform_parameter(p_render, GPtr::fromType(&l_material_asset.color));
-
-		return l_material;
-	};
 
 	inline void set_color(const RenderHandle& p_render, Math::vec4f& p_value)
 	{

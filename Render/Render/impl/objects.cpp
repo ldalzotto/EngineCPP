@@ -53,29 +53,16 @@ void ShaderHandle::free(const RenderHandle& p_render)
 	this->reset();
 };
 
-void MaterialHandle::allocate(const RenderHandle& p_render, const MaterialType p_type, const ShaderHandle& p_shader)
+void MaterialHandle::allocate(const RenderHandle& p_render, const MaterialType p_type, const size_t p_material)
 {
 	Render* l_render = (Render*)p_render;
-	this->shader = p_shader;
-	this->handle = l_render->heap.allocate_material(p_type, this->shader.handle).Index;
+	this->handle = l_render->heap.allocate_material(p_type, p_material, (com::PoolToken*)&this->shader.handle).Index;
 };
 
 MaterialType MaterialHandle::get_type(const RenderHandle& p_render)
 {
 	Render* l_render = (Render*)p_render;
 	return l_render->heap.materials[this->handle].type;
-};
-
-void MaterialHandle::add_image_parameter(const RenderHandle& p_render, const TextureHandle& p_texture)
-{
-	Render* l_render = (Render*)p_render;
-	l_render->heap.material_add_image_parameter(this->handle, p_texture.handle);
-};
-
-void MaterialHandle::add_uniform_parameter(const RenderHandle& p_render, const GPtr& p_initial_value)
-{
-	Render* l_render = (Render*)p_render;
-	l_render->heap.material_add_uniform_parameter(this->handle, p_initial_value);
 };
 
 void MaterialHandle::set_uniform_parameter(const RenderHandle& p_render, const size_t p_parameter_index, const GPtr& p_value)

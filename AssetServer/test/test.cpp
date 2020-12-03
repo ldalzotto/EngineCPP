@@ -2,6 +2,7 @@
 #include  "AssetServer/asset_server.cpp"
 
 #include "Common/Serialization/json.hpp"
+#include "Common/Container/varying_vector.hpp"
 
 void main(int argc, char** argv)
 {
@@ -28,6 +29,15 @@ void main(int argc, char** argv)
 	size_t Max = Hash<StringSlice>::hash(StringSlice("Max"));
 
 
+	VaryingVector<char> l_t;
+	l_t.allocate(0);
+
+	
+	l_t.push_back('0', SrcColor);
+
+	size_t* l_srccolor = l_t.get_element<size_t>(0);
+	VaryingVectorHeader<char>& l_header = l_t.get_header(0);
+	l_t.free();
 #if 0
 	AssetServer l_server;
 	l_server.allocate(std::string(argv[0]));
