@@ -480,6 +480,57 @@ struct NodeMovement2
 	float rotation_step_deg = 5.0f;
 	float scale_step = 0.1f;
 
+	struct Gizmo
+	{
+		SceneNodeToken gizmo_scene_node;
+
+		inline void create(SceneNodeToken p_parent, EngineHandle p_engine)
+		{
+			if (this->gizmo_scene_node.Index == -1)
+			{
+				this->gizmo_scene_node = SceneKernel::add_node(engine_scene(p_engine), p_parent, Math::Transform());
+				MeshRenderer l_ms;
+				l_ms.initialize(StringSlice("materials/editor_gizmo.json"), StringSlice("models/arrow.obj"));
+				SceneKernel::add_component<MeshRenderer>(engine_scene(p_engine), this->gizmo_scene_node, l_ms);
+			}
+
+		}
+
+		inline void set(NodeMovement2::Direction p_nodemovmeent_direction, EngineHandle p_engine)
+		{
+			switch (p_nodemovmeent_direction)
+			{
+			case Direction::X:
+			{
+				this->set_color(Math::vec4f(1.0f, 0.0f, 0.0f, 1.0f), p_engine);
+			}
+			break;
+			case Direction::Y:
+			{
+				this->set_color(Math::vec4f(0.0f, 1.0f, 0.0f, 1.0f), p_engine);
+			}
+			break;
+			case Direction::Z:
+			{
+				this->set_color(Math::vec4f(0.0f, 0.0f, 1.0f, 1.0f), p_engine);
+			}
+			break;
+			}
+		}
+
+		inline void free(EngineHandle p_engine)
+		{
+			SceneKernel::free_node(engine_scene(p_engine), this->gizmo_scene_node);
+			this->gizmo_scene_node.reset();
+		};
+
+		inline void set_color(Math::vec4f& p_color, EngineHandle p_engine)
+		{
+			MeshRenderer* l_ms_ptr = SceneKernel::get_component<MeshRenderer>(engine_scene(p_engine), this->gizmo_scene_node);
+			engine_render_middleware(p_engine)->get_renderable_object(l_ms_ptr)->default_material.set_uniform_parameter(engine_render_middleware(p_engine)->render, 0, GPtr::fromType<Math::vec4f>(&p_color));
+		};
+	} gizmo;
+
 	inline void perform_node_movement(SceneNodeToken& p_node, EngineRunningModule& p_engine_running_module)
 	{
 		InputHandle l_input = engine_input(p_engine_running_module.running_engine);
@@ -502,17 +553,17 @@ struct NodeMovement2
 
 		if (l_input.get_state(InputKey::InputKey_X, KeyState::KeyStateFlag_PRESSED_THIS_FRAME))
 		{
-			this->direction = Direction::X;
+			this->set_direction(Direction::X, p_engine_running_module);
 			printf("NodeMovement : X axis \n");
 		}
 		else if (l_input.get_state(InputKey::InputKey_Y, KeyState::KeyStateFlag_PRESSED_THIS_FRAME))
 		{
-			this->direction = Direction::Y;
+			this->set_direction(Direction::Y, p_engine_running_module);
 			printf("NodeMovement : Y axis \n");
 		}
 		else if (l_input.get_state(InputKey::InputKey_Z, KeyState::KeyStateFlag_PRESSED_THIS_FRAME))
 		{
-			this->direction = Direction::Z;
+			this->set_direction(Direction::Z, p_engine_running_module);
 			printf("NodeMovement : Z axis \n");
 		}
 
@@ -605,7 +656,7 @@ struct NodeMovement2
 				}
 
 				Math::quat l_delta = Math::rotateAround(l_axis, l_value);
-				
+
 				if (!Math::Equals(l_delta, Math::QuatConst::IDENTITY))
 				{
 					p_engine_running_module.editor_scene.set_localrotation(l_node, mul(SceneKernel::get_localrotation(l_node.element), Math::rotateAround(l_axis, l_value)));
@@ -614,19 +665,76 @@ struct NodeMovement2
 			break;
 			}
 
+			SceneKernel::set_worldposition(SceneKernel::resolve_node(p_scene, this->gizmo.gizmo_scene_node).element, p_scene, SceneKernel::get_worldposition(l_node.element, p_scene));
+
+
+			{
+				Math::quat l_local_rotation = Math::QuatConst::IDENTITY;
+
+
+				switch (this->direction)
+				{
+				case Direction::X:
+				{
+					l_local_rotation = Math::rotateAround(
+						Math::VecConst<float>::UP,
+						90.0f * DEG_TO_RAD
+					);
+				}
+				break;
+				case Direction::Y:
+				{
+					l_local_rotation = Math::rotateAround(
+						Math::VecConst<float>::RIGHT,
+						-90.0f * DEG_TO_RAD
+					);
+				}
+				break;
+				}
+
+				SceneKernel::set_worldrotation(SceneKernel::resolve_node(p_scene, this->gizmo.gizmo_scene_node).element, p_scene,
+					mul(
+						SceneKernel::get_worldrotation(l_node.element, p_scene),
+						l_local_rotation
+					)
+				);
+
+
+			}
+			// SceneKernel::set_localrotation(l_giz, engine_scene(p_engine), Math::rotateAround(Math::VecConst<float>::UP, 90.0f * DEG_TO_RAD));
 		}
 
 	};
 
-	inline void exit()
+	inline void exit(EngineHandle p_engine)
 	{
 		this->state = State::UNDEFINED;
 		this->direction = Direction::UNDEFINED;
+		this->gizmo.free(p_engine);
 	}
 
+private:
+	inline void set_direction(Direction p_new_direction, EngineRunningModule& p_engine_running_module)
+	{
+		if (this->direction != p_new_direction)
+		{
+			this->direction = p_new_direction;
+			this->on_direction_changed(this->direction, p_engine_running_module);
+		}
+	};
+
+	inline void on_direction_changed(Direction p_new_direction, EngineRunningModule& p_engine_running_module)
+	{
+		if (p_new_direction != Direction::UNDEFINED)
+		{
+			this->gizmo.create(SceneNodeToken(0), p_engine_running_module.running_engine);
+			this->gizmo.set(p_new_direction, p_engine_running_module.running_engine);
+		}
+	};
 };
 
-
+//TODO -> if the child contains some editor-only SceneNodes, then the selection material change will also be applied to them.
+//TODO -> if the child contains some editor-only SceneNodes, persistance will take it into account.
 struct SceneNodeSelection
 {
 	struct SelectedNodeRenderer
@@ -741,7 +849,7 @@ struct ToolState2
 	} selected_engine;
 
 	SceneNodeSelection selected_node;
-	SceneNodeSelection::SelectedNodeState selected_node_state;
+	SceneNodeSelection::SelectedNodeState selected_node_state = SceneNodeSelection::SelectedNodeState::NODE_NOT_SELECTED;
 
 	NodeMovement2 node_movement;
 
@@ -796,7 +904,7 @@ struct ToolState2
 		{
 		case SceneNodeSelection::SelectedNodeState::NODE_NOT_SELECTED:
 		{
-			this->node_movement.exit();
+			this->node_movement.exit(this->engine_runner.engines[this->selected_engine.token].value.running_engine);
 			//TODO -> deactivate movement module
 		}
 		break;

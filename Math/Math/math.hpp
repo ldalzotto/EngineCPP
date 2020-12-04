@@ -357,16 +357,6 @@ namespace Math
 		return l_return;
 	};
 
-	template <class TYPE>
-	inline Quaternion fromDirection(const Vector<3, TYPE>& p_vec)
-	{
-		float l_angle = angle(VecConst<TYPE>::FORWARD, p_vec);
-		return Quaternion(
-			mul(p_vec, sinf(l_angle * 0.5f)),
-			cosf(l_angle * 0.5f)
-		);
-	};
-
 	inline Quaternion fromAxis(const Matrix<3, float>& p_axis)
 	{
 		const Vector<3, float>& l_right = p_axis.Right;

@@ -303,6 +303,7 @@ struct SceneKernel
 		};
 
 		thiz->tree.remove(p_node, RemoveAllComponents(thiz));
+		p_node.reset();
 	};
 
 	inline static SceneNodeToken add_node(Scene* thiz, const SceneNodeToken& p_parent, const Math::Transform& p_initial_local_transform)
