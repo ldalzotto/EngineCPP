@@ -52,6 +52,11 @@ struct ToStringFormat<int>
 {
 	inline static const char* format = "%i";
 };
+template<>
+struct ToStringFormat<char>
+{
+	inline static const char* format = "%c";
+};
 
 template<class ElementType>
 struct FromStringParser {};

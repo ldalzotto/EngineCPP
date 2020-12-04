@@ -238,7 +238,7 @@ inline void NTree<ElementType, Allocator>::remove(com::PoolToken p_value, NTreeF
 };
 
 template<class ElementType, class Allocator, class NTreeForEach>
-inline void traverse_resolved(NTree<ElementType, Allocator>* p_tree, NTreeResolve<ElementType>& p_start, NTreeForEach& p_foreach)
+inline void traverse_resolved_exclusive(NTree<ElementType, Allocator>* p_tree, NTreeResolve<ElementType>& p_start, NTreeForEach& p_foreach)
 {
 	com::Vector<com::TPoolToken<NTreeNode>>& l_start_childs = p_tree->get_childs(p_start);
 	for (size_t l_child_index = 0; l_child_index < l_start_childs.Size; l_child_index++)
@@ -248,11 +248,11 @@ inline void traverse_resolved(NTree<ElementType, Allocator>* p_tree, NTreeResolv
 		com::Vector<com::TPoolToken<NTreeNode>>& l_child_childs = p_tree->get_childs(l_child);
 		if (l_child_childs.Size > 0)
 		{
-			traverse_resolved(p_tree, l_child, p_foreach);
+			traverse_resolved_exclusive(p_tree, l_child, p_foreach);
 		}
 		p_foreach.foreach(l_child);
 	}
-	p_foreach.foreach(p_start);
+	// p_foreach.foreach(p_start);
 };
 
 template<class ElementType, class Allocator>
@@ -266,7 +266,8 @@ inline void NTree<ElementType, Allocator>::traverse(com::PoolToken& p_start, NTr
 	for (size_t l_child_index = 0; l_child_index < l_start_childs.Size; l_child_index++)
 	{
 		NTreeResolve<ElementType> l_child = this->resolve(l_start_childs[l_child_index]);
-		traverse_resolved<ElementType, Allocator, NTreeForEach>(this, l_child, p_foreach);
+		traverse_resolved_exclusive<ElementType, Allocator, NTreeForEach>(this, l_child, p_foreach);
+		p_foreach.foreach(l_child);
 	}
 	p_foreach.foreach(l_start);
 };

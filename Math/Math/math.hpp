@@ -302,13 +302,13 @@ namespace Math
 	{
 		Quaternion l_vectorAsQuat(p_vector, 0.0f);
 		Quaternion l_rotatedVector = mul(p_rotation, l_vectorAsQuat);
-		return normalize(mul(l_rotatedVector, inv(p_rotation)).Vec3s.Vec);
+		return mul(mul(l_rotatedVector, inv(p_rotation)).Vec3s.Vec, length(p_vector));
 	};
 
 	inline Quaternion cross(const Quaternion& p_left, const  Quaternion& p_right)
 	{
-		Vector<3, float> l_rotatedLeft = rotate(VecConst<float>::FORWARD, p_left);
-		Vector<3, float> l_rotatedRight = rotate(VecConst<float>::FORWARD, p_right);
+		Vector<3, float> l_rotatedLeft = normalize(rotate(VecConst<float>::FORWARD, p_left));
+		Vector<3, float> l_rotatedRight = normalize(rotate(VecConst<float>::FORWARD, p_right));
 		return rotateAround(cross(l_rotatedLeft, l_rotatedRight), 0.0f);
 	};
 

@@ -191,10 +191,26 @@ void handle_global_input_event(GLFWwindow* p_window, int key, int scancode, int 
 	case GLFW_KEY_X: l_event.key = InputKey::InputKey_X; break;
 	case GLFW_KEY_Y: l_event.key = InputKey::InputKey_Y; break;
 	case GLFW_KEY_Z: l_event.key = InputKey::InputKey_Z; break;
+	case GLFW_KEY_0: l_event.key = InputKey::InputKey_ZERO; break;
+	case GLFW_KEY_1: l_event.key = InputKey::InputKey_ONE; break;
+	case GLFW_KEY_2: l_event.key = InputKey::InputKey_TWO; break;
+	case GLFW_KEY_3: l_event.key = InputKey::InputKey_THREE; break;
+	case GLFW_KEY_4: l_event.key = InputKey::InputKey_FOUR; break;
+	case GLFW_KEY_5: l_event.key = InputKey::InputKey_FIVE; break;
+	case GLFW_KEY_6: l_event.key = InputKey::InputKey_SIX; break;
+	case GLFW_KEY_7: l_event.key = InputKey::InputKey_SEVEN; break;
+	case GLFW_KEY_8: l_event.key = InputKey::InputKey_EIGHT; break;
+	case GLFW_KEY_9: l_event.key = InputKey::InputKey_NINE; break;
 	case GLFW_KEY_RIGHT: l_event.key = InputKey::InputKey_RIGHT; break;
 	case GLFW_KEY_LEFT: l_event.key = InputKey::InputKey_LEFT;	 break;
 	case GLFW_KEY_DOWN: l_event.key = InputKey::InputKey_DOWN;	 break;
 	case GLFW_KEY_UP: l_event.key = InputKey::InputKey_UP;		 break;
+	case GLFW_KEY_SPACE: l_event.key = InputKey::InputKey_SPACE; break;
+	case GLFW_KEY_ESCAPE: l_event.key = InputKey::InputKey_ESCAPE; break;
+	case GLFW_KEY_BACKSPACE: l_event.key = InputKey::InputKey_BACKSPACE; break;
+	case GLFW_KEY_ENTER: l_event.key = InputKey::InputKey_ENTER; break;
+	case GLFW_KEY_LEFT_SHIFT: l_event.key = InputKey::InputKey_LEFT_SHIFT; break;
+	case GLFW_KEY_MINUS: l_event.key = InputKey::InputKey_MINUS; break;
 	default: return;
 	}
 

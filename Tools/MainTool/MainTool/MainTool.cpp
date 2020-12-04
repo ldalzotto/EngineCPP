@@ -16,7 +16,9 @@
 #include "SceneComponents/components.hpp"
 #include "Middleware/RenderMiddleware.hpp"
 
-struct InterpretorFile
+
+
+struct InterpretorFile2
 {
 	File<FilePathMemoryLayout::STRING> file;
 	size_t user_start_read;
@@ -45,33 +47,15 @@ struct InterpretorFile
 		this->user_input.free();
 	};
 
-	inline void start()
-	{
-		if (this->state == State::UNDEFINED)
-		{
-			this->user_start_read = FileAlgorithm::get_char_nb(this->file.path.path.c_str());
-			this->state = State::WAITING_FOR_MACHINE;
-			this->machine_end();
-		}
-	}
 
 	inline void machine_start()
 	{
-		if (this->state == State::WAITING_FOR_USER)
-		{
-			this->state = State::WAITING_FOR_MACHINE;
-		}
+		this->set_state(State::WAITING_FOR_MACHINE);
 	};
 
 	inline void machine_end()
 	{
-		if (this->state == State::WAITING_FOR_MACHINE)
-		{
-			this->state = State::WAITING_FOR_USER;
-
-			this->user_input.clear();
-			this->user_start_read = FileAlgorithm::get_char_nb(this->file.path.path.c_str());
-		}
+		this->set_state(State::WAITING_FOR_USER);
 	};
 
 	inline void machine_write(StringSlice& p_str)
@@ -108,13 +92,42 @@ struct InterpretorFile
 		l_str.remove_chars('\n');
 		return l_str;
 	}
+
+private:
+	inline void set_state(const State p_next_state)
+	{
+		if ((this->state != p_next_state) && (this->state_transition(this->state, p_next_state)))
+		{
+			State l_old_state = this->state;
+			this->state = p_next_state;
+			this->on_state_changed(l_old_state, this->state);
+		}
+	};
+
+	inline bool state_transition(const State p_old_state, const State p_new_state)
+	{
+		return true;
+	};
+
+	inline void on_state_changed(const State p_old_state, const State p_new_state)
+	{
+		switch (p_new_state)
+		{
+		case State::WAITING_FOR_MACHINE:
+		{
+			this->user_start_read = FileAlgorithm::get_char_nb(this->file.path.path.c_str());
+		}
+		break;
+		case State::WAITING_FOR_USER:
+		{
+			this->user_input.clear();
+			this->user_start_read = FileAlgorithm::get_char_nb(this->file.path.path.c_str());
+		}
+		break;
+		}
+	};
+
 };
-
-
-
-
-
-
 
 
 struct EditorSceneEventHeader
@@ -232,7 +245,7 @@ struct EditorScene
 
 		SceneAsset l_dup_asset = SceneSerializer2::Scene_to_SceneAsset(*this->engine_scene);
 		com::Vector<char> l_scene_json = SceneSerializer2::SceneAsset_to_JSON(l_dup_asset, l_asset_server);
-		
+
 		File<FilePathMemoryLayout::STRING> l_scene_file;
 		FilePath<FilePathMemoryLayout::STRING> l_scene_file_path;
 		l_scene_file_path.allocate(0);
@@ -241,7 +254,7 @@ struct EditorScene
 		l_scene_file.allocate(FileType::CONTENT, l_scene_file_path);
 		l_scene_file.create_override();
 		l_scene_file.append(StringSlice(l_scene_json.Memory));
-		
+
 		l_scene_file.free();
 
 		l_scene_json.free();
@@ -292,11 +305,6 @@ struct EditorScene
 		}
 	};
 };
-
-
-
-
-
 
 
 
@@ -435,6 +443,15 @@ struct EngineRunner
 		}
 		engines.free();
 	}
+
+	inline bool frame_executed(com::TPoolToken<Optional<EngineRunningModule>> p_engine)
+	{
+		if (this->engines[p_engine].hasValue)
+		{
+			return this->engines[p_engine].value.frame_executed;
+		}
+		return false;
+	};
 };
 
 
@@ -442,14 +459,7 @@ struct EngineRunner
 
 
 
-
-
-
-
-
-
-
-struct NodeMovement
+struct NodeMovement2
 {
 	enum class State
 	{
@@ -466,13 +476,159 @@ struct NodeMovement
 		X = 1, Y = 2, Z = 3
 	} direction = Direction::UNDEFINED;
 
-
 	float movement_step = 1.0f;
 	float rotation_step_deg = 5.0f;
 	float scale_step = 0.1f;
 
-private:
+	inline void perform_node_movement(SceneNodeToken& p_node, EngineRunningModule& p_engine_running_module)
+	{
+		InputHandle l_input = engine_input(p_engine_running_module.running_engine);
 
+		if (l_input.get_state(InputKey::InputKey_T, KeyState::KeyStateFlag_PRESSED_THIS_FRAME))
+		{
+			this->state = State::POSITION_LOCAL;
+			printf("NodeMovement : Position mode enabled\n");
+		}
+		else if (l_input.get_state(InputKey::InputKey_R, KeyState::KeyStateFlag_PRESSED_THIS_FRAME))
+		{
+			this->state = State::ROTATION_LOCAL;
+			printf("NodeMovement : Rotation mode enabled\n");
+		}
+		else if (l_input.get_state(InputKey::InputKey_S, KeyState::KeyStateFlag_PRESSED_THIS_FRAME))
+		{
+			this->state = State::SCALE_LOCAL;
+			printf("NodeMovement : Scale mode enabled\n");
+		}
+
+		if (l_input.get_state(InputKey::InputKey_X, KeyState::KeyStateFlag_PRESSED_THIS_FRAME))
+		{
+			this->direction = Direction::X;
+			printf("NodeMovement : X axis \n");
+		}
+		else if (l_input.get_state(InputKey::InputKey_Y, KeyState::KeyStateFlag_PRESSED_THIS_FRAME))
+		{
+			this->direction = Direction::Y;
+			printf("NodeMovement : Y axis \n");
+		}
+		else if (l_input.get_state(InputKey::InputKey_Z, KeyState::KeyStateFlag_PRESSED_THIS_FRAME))
+		{
+			this->direction = Direction::Z;
+			printf("NodeMovement : Z axis \n");
+		}
+
+
+		if (this->direction != Direction::UNDEFINED &&
+			this->state != State::UNDEFINED)
+		{
+
+			Scene* p_scene = p_engine_running_module.editor_scene.engine_scene;
+			NTreeResolve<SceneNode> l_node = SceneKernel::resolve_node(p_scene, p_node);
+
+			switch (this->state)
+			{
+			case State::POSITION_LOCAL:
+			{
+
+				float l_value = 0.0f;
+
+				if (l_input.get_state(InputKey::InputKey_UP, KeyState::KeyStateFlag_PRESSED_THIS_FRAME))
+				{
+					l_value = this->movement_step;
+				}
+				else if (l_input.get_state(InputKey::InputKey_DOWN, KeyState::KeyStateFlag_PRESSED_THIS_FRAME))
+				{
+					l_value = -this->movement_step;
+				}
+
+
+				Math::vec4f l_delta = Math::vec4f(0.0f, 0.0f, 0.0f, 0.0f);
+
+				switch (this->direction)
+				{
+				case Direction::X:
+				{
+					l_delta.x = l_value;
+				}
+				break;
+				case Direction::Y:
+				{
+					l_delta.y = l_value;
+				}
+				break;
+				case Direction::Z:
+				{
+					l_delta.z = l_value;
+				}
+				break;
+				}
+
+				if (!Math::EqualsVec(l_delta, Math::vec4f(0.0f, 0.0f, 0.0f, 0.0f)))
+				{
+					l_delta.Vec3 = Math::rotate(l_delta.Vec3, SceneKernel::get_localrotation(l_node.element));
+					p_engine_running_module.editor_scene.set_localposition(l_node, SceneKernel::get_localposition(l_node.element) + l_delta.Vec3);
+				}
+			}
+			break;
+			case State::ROTATION_LOCAL:
+			{
+
+				float l_value = 0.0f;
+
+				if (l_input.get_state(InputKey::InputKey_UP, KeyState::KeyStateFlag_PRESSED_THIS_FRAME))
+				{
+					l_value = this->rotation_step_deg * DEG_TO_RAD;
+				}
+				else if (l_input.get_state(InputKey::InputKey_DOWN, KeyState::KeyStateFlag_PRESSED_THIS_FRAME))
+				{
+					l_value = -this->rotation_step_deg * DEG_TO_RAD;
+				}
+
+
+				Math::vec3f l_axis = Math::vec3f(0.0f, 0.0f, 0.0f);
+				switch (this->direction)
+				{
+				case Direction::X:
+				{
+					l_axis.x = 1.0f;
+				}
+				break;
+				case Direction::Y:
+				{
+					l_axis.y = 1.0f;
+				}
+				break;
+				case Direction::Z:
+				{
+					l_axis.z = 1.0f;
+				}
+				break;
+				}
+
+				Math::quat l_delta = Math::rotateAround(l_axis, l_value);
+				
+				if (!Math::Equals(l_delta, Math::QuatConst::IDENTITY))
+				{
+					p_engine_running_module.editor_scene.set_localrotation(l_node, mul(SceneKernel::get_localrotation(l_node.element), Math::rotateAround(l_axis, l_value)));
+				}
+			}
+			break;
+			}
+
+		}
+
+	};
+
+	inline void exit()
+	{
+		this->state = State::UNDEFINED;
+		this->direction = Direction::UNDEFINED;
+	}
+
+};
+
+
+struct SceneNodeSelection
+{
 	struct SelectedNodeRenderer
 	{
 		SceneNodeToken node;
@@ -486,30 +642,53 @@ private:
 
 	SceneNodeToken root_selected_node;
 	com::Vector<SelectedNodeRenderer> selected_nodes_renderer;
-	Scene* selected_node_scene;
+	EngineHandle selected_node_engine;
 
-public:
-
-	inline void set_selected_node(Scene* p_scene, SceneNodeToken& p_node, RenderMiddlewareHandle p_render_middleware)
+	enum class SelectedNodeState
 	{
-		for (size_t i = 0; i < this->selected_nodes_renderer.Size; i++)
+		NODE_NOT_SELECTED = 0,
+		NODE_SELECTED = 1
+	};
+
+	inline SelectedNodeState set_selected_node(EngineHandle p_engine, size_t p_node)
+	{
+		if (this->root_selected_node.Index == p_node)
 		{
-			this->selected_nodes_renderer[i].set_original_meshrenderer(this->selected_node_scene, p_render_middleware);
+			return this->calculate_selectednode_state();
 		}
-		this->selected_nodes_renderer.clear();
 
-		this->root_selected_node = SceneNodeToken();
-		this->selected_node_scene = p_scene;
+		EngineHandle l_old_engine = this->selected_node_engine;
+		this->selected_node_engine = p_engine;
+		SceneNodeToken l_old = this->root_selected_node;
+		this->root_selected_node = SceneNodeToken(p_node);
+		this->on_root_selected_node_changed(l_old, this->root_selected_node, l_old_engine, this->selected_node_engine);
 
-		if (p_node.Index == -1)
+
+		return this->calculate_selectednode_state();
+	};
+
+	inline SelectedNodeState calculate_selectednode_state()
+	{
+		if (this->root_selected_node.Index == -1)
 		{
-			this->exit(p_render_middleware);
+			return SelectedNodeState::NODE_NOT_SELECTED;
 		}
 		else
 		{
-			this->root_selected_node = p_node;
-			this->selected_node_scene = p_scene;
+			return SelectedNodeState::NODE_SELECTED;
+		}
+	};
 
+	inline void on_root_selected_node_changed(SceneNodeToken p_old, SceneNodeToken p_new, EngineHandle p_old_engine, EngineHandle p_new_engine)
+	{
+		for (size_t i = 0; i < this->selected_nodes_renderer.Size; i++)
+		{
+			this->selected_nodes_renderer[i].set_original_meshrenderer(engine_scene(p_old_engine), engine_render_middleware(p_old_engine));
+		}
+		this->selected_nodes_renderer.clear();
+
+		if (p_new.Index != -1)
+		{
 			struct SceneForeach
 			{
 				com::Vector<SelectedNodeRenderer>* out_selected_node_renderers;
@@ -524,11 +703,9 @@ public:
 
 				inline void foreach(NTreeResolve<SceneNode>& p_node)
 				{
-
 					MeshRenderer* l_mesh_renderer = SceneKernel::get_component<MeshRenderer>(this->scene, p_node.node->index);
 					if (l_mesh_renderer)
 					{
-					
 						SelectedNodeRenderer l_selected_node_renderer;
 						l_selected_node_renderer.node = p_node.node->index;
 						l_selected_node_renderer.original_material = l_mesh_renderer->material.key;
@@ -538,376 +715,354 @@ public:
 				};
 			};
 
-			p_scene->tree.traverse(this->root_selected_node, SceneForeach(&this->selected_nodes_renderer, p_scene, p_render_middleware));
-		}
-
-
-	};
-
-	inline void handle_scene_undo(EngineRunningModule& p_engine_running_module)
-	{
-		InputHandle l_input = engine_input(p_engine_running_module.running_engine);
-
-		if (l_input.get_state(InputKey::InputKey_P, KeyState::KeyStateFlag_PRESSED))
-		{
-			p_engine_running_module.editor_scene._undo();
-		}
-	};
-
-	inline void perform_node_movement(EngineRunningModule& p_engine_running_module)
-	{
-		if (this->root_selected_node.Index != -1)
-		{
-			InputHandle l_input = engine_input(p_engine_running_module.running_engine);
-
-			if (l_input.get_state(InputKey::InputKey_T, KeyState::KeyStateFlag_PRESSED_THIS_FRAME))
-			{
-				this->state = NodeMovement::State::POSITION_LOCAL;
-				printf("NodeMovement : Position mode enabled\n");
-			}
-			else if (l_input.get_state(InputKey::InputKey_R, KeyState::KeyStateFlag_PRESSED_THIS_FRAME))
-			{
-				this->state = NodeMovement::State::ROTATION_LOCAL;
-				printf("NodeMovement : Rotation mode enabled\n");
-			}
-			else if (l_input.get_state(InputKey::InputKey_S, KeyState::KeyStateFlag_PRESSED_THIS_FRAME))
-			{
-				this->state = NodeMovement::State::SCALE_LOCAL;
-				printf("NodeMovement : Scale mode enabled\n");
-			}
-
-			if (l_input.get_state(InputKey::InputKey_X, KeyState::KeyStateFlag_PRESSED_THIS_FRAME))
-			{
-				this->direction = NodeMovement::Direction::X;
-				printf("NodeMovement : X axis \n");
-			}
-			else if (l_input.get_state(InputKey::InputKey_Y, KeyState::KeyStateFlag_PRESSED_THIS_FRAME))
-			{
-				this->direction = NodeMovement::Direction::Y;
-				printf("NodeMovement : Y axis \n");
-			}
-			else if (l_input.get_state(InputKey::InputKey_Z, KeyState::KeyStateFlag_PRESSED_THIS_FRAME))
-			{
-				this->direction = NodeMovement::Direction::Z;
-				printf("NodeMovement : Z axis \n");
-			}
-
-
-			if (this->direction != NodeMovement::Direction::UNDEFINED &&
-				this->state != NodeMovement::State::UNDEFINED)
-			{
-
-				Scene* p_scene = p_engine_running_module.editor_scene.engine_scene;
-				NTreeResolve<SceneNode> l_node = SceneKernel::resolve_node(p_scene, this->root_selected_node);
-
-				switch (this->state)
-				{
-				case NodeMovement::State::POSITION_LOCAL:
-				{
-
-					float l_value = 0.0f;
-
-					if (l_input.get_state(InputKey::InputKey_UP, KeyState::KeyStateFlag_PRESSED_THIS_FRAME))
-					{
-						l_value = this->movement_step;
-					}
-					else if (l_input.get_state(InputKey::InputKey_DOWN, KeyState::KeyStateFlag_PRESSED_THIS_FRAME))
-					{
-						l_value = -this->movement_step;
-					}
-
-
-					Math::vec4f l_delta = Math::vec4f(0.0f, 0.0f, 0.0f, 0.0f);
-
-					switch (this->direction)
-					{
-					case NodeMovement::Direction::X:
-					{
-						l_delta.x = l_value;
-					}
-					break;
-					case NodeMovement::Direction::Y:
-					{
-						l_delta.y = l_value;
-					}
-					break;
-					case NodeMovement::Direction::Z:
-					{
-						l_delta.z = l_value;
-					}
-					break;
-					}
-
-					if (!Math::EqualsVec(l_delta, Math::vec4f(0.0f, 0.0f, 0.0f, 0.0f)))
-					{
-						l_delta.Vec3 = Math::rotate(l_delta.Vec3, SceneKernel::get_localrotation(l_node.element));
-						p_engine_running_module.editor_scene.set_localposition(l_node, SceneKernel::get_localposition(l_node.element) + l_delta.Vec3);
-					}
-				}
-				break;
-				case NodeMovement::State::ROTATION_LOCAL:
-				{
-
-					float l_value = 0.0f;
-
-					if (l_input.get_state(InputKey::InputKey_UP, KeyState::KeyStateFlag_PRESSED_THIS_FRAME))
-					{
-						l_value = this->rotation_step_deg * DEG_TO_RAD;
-					}
-					else if (l_input.get_state(InputKey::InputKey_DOWN, KeyState::KeyStateFlag_PRESSED_THIS_FRAME))
-					{
-						l_value = -this->rotation_step_deg * DEG_TO_RAD;
-					}
-
-
-					Math::vec3f l_axis = Math::vec3f(0.0f, 0.0f, 0.0f);
-					switch (this->direction)
-					{
-					case NodeMovement::Direction::X:
-					{
-						l_axis.x = 1.0f;
-					}
-					break;
-					case NodeMovement::Direction::Y:
-					{
-						l_axis.y = 1.0f;
-					}
-					break;
-					case NodeMovement::Direction::Z:
-					{
-						l_axis.z = 1.0f;
-					}
-					break;
-					}
-
-					Math::quat l_delta = Math::rotateAround(l_axis, l_value);
-					if (!Math::Equals(l_delta, Math::QuatConst::IDENTITY))
-					{
-						p_engine_running_module.editor_scene.set_localrotation(l_node, mul(SceneKernel::get_localrotation(l_node.element), Math::rotateAround(l_axis, l_value)));
-					}
-				}
-				break;
-				}
-
-			}
+			engine_scene(p_new_engine)->tree.traverse(this->root_selected_node, SceneForeach(&this->selected_nodes_renderer, engine_scene(p_new_engine), engine_render_middleware(p_new_engine)));
 		}
 
 	};
 
-	inline void exit(RenderMiddlewareHandle p_render_middleware)
+	inline void clear()
 	{
-		for (size_t i = 0; i < this->selected_nodes_renderer.Size; i++)
-		{
-			this->selected_nodes_renderer[i].set_original_meshrenderer(this->selected_node_scene, p_render_middleware);
-		}
-		this->selected_nodes_renderer.clear();
-
-		this->root_selected_node = SceneNodeToken();
-		this->selected_node_scene = nullptr;
-
-		this->state = State::UNDEFINED;
+		this->set_selected_node(this->selected_node_engine, -1);
 	}
 };
 
-struct ToolState
+struct ToolState2
 {
-	com::TPoolToken<Optional<EngineRunningModule>> selectged_engine;
 	EngineRunner engine_runner;
-	NodeMovement node_movement;
-};
 
-struct CommandHandler
-{
-	inline static const StringSlice start_slice = StringSlice("start");
-	inline static const StringSlice stop_slice = StringSlice("stop");
-	inline static const StringSlice select_slice = StringSlice("select");
-	inline static const StringSlice load_slice = StringSlice("load");
-	inline static const StringSlice print_slice = StringSlice("print");
-	inline static const StringSlice persist_slice = StringSlice("persist");
-	inline static const StringSlice n_slice = StringSlice("n");
-	inline static const StringSlice engine_slice = StringSlice("engine");
-	inline static const StringSlice scene_slice = StringSlice("scene");
-	inline static const StringSlice node_slice = StringSlice("node");
-	// inline static const StringSlice movement_slice = StringSlice("movement");
-	inline static const StringSlice set_local_position_slice = StringSlice("set_local_position");
-
-	inline static void handle_engine_commands(InterpretorFile& p_command_file, ToolState& p_tool_state, com::Vector<StringSlice>& p_command_stack, size_t p_depth)
+	struct SelectedEngine
 	{
-		if (p_command_stack[p_depth].equals(CommandHandler::start_slice))
-		{
-			EngineRunningModule l_engine;
-			l_engine.start();
-			l_engine.update(0);
-			com::PoolToken l_allocated_engine = p_tool_state.engine_runner.engines.alloc_element(l_engine);
-			p_tool_state.selectged_engine = l_allocated_engine.Index;
-		}
-		else if (p_command_stack[p_depth].equals(CommandHandler::stop_slice))
-		{
-			if (p_tool_state.engine_runner.engines[p_tool_state.selectged_engine].hasValue)
-			{
-				p_tool_state.node_movement.exit(engine_render_middleware(p_tool_state.engine_runner.engines[p_tool_state.selectged_engine].value.running_engine));
-				p_tool_state.engine_runner.engines[p_tool_state.selectged_engine].value.stop();
-				p_tool_state.engine_runner.engines.release_element(p_tool_state.selectged_engine);
-			}
-		}
-		else if (p_command_stack[p_depth].equals(CommandHandler::select_slice))
-		{
-			size_t l_engine_index = FromString<size_t>::from_str(p_command_stack[p_depth + 1]);
+		com::TPoolToken<Optional<EngineRunningModule>> token;
 
-			if (l_engine_index == -1 || p_tool_state.selectged_engine.Index != -1)
-			{
-				p_tool_state.node_movement.exit(engine_render_middleware(p_tool_state.engine_runner.engines[p_tool_state.selectged_engine].value.running_engine));
-			}
-			if (l_engine_index == -1 || p_tool_state.engine_runner.engines[l_engine_index].hasValue)
-			{
-				p_tool_state.selectged_engine = l_engine_index;
-			}
-		}
-		else if (p_command_stack[p_depth].equals(CommandHandler::print_slice))
-		{
-			for (size_t i = 0; i < p_tool_state.engine_runner.engines.size(); i++)
-			{
-				if (p_tool_state.engine_runner.engines[i].hasValue)
-				{
-					String<> l_message; l_message.allocate(0);
-					l_message.append(i);
-					l_message.append(",");
-					p_command_file.machine_write(l_message.toSlice());
-					l_message.free();
-				}
-			}
-		}
-	}
+		inline bool is_valid(EngineRunner& p_engine_runner) {
+			if (this->token.Index == -1) { return false; }
+			return p_engine_runner.engines[this->token].hasValue;
+		};
+	} selected_engine;
 
-	inline static void handle_scene_commands(InterpretorFile& p_command_file, ToolState& p_tool_state, com::Vector<StringSlice>& p_command_stack, size_t p_depth)
+	SceneNodeSelection selected_node;
+	SceneNodeSelection::SelectedNodeState selected_node_state;
+
+	NodeMovement2 node_movement;
+
+	inline void open_engine_with_scene(StringSlice& p_scene_path)
 	{
-		Optional<EngineRunningModule> l_running_rengine = p_tool_state.engine_runner.engines[p_tool_state.selectged_engine];
+		EngineRunningModule l_engine;
+		l_engine.start();
+		l_engine.load_scene(p_scene_path);
+		this->set_selected_engine(this->engine_runner.engines.alloc_element(l_engine));
+	};
 
-		if (p_command_stack[p_depth].equals(CommandHandler::load_slice))
-		{
-			if (l_running_rengine.hasValue)
-			{
-				p_tool_state.node_movement.exit(engine_render_middleware(l_running_rengine.value.running_engine));
-				l_running_rengine.value.load_scene(p_command_stack[p_depth + 1]);
-				l_running_rengine.value.update(0);
-			}
-		}
-		else if (p_command_stack[p_depth].equals(CommandHandler::print_slice))
-		{
-			if (l_running_rengine.hasValue)
-			{
-				Scene* p_scene = engine_scene(l_running_rengine.value.running_engine);
-
-				struct ScenePrintForeach
-				{
-					String<>* message;
-
-					inline ScenePrintForeach(String<>* p_message) {
-						this->message = p_message;
-					};
-
-					inline void foreach(NTreeResolve<SceneNode>& p_node)
-					{
-						this->message->append(p_node.node->index);
-						this->message->append(",");
-					};
-				};
-
-				String<> l_message; l_message.allocate(0);
-
-				ScenePrintForeach l_f = ScenePrintForeach(&l_message);
-				p_scene->tree.traverse(com::PoolToken(0), l_f);
-
-				p_command_file.machine_write(l_message.toSlice());
-
-				l_message.free();
-			}
-		}
-		else if (p_command_stack[p_depth].equals(CommandHandler::persist_slice))
-		{
-			if (l_running_rengine.hasValue)
-			{
-				l_running_rengine.value.editor_scene.persist_current_scene(l_running_rengine.value.running_engine);
-			}
-		}
-	}
-
-	inline static void handle_node_commands(InterpretorFile& p_command_file, ToolState& p_tool_state, com::Vector<StringSlice>& p_command_stack, size_t p_depth)
+	inline void set_selected_engine(const com::TPoolToken<Optional<EngineRunningModule>> p_engine)
 	{
-		if (p_command_stack[p_depth].equals(CommandHandler::select_slice))
+		com::TPoolToken<Optional<EngineRunningModule>> l_old_engine = this->selected_engine.token;
+		this->selected_engine.token = p_engine;
+		this->on_engine_changed(l_old_engine, p_engine);
+	};
+
+	inline void on_engine_changed(const com::TPoolToken<Optional<EngineRunningModule>> p_old, const com::TPoolToken<Optional<EngineRunningModule>> p_new)
+	{
+		this->selected_node.clear();
+	};
+
+	inline void set_selected_node(const size_t p_node_index)
+	{
+		if (this->selected_engine.is_valid(this->engine_runner))
 		{
-			size_t l_selected_node = FromString<size_t>::from_str(StringSlice(p_command_stack[p_depth + 1]));
-			p_tool_state.node_movement.set_selected_node(engine_scene(p_tool_state.engine_runner.engines[p_tool_state.selectged_engine].value.running_engine),
-				SceneNodeToken(l_selected_node), engine_render_middleware(p_tool_state.engine_runner.engines[p_tool_state.selectged_engine].value.running_engine));
+			SceneNodeSelection::SelectedNodeState l_selectednode_state = this->selected_node.set_selected_node(this->engine_runner.engines[this->selected_engine.token].value.running_engine, p_node_index);
+			if (this->selected_node_state != l_selectednode_state)
+			{
+				SceneNodeSelection::SelectedNodeState l_old = this->selected_node_state;
+				this->selected_node_state = l_selectednode_state;
+				this->on_selectednodestate_changed(l_old, this->selected_node_state);
+			}
 		}
 	};
 
+
+	inline void set_movement_step(float p_step)
+	{
+		this->node_movement.movement_step = p_step;
+	};
+
+	inline void set_rotation_step_deg(float p_step)
+	{
+		this->node_movement.rotation_step_deg = p_step;
+	};
+
+	inline void on_selectednodestate_changed(SceneNodeSelection::SelectedNodeState p_old, SceneNodeSelection::SelectedNodeState p_new)
+	{
+		switch (p_new)
+		{
+		case SceneNodeSelection::SelectedNodeState::NODE_NOT_SELECTED:
+		{
+			this->node_movement.exit();
+			//TODO -> deactivate movement module
+		}
+		break;
+		}
+	};
+
+	inline void udpate()
+	{
+		if (this->selected_engine.is_valid(this->engine_runner))
+		{
+			if (this->selected_node.root_selected_node.Index != -1)
+			{
+				this->node_movement.perform_node_movement(this->selected_node.root_selected_node, this->engine_runner.engines[this->selected_engine.token].value);
+			}
+		}
+	}
 };
+
+
+struct CommandHandler2
+{
+	inline static void handle_command(ToolState2& p_tool_state, String<>& p_command)
+	{
+		com::Vector<StringSlice> l_commands = p_command.split(" ");
+		size_t l_depth = 0;
+
+		if (l_commands[l_depth].equals(StringSlice("ns")))
+		{
+			l_depth++;
+			size_t l_selected_node = FromString<size_t>::from_str(StringSlice(l_commands[l_depth]));
+			p_tool_state.set_selected_node(l_selected_node);
+		}
+		else if (l_commands[l_depth].equals(StringSlice("mts")))
+		{
+			l_depth++;
+			float l_step = FromString<float>::from_str(StringSlice(l_commands[l_depth]));
+			p_tool_state.set_movement_step(l_step);
+		}
+		else if (l_commands[l_depth].equals(StringSlice("mtr")))
+		{
+			l_depth++;
+			float l_step = FromString<float>::from_str(StringSlice(l_commands[l_depth]));
+			p_tool_state.set_rotation_step_deg(l_step);
+		}
+
+		l_commands.free();
+	}
+
+};
+
+struct CustomCommandLine
+{
+#define CustomCommandLineCheckRaw(inputEnum, ch) \
+else if (p_input.get_state(InputKey::InputKey_##inputEnum, KeyState::KeyStateFlag_PRESSED_THIS_FRAME)) \
+{ \
+	l_char = #ch; \
+}
+
+#define CustomCommandLineCheckChar(cM, cm) \
+else if (p_input.get_state(InputKey::InputKey_##cM, KeyState::KeyStateFlag_PRESSED_THIS_FRAME)) \
+{ \
+	if (maj_holded) { l_char = #cM; } \
+	else { l_char = #cm; } \
+}
+
+#define CustomCommandLineCheckNumber(cn, cnl) \
+else if (p_input.get_state(InputKey::InputKey_##cnl, KeyState::KeyStateFlag_PRESSED_THIS_FRAME)) \
+{ \
+	l_char = #cn; \
+}
+
+	String<> buffer;
+	com::Vector<String<>> last_entered_buffer;
+	bool maj_holded = false;
+
+	enum class State
+	{
+		WAITING = 0,
+		LISTENING = 1,
+		COMPLETED = 2
+	} state = State::WAITING;
+
+	inline void allocate()
+	{
+		this->buffer.allocate(0);
+		this->last_entered_buffer.allocate(0);
+	};
+
+	inline void free()
+	{
+		this->buffer.free();
+	};
+
+	inline State update(InputHandle p_input)
+	{
+		if (this->state == State::WAITING)
+		{
+			if (p_input.get_state(InputKey::InputKey_SPACE, KeyState::KeyStateFlag_PRESSED_THIS_FRAME))
+			{
+				this->set_state(State::LISTENING);
+				return this->state;
+			}
+		}
+		else if (this->state == State::LISTENING)
+		{
+			if (p_input.get_state(InputKey::InputKey_ESCAPE, KeyState::KeyStateFlag_PRESSED_THIS_FRAME))
+			{
+				this->set_state(State::WAITING);
+				return this->state;
+			}
+			else if (p_input.get_state(InputKey::InputKey_UP, KeyState::KeyStateFlag_PRESSED_THIS_FRAME))
+			{
+				this->peek_last_entered_buffer();
+				printf(this->buffer.Memory.Memory);
+				printf("\n");
+				return this->state;
+			}
+
+			char* l_char = "\0";
+
+			if (p_input.get_state(InputKey::InputKey_ENTER, KeyState::KeyStateFlag_PRESSED_THIS_FRAME))
+			{
+				this->set_state(State::COMPLETED);
+			}
+
+			this->maj_holded = p_input.get_state(InputKey::InputKey_LEFT_SHIFT, KeyState::KeyStateFlag_PRESSED);
+
+
+			if (p_input.get_state(InputKey::InputKey_BACKSPACE, KeyState::KeyStateFlag_PRESSED_THIS_FRAME))
+			{
+				this->buffer.remove(this->buffer.Memory.Size - 2, this->buffer.Memory.Size - 1);
+				printf(this->buffer.Memory.Memory);
+				printf("\n");
+			}
+			else if (p_input.get_state(InputKey::InputKey_SPACE, KeyState::KeyStateFlag_PRESSED_THIS_FRAME))
+			{
+				l_char = " ";
+			}
+			CustomCommandLineCheckChar(A, a)
+				CustomCommandLineCheckChar(B, b)
+				CustomCommandLineCheckChar(C, c)
+				CustomCommandLineCheckChar(D, d)
+				CustomCommandLineCheckChar(E, e)
+				CustomCommandLineCheckChar(F, f)
+				CustomCommandLineCheckChar(G, g)
+				CustomCommandLineCheckChar(H, h)
+				CustomCommandLineCheckChar(I, i)
+				CustomCommandLineCheckChar(J, j)
+				CustomCommandLineCheckChar(K, k)
+				CustomCommandLineCheckChar(L, l)
+				CustomCommandLineCheckChar(M, m)
+				CustomCommandLineCheckChar(N, n)
+				CustomCommandLineCheckChar(O, o)
+				CustomCommandLineCheckChar(P, p)
+				CustomCommandLineCheckChar(Q, q)
+				CustomCommandLineCheckChar(R, r)
+				CustomCommandLineCheckChar(S, s)
+				CustomCommandLineCheckChar(T, t)
+				CustomCommandLineCheckChar(U, u)
+				CustomCommandLineCheckChar(V, v)
+				CustomCommandLineCheckChar(W, w)
+				CustomCommandLineCheckChar(X, x)
+				CustomCommandLineCheckChar(Y, y)
+				CustomCommandLineCheckChar(Z, z)
+				CustomCommandLineCheckNumber(0, ZERO)
+				CustomCommandLineCheckNumber(1, ONE)
+				CustomCommandLineCheckNumber(2, TWO)
+				CustomCommandLineCheckNumber(3, THREE)
+				CustomCommandLineCheckNumber(4, FOUR)
+				CustomCommandLineCheckNumber(5, FIVE)
+				CustomCommandLineCheckNumber(6, SIX)
+				CustomCommandLineCheckNumber(7, SEVEN)
+				CustomCommandLineCheckNumber(8, EIGHT)
+				CustomCommandLineCheckNumber(9, NINE)
+				CustomCommandLineCheckRaw(MINUS, -);
+			if (l_char != "\0")
+			{
+				this->buffer.append(StringSlice(l_char));
+				printf(this->buffer.Memory.Memory);
+				printf("\n");
+			}
+		}
+
+
+		return this->state;
+	};
+
+	inline void set_state(State p_new_state)
+	{
+		if (this->state != p_new_state)
+		{
+			State l_old = this->state;
+			this->state = p_new_state;
+			this->on_state_changed(l_old, p_new_state);
+		}
+	}
+
+	inline void on_state_changed(State p_old, State p_new)
+	{
+		switch (p_new)
+		{
+		case State::LISTENING:
+		{
+			this->buffer.clear();
+		}
+		break;
+		case State::COMPLETED:
+		{
+			this->last_entered_buffer.push_back(this->buffer.clone());
+		}
+		break;
+		}
+	}
+
+	inline void peek_last_entered_buffer()
+	{
+		if (this->last_entered_buffer.Size > 0)
+		{
+			this->buffer.clear();
+			this->buffer.append(this->last_entered_buffer[this->last_entered_buffer.Size - 1]);
+			this->last_entered_buffer[this->last_entered_buffer.Size - 1].free();
+			this->last_entered_buffer.erase_at(this->last_entered_buffer.Size - 1, 1);
+		}
+	}
+};
+
 
 int main()
 {
-	HANDLE l_stdin = GetStdHandle(STD_INPUT_HANDLE);
-
-	size_t l_current_engine = -1;
-
-	InterpretorFile l_interop;
-	l_interop.allocate();
-	l_interop.start();
-
-	ToolState tool_state;
-
 	while (true)
 	{
-		tool_state.engine_runner.update();
+		printf("Scene : ");
+		String<> l_scene_path;
+		l_scene_path.allocate(255);
+		l_scene_path.Memory.Size = l_scene_path.Memory.Capacity;
+		fgets(l_scene_path.Memory.Memory, l_scene_path.Memory.capacity_in_bytes() - 1, stdin);
+		l_scene_path.Memory.Size = strlen(l_scene_path.Memory.Memory) + 1;
+		l_scene_path.remove_chars('\n');
 
-		if (l_interop.has_input_ended())
+		ToolState2 l_tool_state;
+		CustomCommandLine l_custom_command_line;
+		l_custom_command_line.allocate();
+
+		l_tool_state.open_engine_with_scene(l_scene_path.toSlice());
+
+		//while at least one engine
+		while (l_tool_state.selected_engine.is_valid(l_tool_state.engine_runner))
 		{
-			l_interop.machine_start();
-
-			String<> l_str = l_interop.allocate_formatted_input();
-
-			com::Vector<StringSlice> l_words = l_str.split(" ");
+			if (l_tool_state.engine_runner.frame_executed(l_tool_state.selected_engine.token))
 			{
-				if (l_words[0].equals(CommandHandler::engine_slice))
+				if (l_custom_command_line.update(engine_input(l_tool_state.engine_runner.engines[l_tool_state.selected_engine.token].value.running_engine)) == CustomCommandLine::State::COMPLETED)
 				{
-					CommandHandler::handle_engine_commands(l_interop, tool_state, l_words, 1);
+					CommandHandler2::handle_command(l_tool_state, l_custom_command_line.buffer);
+					l_custom_command_line.set_state(CustomCommandLine::State::WAITING);
 				}
-				else if (l_words[0].equals(CommandHandler::scene_slice))
+
+				if (l_custom_command_line.state == CustomCommandLine::State::WAITING)
 				{
-					CommandHandler::handle_scene_commands(l_interop, tool_state, l_words, 1);
-				}
-				else if (l_words[0].equals(CommandHandler::node_slice))
-				{
-					CommandHandler::handle_node_commands(l_interop, tool_state, l_words, 1);
+					l_tool_state.udpate();
 				}
 			}
 
-			l_words.free();
-
-			l_str.free();
-
-			l_interop.machine_end();
+			l_tool_state.engine_runner.update();
 		}
 
-		if (tool_state.selectged_engine.Index != -1)
-		{
-			if (tool_state.engine_runner.engines[tool_state.selectged_engine].hasValue)
-			{
-				EngineRunningModule& l_engine_module = tool_state.engine_runner.engines[tool_state.selectged_engine].value;
-				if (l_engine_module.frame_executed)
-				{
-					tool_state.node_movement.handle_scene_undo(l_engine_module);
-					tool_state.node_movement.perform_node_movement(l_engine_module);
-				}
-
-			};
-
-		}
-
+		l_custom_command_line.free();
 	}
-
-	l_interop.free();
-
-
 	return 0;
-};
+}
