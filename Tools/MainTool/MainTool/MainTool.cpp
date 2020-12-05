@@ -576,15 +576,30 @@ struct NodeMovement2
 
 				float l_value = 0.0f;
 
-				if (l_input.get_state(InputKey::InputKey_UP, KeyState::KeyStateFlag_PRESSED_THIS_FRAME))
+				if (l_input.get_state(InputKey::InputKey_LEFT_CONTROL, KeyState::KeyStateFlag_PRESSED))
 				{
-					l_value = this->movement_step;
+					if (l_input.get_state(InputKey::InputKey_UP, KeyState::KeyStateFlag_PRESSED))
+					{
+						l_value = this->movement_step;
+					}
+					else if (l_input.get_state(InputKey::InputKey_DOWN, KeyState::KeyStateFlag_PRESSED))
+					{
+						l_value = -this->movement_step;
+					}
 				}
-				else if (l_input.get_state(InputKey::InputKey_DOWN, KeyState::KeyStateFlag_PRESSED_THIS_FRAME))
+				else
 				{
-					l_value = -this->movement_step;
-				}
+					if (l_input.get_state(InputKey::InputKey_UP, KeyState::KeyStateFlag_PRESSED_THIS_FRAME))
+					{
+						l_value = this->movement_step;
+					}
+					else if (l_input.get_state(InputKey::InputKey_DOWN, KeyState::KeyStateFlag_PRESSED_THIS_FRAME))
+					{
+						l_value = -this->movement_step;
+					}
 
+				}
+				
 
 				Math::vec4f l_delta = Math::vec4f(0.0f, 0.0f, 0.0f, 0.0f);
 
@@ -619,14 +634,29 @@ struct NodeMovement2
 
 				float l_value = 0.0f;
 
-				if (l_input.get_state(InputKey::InputKey_UP, KeyState::KeyStateFlag_PRESSED_THIS_FRAME))
+				if (l_input.get_state(InputKey::InputKey_LEFT_CONTROL, KeyState::KeyStateFlag_PRESSED))
 				{
-					l_value = this->rotation_step_deg * DEG_TO_RAD;
+					if (l_input.get_state(InputKey::InputKey_UP, KeyState::KeyStateFlag_PRESSED))
+					{
+						l_value = this->rotation_step_deg * DEG_TO_RAD;
+					}
+					else if (l_input.get_state(InputKey::InputKey_DOWN, KeyState::KeyStateFlag_PRESSED))
+					{
+						l_value = -this->rotation_step_deg * DEG_TO_RAD;
+					}
 				}
-				else if (l_input.get_state(InputKey::InputKey_DOWN, KeyState::KeyStateFlag_PRESSED_THIS_FRAME))
+				else
 				{
-					l_value = -this->rotation_step_deg * DEG_TO_RAD;
+					if (l_input.get_state(InputKey::InputKey_UP, KeyState::KeyStateFlag_PRESSED_THIS_FRAME))
+					{
+						l_value = this->rotation_step_deg * DEG_TO_RAD;
+					}
+					else if (l_input.get_state(InputKey::InputKey_DOWN, KeyState::KeyStateFlag_PRESSED_THIS_FRAME))
+					{
+						l_value = -this->rotation_step_deg * DEG_TO_RAD;
+					}
 				}
+				
 
 
 				Math::vec3f l_axis = Math::vec3f(0.0f, 0.0f, 0.0f);
@@ -1038,7 +1068,16 @@ struct ToolState2
 				this->node_movement.perform_node_movement(this->selected_node.root_selected_node, this->engine_runner.engines[this->selected_engine.token].value);
 			}
 
-			if (engine_input(this->engine_runner.engines[this->selected_engine.token].value.running_engine).get_state(InputKey::InputKey_P, KeyState::KeyStateFlag_PRESSED_THIS_FRAME))
+			EngineHandle l_engine = this->engine_runner.engines[this->selected_engine.token].value.running_engine;
+
+			if (engine_input(l_engine).get_state(InputKey::InputKey_LEFT_CONTROL, KeyState::KeyStateFlag_PRESSED))
+			{
+				if (engine_input(l_engine).get_state(InputKey::InputKey_P, KeyState::KeyStateFlag_PRESSED))
+				{
+					this->engine_runner.engines[this->selected_engine.token].value.editor_scene._undo();
+				}
+			}
+			else if (engine_input(l_engine).get_state(InputKey::InputKey_P, KeyState::KeyStateFlag_PRESSED_THIS_FRAME))
 			{
 				this->engine_runner.engines[this->selected_engine.token].value.editor_scene._undo();
 			}
