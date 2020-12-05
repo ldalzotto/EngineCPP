@@ -278,10 +278,6 @@ private:
 				l_file_binary.Memory = l_file_bytes;
 				l_file_binary.Memory.Size = l_file_bytes.Size;
 				l_file_binary.Memory.Capacity = l_file_bytes.Capacity;
-				l_file_binary.remove_chars(' ');
-				l_file_binary.remove_chars('\n');
-				l_file_binary.remove_chars('\r');
-				l_file_binary.remove_chars('\t');
 
 				Deserialization::JSON::JSONObjectIterator l_json_deserializer = Deserialization::JSON::StartDeserialization(l_file_binary);
 				{

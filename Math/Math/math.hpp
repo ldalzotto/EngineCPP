@@ -182,7 +182,7 @@ namespace Math
 
 	template <unsigned N, class TYPE>
 	inline TYPE reduce_sum(const Vector<N, TYPE>& p_left)
-	{ 
+	{
 		return TemplateVector_Reduce<N, TYPE, TemplateVector_ForEach_Add<TYPE>>::execute(p_left, Zero<TYPE>::zer);
 	}
 
@@ -202,13 +202,13 @@ namespace Math
 			);
 	}
 
-	
+
 	template <unsigned N, class TYPE>
 	inline float length(const Vector<N, TYPE>& p_vec)
 	{
 		return sqrt(TemplateVector_Reduce<N, TYPE, TemplateVector_ForEach_SquareAdd<TYPE>>::execute(p_vec, Zero<TYPE>::zer));
 	}
-	
+
 	template <unsigned N, class TYPE>
 	inline Vector<N, TYPE> normalize(const Vector<N, TYPE>& p_vec)
 	{
@@ -296,7 +296,6 @@ namespace Math
 		);
 	};
 
-
 	template <class TYPE>
 	inline Vector<3, TYPE> rotate(const Vector<3, TYPE>& p_vector, const Quaternion& p_rotation)
 	{
@@ -312,7 +311,7 @@ namespace Math
 		return rotateAround(cross(l_rotatedLeft, l_rotatedRight), 0.0f);
 	};
 
-	
+
 	template <class TYPE>
 	inline Matrix<3, TYPE> extractAxis(const Quaternion& quat)
 	{
@@ -334,21 +333,21 @@ namespace Math
 			1 - (2 * l_qyy) - (2 * l_qzz),
 			(2 * l_qxy) + (2 * l_qzw),
 			(2 * l_qxz) - (2 * l_qyw)
-		);
+			);
 
 		//UP	
 		l_return.Col1 = Vector<3, TYPE>(
 			(2 * l_qxy) - (2 * l_qzw),
 			1 - (2 * l_qxx) - (2 * l_qzz),
 			(2 * l_qyz) + (2 * l_qxw)
-		);
+			);
 
 		//Forward
 		l_return.Col2 = Vector<3, TYPE>(
 			(2 * l_qxz) + (2 * l_qyw),
 			(2 * l_qyz) - (2 * l_qxw),
 			1 - (2 * l_qxx) - (2 * l_qyy)
-		);
+			);
 
 		l_return.Col0 = normalize(l_return.Col0);
 		l_return.Col1 = normalize(l_return.Col1);
@@ -440,17 +439,90 @@ namespace Math
 	template <class TYPE>
 	inline Quaternion fromEulerAngle(const Vector<3, TYPE>& p_eulerAngle)
 	{
+		/*
 		Quaternion l_return = Quaternion(0.0f, 0.0f, 0.0f, 1.0f);
 		l_return = mul(l_return, rotateAround(VecConst<TYPE>::UP, p_eulerAngle.Points[1])); //yaw
 		l_return = mul(l_return, rotateAround(VecConst<TYPE>::RIGHT, p_eulerAngle.Points[0])); //pitch
 		l_return = mul(l_return, rotateAround(VecConst<TYPE>::FORWARD, p_eulerAngle.Points[2])); //roll
+		*/
+
+		Quaternion l_return;
+
+		Vector<3, TYPE> l_cos = Vector<3, TYPE>(cos(p_eulerAngle.Points[0] * (TYPE)0.5), cos(p_eulerAngle.Points[1] * (TYPE)0.5), cos(p_eulerAngle.Points[2] * (TYPE)0.5));
+		Vector<3, TYPE> l_sin = Vector<3, TYPE>(sin(p_eulerAngle.Points[0] * (TYPE)0.5), sin(p_eulerAngle.Points[1] * (TYPE)0.5), sin(p_eulerAngle.Points[2] * (TYPE)0.5));
+
+		l_return.x = l_sin.x * l_cos.y * l_cos.z - l_cos.x * l_sin.y * l_sin.z;
+		l_return.y = l_cos.x * l_sin.y * l_cos.z + l_sin.x * l_cos.y * l_sin.z;
+		l_return.z = l_cos.x * l_cos.y * l_sin.z - l_sin.x * l_sin.y * l_cos.z;
+		l_return.w = l_cos.x * l_cos.y * l_cos.z + l_sin.x * l_sin.y * l_sin.z;
+
 		return l_return;
 	};
+
+	template<class TYPE>
+	inline Vector<3, TYPE> eulerAngle(const Quaternion& p_quat)
+	{
+		Vector<3, TYPE> l_return;
+
+		//pitch
+		float l_sinp = ((TYPE)2) * (p_quat.y * p_quat.z + p_quat.w * p_quat.x);
+		float l_cosp = p_quat.w * p_quat.w - p_quat.x * p_quat.x - p_quat.y * p_quat.y + p_quat.z * p_quat.z;
+
+		if (Math::Equals<TYPE>(l_sinp, Zero<TYPE>::zer) && Math::Equals<TYPE>(l_cosp, Zero<TYPE>::zer))
+		{
+			l_return.Points[0] = ((TYPE)2) * atan2(p_quat.x, p_quat.w);
+		}
+		else
+		{
+			l_return.Points[0] = atan2(l_sinp, l_cosp);
+		}
+
+		//yaw
+		l_return.Points[1] = 
+				asin(Math::clamp(((TYPE)-2) * (p_quat.x * p_quat.z - p_quat.w * p_quat.y) , (TYPE)-1, (TYPE)1));
+
+		//roll
+		l_return.Points[2] = 
+			atan2(((TYPE)2) * (p_quat.x * p_quat.y + p_quat.w * p_quat.z), p_quat.w * p_quat.w + p_quat.x * p_quat.x - p_quat.y * p_quat.y - p_quat.z * p_quat.z)
+			;
+
+
+		return l_return;
+	}
+
 
 	template <class TYPE>
 	inline Quaternion fromTo(const Vector<3, TYPE>& p_from, const  Vector<3, TYPE>& p_to)
 	{
-		return rotateAround(cross(p_from, p_to), angle(p_from, p_to));
+		TYPE l_costtheta = dot(p_from, p_to);
+		if (l_costtheta >= One<TYPE>::one - Tolerance<TYPE>::tol)
+		{
+			return QuatConst::IDENTITY;
+		}
+
+		Vector<3, TYPE> l_rotation_axis;
+
+		if (l_costtheta < -One<TYPE>::one + Tolerance<TYPE>::tol)
+		{
+			l_rotation_axis = cross(VecConst<TYPE>::FORWARD, p_from);
+			if (length(l_rotation_axis) < Tolerance<TYPE>::tol)
+			{
+				l_rotation_axis = cross(VecConst<TYPE>::RIGHT, p_from);
+			}
+			l_rotation_axis = normalize(l_rotation_axis);
+			return rotateAround(l_rotation_axis, M_PI);
+		}
+
+		l_rotation_axis = cross(p_from, p_to);
+		TYPE l_s = sqrt((One<TYPE>::one + l_costtheta) * (TYPE)2);
+		TYPE l_invs = (TYPE)1 / l_s;
+
+		return Quaternion(
+			l_rotation_axis.x * l_invs,
+			l_rotation_axis.y * l_invs,
+			l_rotation_axis.z * l_invs,
+			l_s * (TYPE)0.5f
+		);
 	};
 }
 
@@ -538,11 +610,11 @@ namespace Math
 						l_matDet.Points2D[l_matDet_column_counter].Points[l_matDet_line_counter] = p_mat.Points2D[l_column_index].Points[l_line_index];
 						l_matDet_line_counter += 1;
 					}
-					
+
 				}
 				l_matDet_column_counter += 1;
 			}
-			
+
 		}
 
 		return
@@ -555,11 +627,11 @@ namespace Math
 	inline Matrix<4, TYPE> inv(const Matrix<4, TYPE>& p_mat)
 	{
 		Matrix<4, TYPE> l_return;
-		float l_det = 
-			(p_mat.Points2D[0].Points[0] * det(p_mat, 0, 0)) 
-		  - (p_mat.Points2D[0].Points[1] * det(p_mat, 0, 1)) 
-		  + (p_mat.Points2D[0].Points[2] * det(p_mat, 0, 2)) 
-		  - (p_mat.Points2D[0].Points[3] * det(p_mat, 0, 3));
+		float l_det =
+			(p_mat.Points2D[0].Points[0] * det(p_mat, 0, 0))
+			- (p_mat.Points2D[0].Points[1] * det(p_mat, 0, 1))
+			+ (p_mat.Points2D[0].Points[2] * det(p_mat, 0, 2))
+			- (p_mat.Points2D[0].Points[3] * det(p_mat, 0, 3));
 
 		{
 			l_return._00 = det(p_mat, 0, 0);
@@ -605,7 +677,7 @@ namespace Math
 			Vector<4, TYPE>(p_axis.Points2D[1], 0.0f),
 			Vector<4, TYPE>(p_axis.Points2D[2], 0.0f),
 			Vector<4, TYPE>(0.0f, 0.0f, 0.0f, 1.0f)
-		);
+			);
 	}
 
 	template <unsigned N, class TYPE>
@@ -624,7 +696,7 @@ namespace Math
 				Vector<4, TYPE>(p_up, 0.0f),
 				Vector<4, TYPE>(p_forward, 0.0f),
 				Vector<4, TYPE>(0.0f, 0.0f, 0.0f, 1.0f)
-			);
+				);
 		};
 	};
 
@@ -662,7 +734,7 @@ namespace Math
 	inline Matrix<N, TYPE> lookAtRotation_viewmatrix(const Vector<3, TYPE>& p_origin, const Vector<3, TYPE>& p_target, const Vector<3, TYPE>& p_up)
 	{
 		Vector<3, TYPE> l_forward = normalize(min(p_target, p_origin));
-		Vector<3, TYPE> l_right = normalize(mul(cross(l_forward, p_up), -One<float>::one) );
+		Vector<3, TYPE> l_right = normalize(mul(cross(l_forward, p_up), -One<float>::one));
 		Vector<3, TYPE> l_up = normalize(mul(cross(l_right, l_forward), -One<float>::one));
 
 		return rotationMatrix<N, TYPE>(
@@ -687,9 +759,9 @@ namespace Math
 	{
 		return
 			mul(
-			mul(
-				translationMatrix(p_position),
-				rotationMatrix(p_axis)),
+				mul(
+					translationMatrix(p_position),
+					rotationMatrix(p_axis)),
 				scaleMatrix(p_scale)
 			);
 	}
@@ -699,7 +771,7 @@ namespace Math
 	{
 		Matrix<4, TYPE> l_return;
 		TYPE l_halfTan = tan(p_fov / 2.0f);
-		
+
 		l_return._00 = 1.0f / (p_aspect * l_halfTan);
 		l_return._01 = 0.0f;
 		l_return._02 = 0.0f;
@@ -746,7 +818,7 @@ namespace Math
 		Matrix<4, TYPE> l_view = TRS(p_world_position, lookAtRotation_viewmatrix<3, TYPE>(p_world_position, l_target, l_up), VecConst<TYPE>::ONE);
 		return inv(l_view);
 	}
-	
+
 
 
 

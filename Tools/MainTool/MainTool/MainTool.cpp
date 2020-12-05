@@ -152,12 +152,12 @@ struct EditorSceneEventMoveNode
 
 	inline void _do(Scene* p_scene)
 	{
-		SceneKernel::set_localposition(SceneKernel::resolve_node(p_scene, this->scene_node).element, p_scene, this->new_localposition);
+		SceneKernel::set_localposition(this->scene_node, p_scene, this->new_localposition);
 	};
 
 	inline void _undo(Scene* p_scene)
 	{
-		SceneKernel::set_localposition(SceneKernel::resolve_node(p_scene, this->scene_node).element, p_scene, this->old_localposition);
+		SceneKernel::set_localposition(this->scene_node, p_scene, this->old_localposition);
 	};
 };
 
@@ -211,7 +211,6 @@ struct EditorSceneEvent
 	};
 };
 
-//TODO -> the this->engine_scene_asset_path memory location seems to be overrited somewhere
 struct EditorScene
 {
 	Scene* engine_scene;
@@ -264,7 +263,7 @@ struct EditorScene
 	inline void set_localposition(NTreeResolve<SceneNode>& p_scene_node, Math::vec3f& p_local_position)
 	{
 		EditorSceneEvent l_event;
-		l_event.allocate(EditorSceneEventMoveNode(SceneNodeToken(p_scene_node.node->index), SceneKernel::get_localposition(p_scene_node.element), p_local_position));
+		l_event.allocate(EditorSceneEventMoveNode(SceneNodeToken(p_scene_node.node->index), SceneKernel::get_localposition(p_scene_node), p_local_position));
 		this->undo_events.push_back(l_event);
 
 		((EditorSceneEventMoveNode*)l_event.object)->_do(this->engine_scene);
@@ -274,7 +273,7 @@ struct EditorScene
 	inline void set_localrotation(NTreeResolve<SceneNode>& p_scene_node, Math::quat& p_local_rotation)
 	{
 		EditorSceneEvent l_event;
-		l_event.allocate(EditorSceneEventRotateNode(SceneNodeToken(p_scene_node.node->index), SceneKernel::get_localrotation(p_scene_node.element), p_local_rotation));
+		l_event.allocate(EditorSceneEventRotateNode(SceneNodeToken(p_scene_node.node->index), SceneKernel::get_localrotation(p_scene_node), p_local_rotation));
 		this->undo_events.push_back(l_event);
 
 		((EditorSceneEventRotateNode*)l_event.object)->_do(this->engine_scene);
@@ -342,10 +341,6 @@ struct EngineRunningModule
 		this->editor_scene.free();
 		this->editor_scene.allocate(engine_scene(this->running_engine), p_scene);
 
-
-
-		//TODO test
-		// SceneAsset l_dup_asset = SceneAssetBuilder::build_from_scene(*engine_scene(this->running_engine));
 	};
 
 	inline void stop()
@@ -571,7 +566,6 @@ struct NodeMovement2
 		if (this->direction != Direction::UNDEFINED &&
 			this->state != State::UNDEFINED)
 		{
-
 			Scene* p_scene = p_engine_running_module.editor_scene.engine_scene;
 			NTreeResolve<SceneNode> l_node = SceneKernel::resolve_node(p_scene, p_node);
 
@@ -615,8 +609,8 @@ struct NodeMovement2
 
 				if (!Math::EqualsVec(l_delta, Math::vec4f(0.0f, 0.0f, 0.0f, 0.0f)))
 				{
-					l_delta.Vec3 = Math::rotate(l_delta.Vec3, SceneKernel::get_localrotation(l_node.element));
-					p_engine_running_module.editor_scene.set_localposition(l_node, SceneKernel::get_localposition(l_node.element) + l_delta.Vec3);
+					l_delta.Vec3 = Math::rotate(l_delta.Vec3, SceneKernel::get_localrotation(l_node));
+					p_engine_running_module.editor_scene.set_localposition(l_node, SceneKernel::get_localposition(l_node) + l_delta.Vec3);
 				}
 			}
 			break;
@@ -659,52 +653,134 @@ struct NodeMovement2
 
 				if (!Math::Equals(l_delta, Math::QuatConst::IDENTITY))
 				{
-					p_engine_running_module.editor_scene.set_localrotation(l_node, mul(SceneKernel::get_localrotation(l_node.element), Math::rotateAround(l_axis, l_value)));
+					p_engine_running_module.editor_scene.set_localrotation(l_node, mul(SceneKernel::get_localrotation(l_node), Math::rotateAround(l_axis, l_value)));
 				}
 			}
 			break;
 			}
 
-			SceneKernel::set_worldposition(SceneKernel::resolve_node(p_scene, this->gizmo.gizmo_scene_node).element, p_scene, SceneKernel::get_worldposition(l_node.element, p_scene));
 
+			this->set_gizmo_position(l_node, p_scene);
 
+		}
+	};
+
+	inline void set_current_value(SceneNodeToken& p_node, EngineRunningModule& p_engine_running_module, const float p_value)
+	{
+		if (this->direction != Direction::UNDEFINED &&
+			this->state != State::UNDEFINED)
+		{
+			Scene* p_scene = p_engine_running_module.editor_scene.engine_scene;
+			NTreeResolve<SceneNode> l_node = SceneKernel::resolve_node(p_scene, p_node);
+
+			switch (this->state)
 			{
-				Math::quat l_local_rotation = Math::QuatConst::IDENTITY;
+			case State::POSITION_LOCAL:
+			{
 
+				Math::vec3f l_new_local_position = SceneKernel::get_localposition(l_node);
 
 				switch (this->direction)
 				{
 				case Direction::X:
 				{
-					l_local_rotation = Math::rotateAround(
-						Math::VecConst<float>::UP,
-						90.0f * DEG_TO_RAD
-					);
+					l_new_local_position.x = p_value;
 				}
 				break;
 				case Direction::Y:
 				{
-					l_local_rotation = Math::rotateAround(
-						Math::VecConst<float>::RIGHT,
-						-90.0f * DEG_TO_RAD
-					);
+					l_new_local_position.y = p_value;
+				}
+				break;
+				case Direction::Z:
+				{
+					l_new_local_position.z = p_value;
 				}
 				break;
 				}
 
-				SceneKernel::set_worldrotation(SceneKernel::resolve_node(p_scene, this->gizmo.gizmo_scene_node).element, p_scene,
-					mul(
-						SceneKernel::get_worldrotation(l_node.element, p_scene),
-						l_local_rotation
-					)
-				);
-
-
+				p_engine_running_module.editor_scene.set_localposition(l_node, l_new_local_position);
 			}
-			// SceneKernel::set_localrotation(l_giz, engine_scene(p_engine), Math::rotateAround(Math::VecConst<float>::UP, 90.0f * DEG_TO_RAD));
+			break;
+			case State::ROTATION_LOCAL:
+			{
+				Math::quat l_initial_rotation_quat = SceneKernel::get_localrotation(p_node, p_scene);
+				Math::quat l_final_localrotation;
+
+				switch (this->direction)
+				{
+				case Direction::X:
+				{
+					Math::vec3f l_euler = Math::eulerAngle<float>(l_initial_rotation_quat);
+					l_euler.x = p_value;
+					l_final_localrotation = Math::fromEulerAngle(l_euler);
+				}
+				break;
+				case Direction::Y:
+				{
+					Math::vec3f l_euler = Math::eulerAngle<float>(l_initial_rotation_quat);
+					l_euler.y = p_value;
+					l_final_localrotation = Math::fromEulerAngle(l_euler);
+				}
+				break;
+				case Direction::Z:
+				{
+					Math::vec3f l_euler = Math::eulerAngle<float>(l_initial_rotation_quat);
+					l_euler.z = p_value;
+					l_final_localrotation = Math::fromEulerAngle(l_euler);
+				}
+				break;
+				}
+
+				p_engine_running_module.editor_scene.set_localrotation(l_node, l_final_localrotation);
+			}
+			break;
+			}
+
+
+			this->set_gizmo_position(l_node, p_scene);
+
+		}
+	}
+
+	inline void set_gizmo_position(NTreeResolve<SceneNode>& l_node, Scene* p_scene)
+	{
+		SceneKernel::set_worldposition(this->gizmo.gizmo_scene_node, p_scene, SceneKernel::get_worldposition(l_node, p_scene));
+		{
+			Math::quat l_local_rotation = Math::QuatConst::IDENTITY;
+
+
+			switch (this->direction)
+			{
+			case Direction::X:
+			{
+				l_local_rotation = Math::rotateAround(
+					Math::VecConst<float>::UP,
+					90.0f * DEG_TO_RAD
+				);
+			}
+			break;
+			case Direction::Y:
+			{
+				l_local_rotation = Math::rotateAround(
+					Math::VecConst<float>::RIGHT,
+					-90.0f * DEG_TO_RAD
+				);
+			}
+			break;
+			}
+
+			SceneKernel::set_worldrotation(this->gizmo.gizmo_scene_node, p_scene,
+				mul(
+					SceneKernel::get_worldrotation(l_node, p_scene),
+					l_local_rotation
+				)
+			);
+
+
 		}
 
-	};
+	}
 
 	inline void exit(EngineHandle p_engine)
 	{
@@ -735,6 +811,7 @@ private:
 
 //TODO -> if the child contains some editor-only SceneNodes, then the selection material change will also be applied to them.
 //TODO -> if the child contains some editor-only SceneNodes, persistance will take it into account.
+// This can be done by adding tags to scene nodes that are hash of stringslice
 struct SceneNodeSelection
 {
 	struct SelectedNodeRenderer
@@ -773,6 +850,30 @@ struct SceneNodeSelection
 
 
 		return this->calculate_selectednode_state();
+	};
+
+	inline void print_selected_node(EngineHandle p_engine)
+	{
+		if (this->root_selected_node.Index != -1)
+		{
+			Serialization::JSON::Deserializer l_deserializer;
+			l_deserializer.allocate();
+			l_deserializer.start();
+			l_deserializer.start_object("local_position");
+			JSONSerializer<Math::vec3f>::serialize(l_deserializer, SceneKernel::get_localposition(this->root_selected_node, engine_scene(p_engine)));
+			l_deserializer.end_object();
+			l_deserializer.start_object("local_rotation");
+			JSONSerializer<Math::quat>::serialize(l_deserializer, SceneKernel::get_localrotation(this->root_selected_node, engine_scene(p_engine)));
+			l_deserializer.end_object();
+			l_deserializer.start_object("local_scale");
+			JSONSerializer<Math::vec3f>::serialize(l_deserializer, SceneKernel::get_localscale(this->root_selected_node, engine_scene(p_engine)));
+			l_deserializer.end_object();
+			l_deserializer.end();
+			// Deserialization::JSON::remove_spaces(l_deserializer.output);
+			printf(l_deserializer.output.Memory.Memory);
+			printf("\n");
+			l_deserializer.free();
+		}
 	};
 
 	inline SelectedNodeState calculate_selectednode_state()
@@ -887,6 +988,24 @@ struct ToolState2
 		}
 	};
 
+	inline void print_selected_node()
+	{
+		if (this->selected_engine.is_valid(this->engine_runner))
+		{
+			this->selected_node.print_selected_node(this->engine_runner.engines[this->selected_engine.token].value.running_engine);
+		}
+	};
+
+	inline void set_current_value(float p_value)
+	{
+		if (this->selected_engine.is_valid(this->engine_runner))
+		{
+			if (this->selected_node.root_selected_node.Index != -1)
+			{
+				this->node_movement.set_current_value(this->selected_node.root_selected_node, this->engine_runner.engines[this->selected_engine.token].value, p_value);
+			}
+		}
+	};
 
 	inline void set_movement_step(float p_step)
 	{
@@ -905,7 +1024,6 @@ struct ToolState2
 		case SceneNodeSelection::SelectedNodeState::NODE_NOT_SELECTED:
 		{
 			this->node_movement.exit(this->engine_runner.engines[this->selected_engine.token].value.running_engine);
-			//TODO -> deactivate movement module
 		}
 		break;
 		}
@@ -918,6 +1036,11 @@ struct ToolState2
 			if (this->selected_node.root_selected_node.Index != -1)
 			{
 				this->node_movement.perform_node_movement(this->selected_node.root_selected_node, this->engine_runner.engines[this->selected_engine.token].value);
+			}
+
+			if (engine_input(this->engine_runner.engines[this->selected_engine.token].value.running_engine).get_state(InputKey::InputKey_P, KeyState::KeyStateFlag_PRESSED_THIS_FRAME))
+			{
+				this->engine_runner.engines[this->selected_engine.token].value.editor_scene._undo();
 			}
 		}
 	}
@@ -937,13 +1060,24 @@ struct CommandHandler2
 			size_t l_selected_node = FromString<size_t>::from_str(StringSlice(l_commands[l_depth]));
 			p_tool_state.set_selected_node(l_selected_node);
 		}
+		else if (l_commands[l_depth].equals(StringSlice("np")))
+		{
+			l_depth++;
+			p_tool_state.print_selected_node();
+		}
 		else if (l_commands[l_depth].equals(StringSlice("mts")))
 		{
 			l_depth++;
 			float l_step = FromString<float>::from_str(StringSlice(l_commands[l_depth]));
 			p_tool_state.set_movement_step(l_step);
 		}
-		else if (l_commands[l_depth].equals(StringSlice("mtr")))
+		else if (l_commands[l_depth].equals(StringSlice("mv")))
+		{
+			l_depth++;
+			float l_value = FromString<float>::from_str(StringSlice(l_commands[l_depth]));
+			p_tool_state.set_current_value(l_value);
+		}
+		else if (l_commands[l_depth].equals(StringSlice("mrs")))
 		{
 			l_depth++;
 			float l_step = FromString<float>::from_str(StringSlice(l_commands[l_depth]));
@@ -1079,13 +1213,14 @@ else if (p_input.get_state(InputKey::InputKey_##cnl, KeyState::KeyStateFlag_PRES
 				CustomCommandLineCheckNumber(7, SEVEN)
 				CustomCommandLineCheckNumber(8, EIGHT)
 				CustomCommandLineCheckNumber(9, NINE)
-				CustomCommandLineCheckRaw(MINUS, -);
-			if (l_char != "\0")
-			{
-				this->buffer.append(StringSlice(l_char));
-				printf(this->buffer.Memory.Memory);
-				printf("\n");
-			}
+				CustomCommandLineCheckRaw(MINUS, -)
+				CustomCommandLineCheckRaw(PERIOD, .)
+				if (l_char != "\0")
+				{
+					this->buffer.append(StringSlice(l_char));
+					printf(this->buffer.Memory.Memory);
+					printf("\n");
+				}
 		}
 
 

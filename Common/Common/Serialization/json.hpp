@@ -8,6 +8,14 @@ namespace Deserialization
 	struct JSON
 	{
 
+		inline static void remove_spaces(String<>& l_file_binary)
+		{
+			l_file_binary.remove_chars(' ');
+			l_file_binary.remove_chars('\n');
+			l_file_binary.remove_chars('\r');
+			l_file_binary.remove_chars('\t');
+		};
+
 		struct FieldNode
 		{
 			StringSlice value;
@@ -318,10 +326,10 @@ namespace Deserialization
 			};
 		};
 
-		inline static JSONObjectIterator StartDeserialization(const String<>& p_source)
+		inline static JSONObjectIterator StartDeserialization(String<>& p_source)
 		{
 			JSONObjectIterator l_object_iterator;
-
+			remove_spaces(p_source);
 			p_source.find("{", 0, &l_object_iterator.object.start_index);
 			l_object_iterator.object.start_index += 1;
 

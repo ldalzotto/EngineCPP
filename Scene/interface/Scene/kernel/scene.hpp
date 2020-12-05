@@ -350,14 +350,44 @@ struct SceneKernel
 		return thiz->transform.local_position;
 	};
 
+	inline static Math::vec3f& get_localposition(NTreeResolve<SceneNode>& thiz)
+	{
+		return get_localposition(thiz.element);
+	};
+
+	inline static Math::vec3f& get_localposition(SceneNodeToken p_node, Scene* p_scene)
+	{
+		return get_localposition(resolve_node(p_scene, p_node));
+	};
+
 	inline static Math::quat& get_localrotation(SceneNode* thiz)
 	{
 		return thiz->transform.local_rotation;
+	}; 
+	
+	inline static Math::quat& get_localrotation(NTreeResolve<SceneNode>& thiz)
+	{
+		return get_localrotation(thiz.element);
+	};
+
+	inline static Math::quat& get_localrotation(SceneNodeToken p_node, Scene* p_scene)
+	{
+		return get_localrotation(resolve_node(p_scene, p_node));
 	};
 
 	inline static Math::vec3f& get_localscale(SceneNode* thiz)
 	{
 		return thiz->transform.local_scale;
+	};
+
+	inline static Math::vec3f& get_localscale(NTreeResolve<SceneNode>& thiz)
+	{
+		return get_localscale(thiz.element);
+	};
+
+	inline static Math::vec3f& get_localscale(SceneNodeToken p_node, Scene* p_scene)
+	{
+		return get_localscale(resolve_node(p_scene, p_node));
 	};
 
 	inline static void set_localposition(NodeKernel_InputParams, const Math::vec3f& p_position)
@@ -367,6 +397,11 @@ struct SceneKernel
 			mark_for_recalculation(NodeKernel_InputValues);
 			thiz->transform.local_position = p_position;
 		}
+	};
+
+	inline static void set_localposition(SceneNodeToken p_node, Scene* p_scene, const Math::vec3f& p_position)
+	{
+		set_localposition(resolve_node(p_scene, p_node).element, p_scene, p_position);
 	};
 
 	inline static void set_localrotation(NodeKernel_InputParams, const Math::quat& p_rotation)
@@ -401,6 +436,11 @@ struct SceneKernel
 		}
 	};
 
+	inline static void set_worldposition(SceneNodeToken p_node, Scene* p_scene, const Math::vec3f& p_worldposition)
+	{
+		set_worldposition(resolve_node(p_scene, p_node).element, p_scene, p_worldposition);
+	};
+
 	inline static void set_worldrotation(NodeKernel_InputParams, const Math::quat& p_worldrotation)
 	{
 		NTreeResolve<SceneNode> l_current = SceneKernel::resolve_node(p_scene, thiz->scenetree_entry);
@@ -413,6 +453,11 @@ struct SceneKernel
 			NTreeResolve<SceneNode> l_parent = SceneKernel::resolve_node(p_scene, l_current.node->parent);
 			set_localrotation(NodeKernel_InputValues, Math::mul(Math::inv(get_worldrotation(l_parent.element, p_scene)), p_worldrotation));
 		}
+	};
+
+	inline static void set_worldrotation(SceneNodeToken p_node, Scene* p_scene, const Math::quat& p_worldrotation)
+	{
+		set_worldrotation(resolve_node(p_scene, p_node).element, p_scene, p_worldrotation);
 	};
 
 	inline static void set_worldscale(NodeKernel_InputParams, const Math::vec3f& p_worldscale)
@@ -434,6 +479,11 @@ struct SceneKernel
 		return translationVector(get_localtoworld(NodeKernel_InputValues));
 	};
 
+	inline static Math::vec3f get_worldposition(NTreeResolve<SceneNode>& p_node, Scene* p_scene)
+	{
+		return get_worldposition(p_node.element, p_scene);
+	};
+
 	inline static Math::quat get_worldrotation(NodeKernel_InputParams)
 	{
 		NTreeResolve<SceneNode> l_current = SceneKernel::resolve_node(p_scene, thiz->scenetree_entry);
@@ -446,6 +496,11 @@ struct SceneKernel
 			NTreeResolve<SceneNode> l_parent = SceneKernel::resolve_node(p_scene, l_current.node->parent);
 			return mul(get_worldrotation(l_parent.element, p_scene), thiz->transform.local_rotation);
 		}
+	};
+
+	inline static Math::quat get_worldrotation(NTreeResolve<SceneNode>& p_node, Scene* p_scene)
+	{
+		return get_worldrotation(p_node.element, p_scene);
 	};
 
 	inline static Math::vec3f get_worldscalefactor(NodeKernel_InputParams)
