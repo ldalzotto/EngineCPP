@@ -167,9 +167,57 @@ struct EditorSceneEventCreateNode
 
 };
 
-struct EditorSceneEventAddComponent
+struct EditorSceneEventRemoveNode
 {
 	inline static const unsigned int Type = EditorSceneEventCreateNode::Type + 1;
+
+	SceneNodeToken erased_node;
+
+	//For undo
+	SceneAsset erased_node_as_sceneasset;
+	com::Vector<SceneNodeToken> sceneassetnode_to_scenenode;
+	SceneNodeToken parent;
+
+	inline EditorSceneEventRemoveNode(const SceneNodeToken& p_erased_node)
+	{
+		this->erased_node = p_erased_node;
+	};
+
+	inline void _do(Scene* p_scene)
+	{
+		this->parent = SceneKernel::resolve_node(p_scene, this->erased_node).node->parent;
+		SceneSerializer2::SceneSingleNode_to_SceneAsset(*p_scene, this->erased_node, &this->erased_node_as_sceneasset, &this->sceneassetnode_to_scenenode, MainToolConstants::sceneNodeEditorFilter);
+		//We wrap the this->erased_node to bypass the fact that token is resetted when freed
+		SceneKernel::free_node(p_scene, SceneNodeToken(this->erased_node.Index));
+	};
+
+	inline void _undo(Scene* p_scene)
+	{
+		struct AddNode
+		{
+			com::Vector<SceneNodeToken>* sceneassetnode_to_scenenode;
+			inline AddNode(com::Vector<SceneNodeToken>* p_sceneassetnode_to_scenenode)
+			{
+				this->sceneassetnode_to_scenenode = p_sceneassetnode_to_scenenode;
+			};
+
+			inline SceneNodeToken add_node(Scene* thiz, const SceneNodeToken& p_parent, const Math::Transform& p_initial_local_transform, const size_t p_nodeaddet_index)
+			{
+				 SceneKernel::add_node_at_freenode(thiz, this->sceneassetnode_to_scenenode->operator[](p_nodeaddet_index), p_parent, p_initial_local_transform);
+				 return this->sceneassetnode_to_scenenode->operator[](p_nodeaddet_index);
+			};
+		};
+
+		SceneKernel::feed_with_asset(p_scene, this->erased_node_as_sceneasset, this->parent, AddNode(&this->sceneassetnode_to_scenenode));
+
+		this->erased_node_as_sceneasset.free();
+		this->sceneassetnode_to_scenenode.free();
+	};
+};
+
+struct EditorSceneEventAddComponent
+{
+	inline static const unsigned int Type = EditorSceneEventRemoveNode::Type + 1;
 
 	SceneNodeComponentToken created_component;
 	const SceneNodeComponent_TypeInfo* component_type;
@@ -283,6 +331,15 @@ struct EditorScene
 		return ((EditorSceneEventCreateNode*)l_event.object)->created_node;
 	};
 
+	inline void remove_node(const SceneNodeToken& p_removed_node)
+	{
+		EditorSceneEvent l_event;
+		l_event.allocate(EditorSceneEventRemoveNode(p_removed_node));
+		this->undo_events.push_back(l_event);
+
+		((EditorSceneEventRemoveNode*)l_event.object)->_do(this->engine_scene);
+	};
+
 	inline SceneNodeComponentToken add_component(const SceneNodeComponent_TypeInfo* p_component_type, const SceneNodeToken& p_node)
 	{
 		EditorSceneEvent l_event;
@@ -313,6 +370,11 @@ struct EditorScene
 			case EditorSceneEventCreateNode::Type:
 			{
 				((EditorSceneEventCreateNode*)l_event.object)->_undo(this->engine_scene);
+			}
+			break;
+			case EditorSceneEventRemoveNode::Type:
+			{
+				((EditorSceneEventRemoveNode*)l_event.object)->_undo(this->engine_scene);
 			}
 			break;
 			case EditorSceneEventAddComponent::Type:
@@ -508,11 +570,22 @@ struct NodeMovement2
 	{
 		SceneNodeToken gizmo_scene_node;
 
+		// /!\ editor scene nodes are always allocated at the end of the scene node tree memory.
+		//     this is to avoid weird behavior when we undo scene node deletion or creationg. To avoid that the newly placed editor node takes the slot of a potential undoable
+		//     node.
+		//TODO -> Move allocation of scene node to it's asscoaited utils class.
+		size_t gizmo_scene_node_scenememory_contraint = 0;
+
 		inline void create(SceneNodeToken p_parent, EngineHandle p_engine)
 		{
 			if (this->gizmo_scene_node.Index == -1)
 			{
-				this->gizmo_scene_node = SceneKernel::add_node(engine_scene(p_engine), p_parent, Math::Transform());
+				this->gizmo_scene_node = SceneKernel::add_node_memoryconstrained(engine_scene(p_engine), p_parent, Math::Transform(), gizmo_scene_node_scenememory_contraint);
+				if (this->gizmo_scene_node.Index >= this->gizmo_scene_node_scenememory_contraint)
+				{
+					this->gizmo_scene_node_scenememory_contraint = this->gizmo_scene_node.Index;
+				}
+
 				SceneKernel::add_tag(engine_scene(p_engine), this->gizmo_scene_node, MainToolConstants::EditorNodeTag);
 				MeshRenderer l_ms;
 				l_ms.initialize(StringSlice("materials/editor_gizmo.json"), StringSlice("models/arrow.obj"));
@@ -1082,13 +1155,15 @@ struct ToolState2
 		return SceneNodeToken(-1);
 	};
 
-	inline void remove_node(const size_t p_node_index)
+	inline void remove_node()
 	{
 		if (this->selected_engine.is_valid(this->engine_runner))
 		{
-			if (SceneKernel::check_scenetoken_validity(this->engine_runner.get_enginemodule(this->selected_engine.token).editor_scene.engine_scene, SceneNodeToken(p_node_index)))
+			SceneNodeToken l_selected_node;
+			if (this->selected_node.get_selected_node(&l_selected_node))
 			{
-				//TODO
+				this->set_selected_node(-1); //This is to remove all data that is attached to the node components by the editor
+				this->engine_runner.get_enginemodule(this->selected_engine.token).editor_scene.remove_node(l_selected_node);
 			}
 		}
 	};
@@ -1250,6 +1325,11 @@ struct CommandHandler2
 			printf(l_str.c_str());
 			printf("\n");
 			l_str.free();
+		}
+		else if (l_commands[l_depth].equals(StringSlice("delete")))
+		{
+			l_depth++;
+			p_tool_state.remove_node();
 		}
 		else if (l_commands[l_depth].equals("add_component"))
 		{

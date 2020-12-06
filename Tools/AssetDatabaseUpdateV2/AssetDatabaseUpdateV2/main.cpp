@@ -42,7 +42,7 @@ struct AssetToolDatabase
 		l_asset_folder_path.path.append("/.tmp/asset_compile.db");
 
 		File<FilePathMemoryLayout::STRING> l_asset_folder_tmp_file;
-		l_asset_folder_tmp_file.allocate(FileType::FOLDER, l_asset_folder_path);
+		l_asset_folder_tmp_file.allocate(FileType::CONTENT, l_asset_folder_path);
 		l_asset_folder_tmp_file.create();
 
 		this->connection.allocate(l_asset_folder_path.path.c_str());

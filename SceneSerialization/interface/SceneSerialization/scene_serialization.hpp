@@ -329,6 +329,22 @@ struct SceneSerializer2
 		return l_scene_asset;
 	};
 
+	template<class SceneNodeFilter = SceneKernel::SceneIterationFilter_Default>
+	inline static SceneAsset SceneSingleNode_to_SceneAsset(Scene& p_scene, SceneNodeToken& p_node_included, SceneNodeFilter& p_scenenode_filer = SceneKernel::SceneIterationFilter_Default())
+	{
+		SceneAsset l_scene_asset;
+		SceneNode_pushTo_sceneAsset(SceneKernel::resolve_node(&p_scene, p_node_included), -1, p_scene, l_scene_asset, p_scenenode_filer);
+		return l_scene_asset;
+	};
+	
+	template<class SceneNodeFilter = SceneKernel::SceneIterationFilter_Default>
+	inline static void SceneSingleNode_to_SceneAsset(Scene& p_scene, SceneNodeToken& p_node_included, SceneAsset* out_sceneasset, 
+		com::Vector<SceneNodeToken>* out_sceneassetnode_to_scenenode, SceneNodeFilter& p_scenenode_filer = SceneKernel::SceneIterationFilter_Default())
+	{
+		SceneNode_pushTo_sceneAsset(SceneKernel::resolve_node(&p_scene, p_node_included), -1, p_scene, *out_sceneasset, *out_sceneassetnode_to_scenenode, p_scenenode_filer);
+	};
+
+
 	inline static SceneAsset Binary_to_SceneAsset(const com::Vector<char>& p_binary_scene)
 	{
 		size_t l_cursor = 0;
@@ -338,7 +354,8 @@ struct SceneSerializer2
 private:
 
 	template<class PerInputChildNodeType, class NodeAssetBuilder, class NodeAssetChildsBuilder>
-	inline static void TSceneAsset_builder_fromexternal(PerInputChildNodeType& p_iterator, size_t p_parent_nodeasset_index, com::Vector<NodeAsset>& p_node_assets, NodeAssetBuilder& p_nodeasset_builder, NodeAssetChildsBuilder& p_nodeasset_childs_builder)
+	inline static void TSceneAsset_builder_fromexternal(PerInputChildNodeType& p_iterator, size_t p_parent_nodeasset_index, com::Vector<NodeAsset>& p_node_assets, 
+			NodeAssetBuilder& p_nodeasset_builder, NodeAssetChildsBuilder& p_nodeasset_childs_builder)
 	{
 		struct ChildProcessingEntry
 		{
@@ -367,8 +384,6 @@ private:
 
 			p_node_assets[l_current_processed_entry.node_asset_index].childs_begin = p_node_assets.Size;
 			p_node_assets[l_current_processed_entry.node_asset_index].childs_end = p_node_assets.Size + l_current_processed_entry.childs_iterators.Size;
-
-			//p_node_assets.push_back(l_current_processed_entry.node_asset);
 
 			for (size_t i = 0; i < l_current_processed_entry.childs_iterators.Size; i++)
 			{
@@ -562,6 +577,52 @@ private:
 
 		TSceneAsset_builder_fromexternal(p_scene_node, p_parent_sceneasset_node_index, in_out_sceneasset.nodes,
 			NodeAssetBuilder(p_scene, in_out_sceneasset),
+			NodeAssetChildsBuilder(p_scene, p_scenenode_filter));
+	}
+
+	template<class SceneNodeFilter>
+	inline static void SceneNode_pushTo_sceneAsset(NTreeResolve<SceneNode>& p_scene_node, size_t p_parent_sceneasset_node_index, Scene& p_scene, SceneAsset& in_out_sceneasset, 
+			com::Vector<SceneNodeToken>& in_out_sceneassetnode_to_scenenode, SceneNodeFilter& p_scenenode_filter)
+	{
+		struct NodeAssetBuilder
+		{
+			Scene* scene;
+			SceneAsset* scene_asset;
+			com::Vector<SceneNodeToken>* in_out_sceneasset_to_scenenode;
+
+			inline NodeAssetBuilder(Scene& p_scene, SceneAsset& p_scene_asset, com::Vector<SceneNodeToken>& p_in_out_sceneasset_to_scenenode)
+			{
+				this->scene = &p_scene;
+				this->scene_asset = &p_scene_asset;
+				this->in_out_sceneasset_to_scenenode = &p_in_out_sceneasset_to_scenenode;
+			};
+
+			inline NodeAsset build(NTreeResolve<SceneNode>& p_scene_node, size_t p_parent_nodeasset_index)
+			{
+				this->in_out_sceneasset_to_scenenode->push_back(SceneNodeToken(p_scene_node.node->index));
+				return SceneNode_to_NodeAsset_withoutchilds(p_scene_node, p_parent_nodeasset_index, this->scene, this->scene_asset->components, this->scene_asset->component_asset_heap);
+			};
+		};
+
+		struct NodeAssetChildsBuilder
+		{
+			Scene* scene;
+			SceneNodeFilter* scenenode_filter;
+
+			inline NodeAssetChildsBuilder(Scene& p_scene, SceneNodeFilter& p_scenenode_filter)
+			{
+				this->scene = &p_scene;
+				this->scenenode_filter = &p_scenenode_filter;
+			};
+
+			inline com::Vector<NTreeResolve<SceneNode>> build(NTreeResolve<SceneNode>& p_scene_node)
+			{
+				return SceneNode_get_childs(p_scene_node, this->scene, *this->scenenode_filter);
+			};
+		};
+
+		TSceneAsset_builder_fromexternal(p_scene_node, p_parent_sceneasset_node_index, in_out_sceneasset.nodes,
+			NodeAssetBuilder(p_scene, in_out_sceneasset, in_out_sceneassetnode_to_scenenode),
 			NodeAssetChildsBuilder(p_scene, p_scenenode_filter));
 	}
 

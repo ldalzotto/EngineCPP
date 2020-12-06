@@ -88,6 +88,20 @@ namespace com
 		return this->Memory.Memory[p_element.Index];
 	};
 
+	template<class TYPE, class Allocator>
+	inline 		TPoolToken<TYPE> Pool<TYPE, Allocator>::get_next_freentry()
+	{
+		if (this->FreeBlocks.Size > 0)
+		{
+			return TPoolToken<TYPE>(this->FreeBlocks[0]);
+		}
+		else
+		{
+			return TPoolToken<TYPE>(-1);
+		}
+	};
+
+
 
 	template<class TYPE, class Allocator>
 	inline OptionalPool<TYPE, Allocator>::OptionalPool()

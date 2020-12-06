@@ -54,12 +54,15 @@ struct NTree
 
 	NTree<ElementType, Allocator> move();
 
+	com::TPoolToken<NTreeNode> get_next_freenode();
+
 	NTreeResolve<ElementType> resolve(com::PoolToken p_token);
 	com::Vector<com::TPoolToken<NTreeNode>>& get_childs(const NTreeResolve<ElementType>& p_node_resolve);
 
 	com::TPoolToken<ElementType> push_root_value(const ElementType& p_value);
 	com::TPoolToken<ElementType> push_value(const com::TPoolToken<NTreeNode> p_parent, const ElementType& p_value);
 	com::TPoolToken<ElementType> push_value(const ElementType& p_value);
+	bool set_value_at_freenode(const com::TPoolToken<NTreeNode> p_node, const ElementType& p_value);
 
 	template<class NTreeForEach>
 	void remove(com::PoolToken p_value, NTreeForEach& p_foreach_childs);

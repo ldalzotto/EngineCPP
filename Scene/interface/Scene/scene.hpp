@@ -27,8 +27,13 @@ struct SceneNodeComponentHeader
 	template<class ComponentType>
 	inline ComponentType* cast()
 	{
-		return (ComponentType*)(((char*)this) + sizeof(SceneNodeComponentHeader));
+		return (ComponentType*) this->get_component_object();
 	};
+
+	inline void* get_component_object()
+	{
+		return ((char*)this) + sizeof(SceneNodeComponentHeader);
+	}
 };
 
 struct SceneNodeTag
