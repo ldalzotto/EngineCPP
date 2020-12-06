@@ -20,7 +20,7 @@ struct SceneKernel
 		thiz->heap.allocate();
 
 		SceneNodeToken l_root = SceneNodeToken(thiz->tree.push_root_value(SceneNode()).Index);
-		allocate_node(resolve_node(thiz, l_root).element, thiz, Math::Transform(), l_root.Index, thiz->node_to_components.alloc_element(com::Vector<SceneNodeComponentToken>()));
+		allocate_node(resolve_node(thiz, l_root).element, thiz, Math::Transform(), l_root.Index, thiz->node_to_components.alloc_element(com::Vector<SceneNodeComponentToken>()), com::MemorySlice<SceneNodeTag>());
 	}
 
 	inline static Scene clone(Scene* thiz)
@@ -250,19 +250,24 @@ struct SceneKernel
 
 
 
-
-
-	inline static void allocate_node(NodeKernel_InputParams, const Math::Transform& p_transform, const SceneNodeToken& p_scenetree_entry,
-		com::TPoolToken<Optional<com::Vector<SceneNodeComponentToken>>> p_scenecomponents_token)
+	inline static void allocate_node(NodeKernel_InputParams, const Math::Transform& p_transform, const SceneNodeToken& p_scenetree_entry, com::TPoolToken<Optional<com::Vector<SceneNodeComponentToken>>> p_scenecomponents_token)
 	{
 		thiz->transform = p_transform;
 		thiz->scenetree_entry = p_scenetree_entry;
 		thiz->components = p_scenecomponents_token;
 		mark_for_recalculation(NodeKernel_InputValues);
+	}
+
+	inline static void allocate_node(NodeKernel_InputParams, const Math::Transform& p_transform, const SceneNodeToken& p_scenetree_entry, com::TPoolToken<Optional<com::Vector<SceneNodeComponentToken>>> p_scenecomponents_token,
+		com::MemorySlice<SceneNodeTag>& p_scenenode_tags)
+	{
+		thiz->tags.push_back(p_scenenode_tags);
+		allocate_node(NodeKernel_InputValues, p_transform, p_scenetree_entry, p_scenecomponents_token);
 	};
 
 	inline static void free_node(NodeKernel_InputParams)
 	{
+		thiz->tags.free();
 	};
 
 	inline static NTreeResolve<SceneNode> resolve_node(Scene* thiz, const SceneNodeToken p_node)
@@ -274,7 +279,8 @@ struct SceneKernel
 	inline static SceneNodeToken allocate_node(Scene* thiz, const Math::Transform& p_initial_local_transform)
 	{
 		SceneNodeToken l_node = SceneNodeToken(thiz->tree.push_value(SceneNode()).Index);
-		allocate_node(thiz->tree.resolve(l_node).element, thiz, p_initial_local_transform, l_node.Index, thiz->node_to_components.alloc_element(com::Vector<SceneNodeComponentToken>()));
+		allocate_node(thiz->tree.resolve(l_node).element, thiz, p_initial_local_transform, l_node.Index, thiz->node_to_components.alloc_element(com::Vector<SceneNodeComponentToken>()),
+			com::MemorySlice<SceneNodeTag>());
 		return l_node;
 	};
 
@@ -313,9 +319,6 @@ struct SceneKernel
 		return l_node;
 	};
 
-
-
-
 	inline static void addchild(NodeKernel_InputParams, SceneNodeToken& p_newchild)
 	{
 		NTreeResolve<SceneNode> l_current = SceneKernel::resolve_node(p_scene, thiz->scenetree_entry);
@@ -344,6 +347,40 @@ struct SceneKernel
 		}
 
 	}
+
+	inline static void add_tag(SceneNode* thiz, const SceneNodeTag& p_tag)
+	{
+		thiz->tags.push_back(p_tag);
+	};
+
+	inline static void add_tag(Scene* p_scene, SceneNodeToken p_node, const SceneNodeTag& p_tag)
+	{
+		add_tag(resolve_node(p_scene, p_node).element, p_tag);
+	};
+
+	inline static void remove_tag(SceneNode* thiz, const SceneNodeTag& p_tag)
+	{
+		for (size_t i = 0; i < thiz->tags.Size; i++)
+		{
+			if (thiz->tags[i].hash == p_tag.hash)
+			{
+				thiz->tags.erase_at(i, 1);
+				break;
+			}
+		}
+	};
+
+	inline static bool contains_tag(SceneNode* thiz, const SceneNodeTag& p_tag)
+	{
+		for (size_t i = 0; i < thiz->tags.Size; i++)
+		{
+			if (thiz->tags[i].hash == p_tag.hash)
+			{
+				return true;
+			}
+		}
+		return false;
+	};
 
 	inline static Math::vec3f& get_localposition(SceneNode* thiz)
 	{

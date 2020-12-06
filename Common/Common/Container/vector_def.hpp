@@ -32,6 +32,7 @@ namespace com
 		size_t capacity_in_bytes();
 		char resize(const size_t p_newCapacity);
 		char push_back(const TYPE &p_element);
+		char push_back(MemorySlice<TYPE>& p_elements);
 		char insert_at(MemorySlice<TYPE>& p_elements, const size_t p_index);
 		char insert_at(const TYPE& p_element, const size_t p_index);
 

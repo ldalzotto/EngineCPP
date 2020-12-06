@@ -16,7 +16,10 @@
 #include "SceneComponents/components.hpp"
 #include "Middleware/RenderMiddleware.hpp"
 
-
+struct MainToolConstants
+{
+	inline static const SceneNodeTag EditorNodeTag = SceneNodeTag(Hash<ConstString>::hash("editor"));
+};
 
 struct InterpretorFile2
 {
@@ -484,6 +487,7 @@ struct NodeMovement2
 			if (this->gizmo_scene_node.Index == -1)
 			{
 				this->gizmo_scene_node = SceneKernel::add_node(engine_scene(p_engine), p_parent, Math::Transform());
+				SceneKernel::add_tag(engine_scene(p_engine), this->gizmo_scene_node, MainToolConstants::EditorNodeTag);
 				MeshRenderer l_ms;
 				l_ms.initialize(StringSlice("materials/editor_gizmo.json"), StringSlice("models/arrow.obj"));
 				SceneKernel::add_component<MeshRenderer>(engine_scene(p_engine), this->gizmo_scene_node, l_ms);
@@ -599,7 +603,7 @@ struct NodeMovement2
 					}
 
 				}
-				
+
 
 				Math::vec4f l_delta = Math::vec4f(0.0f, 0.0f, 0.0f, 0.0f);
 
@@ -656,7 +660,7 @@ struct NodeMovement2
 						l_value = -this->rotation_step_deg * DEG_TO_RAD;
 					}
 				}
-				
+
 
 
 				Math::vec3f l_axis = Math::vec3f(0.0f, 0.0f, 0.0f);
@@ -839,9 +843,6 @@ private:
 	};
 };
 
-//TODO -> if the child contains some editor-only SceneNodes, then the selection material change will also be applied to them.
-//TODO -> if the child contains some editor-only SceneNodes, persistance will take it into account.
-// This can be done by adding tags to scene nodes that are hash of stringslice
 struct SceneNodeSelection
 {
 	struct SelectedNodeRenderer
@@ -942,14 +943,17 @@ struct SceneNodeSelection
 
 				inline void foreach(NTreeResolve<SceneNode>& p_node)
 				{
-					MeshRenderer* l_mesh_renderer = SceneKernel::get_component<MeshRenderer>(this->scene, p_node.node->index);
-					if (l_mesh_renderer)
+					if (!SceneKernel::contains_tag(p_node.element, MainToolConstants::EditorNodeTag))
 					{
-						SelectedNodeRenderer l_selected_node_renderer;
-						l_selected_node_renderer.node = p_node.node->index;
-						l_selected_node_renderer.original_material = l_mesh_renderer->material.key;
-						this->render_middleware->set_material(l_mesh_renderer, Hash<StringSlice>::hash(StringSlice("materials/editor_selected.json")));
-						this->out_selected_node_renderers->push_back(l_selected_node_renderer);
+						MeshRenderer* l_mesh_renderer = SceneKernel::get_component<MeshRenderer>(this->scene, p_node.node->index);
+						if (l_mesh_renderer)
+						{
+							SelectedNodeRenderer l_selected_node_renderer;
+							l_selected_node_renderer.node = p_node.node->index;
+							l_selected_node_renderer.original_material = l_mesh_renderer->material.key;
+							this->render_middleware->set_material(l_mesh_renderer, Hash<StringSlice>::hash(StringSlice("materials/editor_selected.json")));
+							this->out_selected_node_renderers->push_back(l_selected_node_renderer);
+						}
 					}
 				};
 			};

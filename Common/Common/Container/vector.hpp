@@ -116,6 +116,11 @@ namespace com
 		return 1;
 	}
 
+	Vector_TemplateHeader inline char Vector_ClassName::push_back(MemorySlice<TYPE>& p_elements)
+	{
+		return this->insert_at(p_elements, this->Size - 1);
+	};
+
 	Vector_TemplateHeader
 		inline char Vector_ClassName::insert_at(MemorySlice<TYPE>& p_elements, const size_t p_index)
 	{

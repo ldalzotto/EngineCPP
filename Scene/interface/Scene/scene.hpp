@@ -31,6 +31,16 @@ struct SceneNodeComponentHeader
 	};
 };
 
+struct SceneNodeTag
+{
+	size_t hash;
+
+	inline SceneNodeTag(const size_t p_hash)
+	{
+		this->hash = p_hash;
+	};
+};
+
 struct SceneNodeToken : public com::PoolToken
 {
 	inline SceneNodeToken() {};
@@ -38,7 +48,6 @@ struct SceneNodeToken : public com::PoolToken
 	// inline com::TPoolToken<SceneNode>* cast_to_scenenode() { return (com::TPoolToken<SceneNode>*)this; };
 	inline com::TPoolToken<NTreeNode>* cast_to_treenode() { return (com::TPoolToken<NTreeNode>*)this; };
 };
-
 
 struct SceneNode
 {
@@ -49,8 +58,6 @@ struct SceneNode
 		bool haschanged_thisframe = false;
 	} state;
 
-	com::TPoolToken<Optional<com::Vector<SceneNodeComponentToken>>> components;
-
 	//transform
 	Math::Transform transform;
 
@@ -58,8 +65,8 @@ struct SceneNode
 	Math::mat4f localtoworld;
 
 	SceneNodeToken scenetree_entry;
-
-
+	com::TPoolToken<Optional<com::Vector<SceneNodeComponentToken>>> components;
+	com::Vector<SceneNodeTag> tags;
 public:
 	inline SceneNode() {};
 };
