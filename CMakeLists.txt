@@ -20,3 +20,5 @@ add_subdirectory(Engine)
 add_subdirectory(SceneSerialization)
 add_subdirectory(Tools)
 add_subdirectory(CPPTestVS)
+
+add_subdirectory(Test)

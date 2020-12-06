@@ -163,11 +163,10 @@ struct EditorScene
 	};
 };
 
+#include <cstdlib>
+#include "Common/Clock/clock.hpp"
 int main()
 {
-	//glm::vec3(0.43938f, 0.81915f, 0.36868f), glm::vec3(0.0f, 1.0f, 0.0f)
-	Math::quat l_ft=  Math::fromTo(Math::vec3f(0.43938f, 0.81915f, 0.36868f), Math::vec3f(0.0f, 1.0f, 0.0f));
-
 	Serialization::JSON::Deserializer l_deserializer;
 	l_deserializer.allocate();
 	l_deserializer.start();

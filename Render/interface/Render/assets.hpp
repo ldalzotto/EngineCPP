@@ -22,28 +22,19 @@ struct ShaderCompareOp
 		Invalid = 8
 	};
 
-	inline static const size_t Never_Hash = 210683813157;	// Hash<StringSlice>::hash(StringSlice("Never"));
-	inline static const size_t Less_Hash = 6384286012; // Hash<StringSlice>::hash(StringSlice("Less"));
-	inline static const size_t Equal_Hash = 210673569885;// Hash<StringSlice>::hash(StringSlice("Equal"));
-	inline static const size_t LessOrEqual_Hash = 13833912425920439605;// Hash<StringSlice>::hash(StringSlice("LessOrEqual"));
-	inline static const size_t Greater_Hash = 229426120713519;// Hash<StringSlice>::hash(StringSlice("Greater"));
-	inline static const size_t NotEqual_Hash = 7571356991977326;   // Hash<StringSlice>::hash(StringSlice("NotEqual"));
-	inline static const size_t GreaterOrEqual_Hash = 13559817491955663304;// Hash<StringSlice>::hash(StringSlice("GreaterOrEqual"));
-	inline static const size_t Always_Hash = 6952065407446;  // Hash<StringSlice>::hash(StringSlice("Always"));
-
 	inline static ShaderCompareOp::Type from_string(StringSlice& p_str)
 	{
 		size_t p_str_hash = Hash<StringSlice>::hash(p_str);
 		switch (p_str_hash)
 		{
-		case ShaderCompareOp::Never_Hash: return ShaderCompareOp::Type::Never;
-		case ShaderCompareOp::Less_Hash: return ShaderCompareOp::Type::Less;
-		case ShaderCompareOp::Equal_Hash: return ShaderCompareOp::Type::Equal;
-		case ShaderCompareOp::LessOrEqual_Hash: return ShaderCompareOp::Type::LessOrEqual;
-		case ShaderCompareOp::Greater_Hash: return ShaderCompareOp::Type::Greater;
-		case ShaderCompareOp::NotEqual_Hash: return ShaderCompareOp::Type::NotEqual;
-		case ShaderCompareOp::GreaterOrEqual_Hash: return ShaderCompareOp::Type::GreaterOrEqual;
-		case ShaderCompareOp::Always_Hash: return ShaderCompareOp::Type::Always;
+		case Hash<ConstString>::hash("Never"): return ShaderCompareOp::Type::Never;
+		case Hash<ConstString>::hash("Less"): return ShaderCompareOp::Type::Less;
+		case Hash<ConstString>::hash("Equal"): return ShaderCompareOp::Type::Equal;
+		case Hash<ConstString>::hash("LessOrEqual"): return ShaderCompareOp::Type::LessOrEqual;
+		case Hash<ConstString>::hash("Greater"): return ShaderCompareOp::Type::Greater;
+		case Hash<ConstString>::hash("NotEqual"): return ShaderCompareOp::Type::NotEqual;
+		case Hash<ConstString>::hash("GreaterOrEqual"): return ShaderCompareOp::Type::GreaterOrEqual;
+		case Hash<ConstString>::hash("Always"): return ShaderCompareOp::Type::Always;
 		default: return ShaderCompareOp::Type::Invalid;
 		}
 	};
@@ -66,32 +57,21 @@ struct ShaderBlendFactor
 		OneMinusDstAlpha = 10
 	};
 
-	inline static const size_t One_Hash = 193466759;	// Hash<StringSlice>::hash(StringSlice("One"));
-	inline static const size_t Zero_Hash = 6384789093;	// Hash<StringSlice>::hash(StringSlice("Zero"));
-	inline static const size_t SrcColor_Hash = 7571573290841388;	// Hash<StringSlice>::hash(StringSlice("SrcColor"));
-	inline static const size_t SrcAlpha_Hash = 7571573288365843;	// Hash<StringSlice>::hash(StringSlice("SrcAlpha"));
-	inline static const size_t DstColor_Hash = 7570935970966383;	// Hash<StringSlice>::hash(StringSlice("DstColor"));
-	inline static const size_t DstAlpha_Hash = 7570935968490838;	// Hash<StringSlice>::hash(StringSlice("DstAlpha"));
-	inline static const size_t OneMinusSrcColor_Hash = 3381930011083874842;	// Hash<StringSlice>::hash(StringSlice("OneMinusSrcColor"));
-	inline static const size_t OneMinusSrcAlpha_Hash = 3381930011081399297;	// Hash<StringSlice>::hash(StringSlice("OneMinusSrcAlpha"));
-	inline static const size_t OneMinusDstColor_Hash = 3381929373763999837;	// Hash<StringSlice>::hash(StringSlice("OneMinusDstColor"));
-	inline static const size_t OneMinusDstAlpha_Hash = 3381929373761524292;	// Hash<StringSlice>::hash(StringSlice("OneMinusDstAlpha"));
-
 	inline static ShaderBlendFactor::Type from_string(StringSlice& p_str)
 	{
 		size_t p_str_hash = Hash<StringSlice>::hash(p_str);
 		switch (p_str_hash)
 		{
-		case ShaderBlendFactor::One_Hash: return ShaderBlendFactor::Type::One;
-		case ShaderBlendFactor::Zero_Hash: return ShaderBlendFactor::Type::Zero;
-		case ShaderBlendFactor::SrcColor_Hash: return ShaderBlendFactor::Type::SrcColor;
-		case ShaderBlendFactor::SrcAlpha_Hash: return ShaderBlendFactor::Type::SrcAlpha;
-		case ShaderBlendFactor::DstColor_Hash: return ShaderBlendFactor::Type::DstColor;
-		case ShaderBlendFactor::DstAlpha_Hash: return ShaderBlendFactor::Type::DstAlpha;
-		case ShaderBlendFactor::OneMinusSrcColor_Hash: return ShaderBlendFactor::Type::OneMinusSrcColor;
-		case ShaderBlendFactor::OneMinusSrcAlpha_Hash: return ShaderBlendFactor::Type::OneMinusSrcAlpha;
-		case ShaderBlendFactor::OneMinusDstColor_Hash: return ShaderBlendFactor::Type::OneMinusDstColor;
-		case ShaderBlendFactor::OneMinusDstAlpha_Hash: return ShaderBlendFactor::Type::OneMinusDstAlpha;
+		case Hash<ConstString>::hash("One"): return ShaderBlendFactor::Type::One;
+		case Hash<ConstString>::hash("Zero"): return ShaderBlendFactor::Type::Zero;
+		case Hash<ConstString>::hash("SrcColor"): return ShaderBlendFactor::Type::SrcColor;
+		case Hash<ConstString>::hash("SrcAlpha"): return ShaderBlendFactor::Type::SrcAlpha;
+		case Hash<ConstString>::hash("DstColor"): return ShaderBlendFactor::Type::DstColor;
+		case Hash<ConstString>::hash("DstAlpha"): return ShaderBlendFactor::Type::DstAlpha;
+		case Hash<ConstString>::hash("OneMinusSrcColor"): return ShaderBlendFactor::Type::OneMinusSrcColor;
+		case Hash<ConstString>::hash("OneMinusSrcAlpha"): return ShaderBlendFactor::Type::OneMinusSrcAlpha;
+		case Hash<ConstString>::hash("OneMinusDstColor"): return ShaderBlendFactor::Type::OneMinusDstColor;
+		case Hash<ConstString>::hash("OneMinusDstAlpha"): return ShaderBlendFactor::Type::OneMinusDstAlpha;
 		default: return ShaderBlendFactor::Type::Invalid;
 		}
 	};
@@ -110,23 +90,16 @@ struct ShaderBlendOp
 		Max = 5
 	};
 
-	inline static const size_t Add_Hash = 193451182;	// Hash<StringSlice>::hash(StringSlice("Add"));
-	inline static const size_t Substract_Hash = 249862047046255232;	// Hash<StringSlice>::hash(StringSlice("Substract"));
-	inline static const size_t ReverseSubstract_Hash = 15133734447464593820;	// Hash<StringSlice>::hash(StringSlice("ReverseSubstract"));
-	inline static const size_t Min_Hash = 193464425;	// Hash<StringSlice>::hash(StringSlice("Min"));
-	inline static const size_t Max_Hash = 193464171;	// Hash<StringSlice>::hash(StringSlice("Max"));
-
-
 	inline static ShaderBlendOp::Type from_string(StringSlice& p_str)
 	{
 		size_t p_str_hash = Hash<StringSlice>::hash(p_str);
 		switch (p_str_hash)
 		{
-		case ShaderBlendOp::Add_Hash: return ShaderBlendOp::Type::Add;
-		case ShaderBlendOp::Substract_Hash: return ShaderBlendOp::Type::Substract;
-		case ShaderBlendOp::ReverseSubstract_Hash: return ShaderBlendOp::Type::ReverseSubstract;
-		case ShaderBlendOp::Min_Hash: return ShaderBlendOp::Type::Min;
-		case ShaderBlendOp::Max_Hash: return ShaderBlendOp::Type::Max;
+		case Hash<ConstString>::hash("Add"): return ShaderBlendOp::Type::Add;
+		case Hash<ConstString>::hash("Substract"): return ShaderBlendOp::Type::Substract;
+		case Hash<ConstString>::hash("ReverseSubstract"): return ShaderBlendOp::Type::ReverseSubstract;
+		case Hash<ConstString>::hash("Min"): return ShaderBlendOp::Type::Min;
+		case Hash<ConstString>::hash("Max"): return ShaderBlendOp::Type::Max;
 		default: return ShaderBlendOp::Type::Invalid;
 		}
 	};
@@ -143,20 +116,14 @@ struct ShaderLayoutParameter
 		UNIFORM_BUFFER_VERTEX_FRAGMENT = 3
 	};
 
-	//TODO -> update hashes
-	inline static const size_t UNIFORM_BUFFER_VERTEX_Hash = 1470805825648346875;
-	inline static const size_t TEXTURE_FRAGMENT_Hash = 8282991955269238249;
-	inline static const size_t UNIFORM_BUFFER_VERTEX_FRAGMENT_Hash = 14933577130234638798;
-
-
 	inline static ShaderLayoutParameter::Type from_string(StringSlice& p_str)
 	{
 		size_t p_str_hash = Hash<StringSlice>::hash(p_str);
 		switch (p_str_hash)
 		{
-		case UNIFORM_BUFFER_VERTEX_Hash: return ShaderLayoutParameter::Type::UNIFORM_BUFFER_VERTEX;
-		case TEXTURE_FRAGMENT_Hash: return ShaderLayoutParameter::Type::TEXTURE_FRAGMENT;
-		case UNIFORM_BUFFER_VERTEX_FRAGMENT_Hash: return ShaderLayoutParameter::Type::UNIFORM_BUFFER_VERTEX_FRAGMENT;
+		case Hash<ConstString>::hash("UNIFORM_BUFFER_VERTEX"): return ShaderLayoutParameter::Type::UNIFORM_BUFFER_VERTEX;
+		case Hash<ConstString>::hash("TEXTURE_FRAGMENT"): return ShaderLayoutParameter::Type::TEXTURE_FRAGMENT;
+		case Hash<ConstString>::hash("UNIFORM_BUFFER_VERTEX_FRAGMENT"): return ShaderLayoutParameter::Type::UNIFORM_BUFFER_VERTEX_FRAGMENT;
 		default: return ShaderLayoutParameter::Type::UNDEFINED;
 		}
 	};

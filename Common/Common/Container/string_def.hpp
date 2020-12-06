@@ -78,3 +78,42 @@ struct String
 	static char String_CompareRaw(char* p_left, char* p_right, size_t p_size);
 };
 
+const struct ConstString
+{
+	char const* Memory;
+	size_t Size;
+
+	inline ConstString(char const* p_memory)
+	{
+		Memory = p_memory;
+		Size = size(p_memory);
+	};
+
+	inline constexpr char const* get_memory() const
+	{
+		return this->Memory;
+	};
+
+	inline constexpr size_t get_size() const
+	{
+		return this->Size;
+	};
+
+	inline constexpr size_t length() const
+	{
+		return this->Size - 1;
+	};
+
+	inline static constexpr size_t const size(char const* p_memory)
+	{
+		const char* l_current_char = p_memory;
+		size_t l_size = 0;
+		while (*l_current_char != '\0')
+		{
+			l_size += 1;
+			l_current_char = l_current_char + 1;
+		}
+		l_size += 1;
+		return l_size;
+	};
+};

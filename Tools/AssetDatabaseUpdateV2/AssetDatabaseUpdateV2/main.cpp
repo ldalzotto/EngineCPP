@@ -286,7 +286,11 @@ private:
 
 					com::Vector<char> l_asset_bytes;
 
-					if (l_json_type.value.equals(StringSlice("material")))
+					size_t l_json_type_hash = Hash<StringSlice>::hash(l_json_type.value);
+
+					switch (l_json_type_hash)
+					{
+					case Hash<ConstString>::hash("material"):
 					{
 						l_json_deserializer.free();
 						MaterialAsset l_material_asset = JSONDeserializer<MaterialAsset>::deserialize(l_json_deserializer);
@@ -294,24 +298,30 @@ private:
 
 						l_material_asset.free();
 					}
-					else if (l_json_type.value.equals(StringSlice("scene")))
+					break;
+					case Hash<ConstString>::hash("scene"):
 					{
 						l_json_deserializer.free();
 						SceneAsset l_scene_asset = SceneSerializer2::JSON_to_SceneAsset(l_json_deserializer);
 						l_scene_asset.serialize(l_asset_bytes);
 					}
-					else if (l_json_type.value.equals(StringSlice("shader")))
+					break;
+					case Hash<ConstString>::hash("shader"):
 					{
 						l_json_deserializer.free();
 						ShaderAsset l_shader_asset = JSONDeserializer<ShaderAsset>::deserialize(l_json_deserializer);
 						l_shader_asset.serialize(l_asset_bytes);
 					}
-					else if (l_json_type.value.equals(StringSlice("shader_layout")))
+					break;
+					case Hash<ConstString>::hash("shader_layout"):
 					{
 						l_json_deserializer.free();
 						ShaderLayoutAsset l_shaderlayout_asset = JSONDeserializer<ShaderLayoutAsset>::deserialize(l_json_deserializer);
 						l_shaderlayout_asset.serialize(l_asset_bytes);
 					}
+					break;
+					}
+					
 					if (l_asset_bytes.Memory != nullptr)
 					{
 						this->asset_server.insert_or_update_resource(std::string(l_asset_folder_relative.Memory + l_asset_folder_relative.Begin), l_asset_bytes);

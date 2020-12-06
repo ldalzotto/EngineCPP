@@ -4,7 +4,7 @@
 #include "Common/Container/string_def.hpp"
 
 // http://www.cse.yorku.ca/~oz/hash.html
-inline size_t HashFunctionRaw(const char* p_value, size_t p_size)
+inline constexpr size_t HashFunctionRaw(const char* p_value, const size_t p_size)
 {
 	size_t hash = 5381;
 
@@ -54,12 +54,21 @@ struct Hash<StringSlice>
 	};
 };
 
-
 template<>
 struct Hash<size_t>
 {
 	inline static size_t hash(const size_t p_key)
 	{
 		return p_key;
+	};
+};
+
+template<>
+struct Hash<ConstString>
+{
+	inline static constexpr const size_t hash(const char* p_memory)
+	{
+		return HashFunctionRaw(p_memory, ConstString::size(p_memory) - 1);
+		// return HashFunctionRaw(p_str, p_str.Size);
 	};
 };
