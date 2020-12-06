@@ -69,6 +69,5 @@ struct Hash<ConstString>
 	inline static constexpr const size_t hash(const char* p_memory)
 	{
 		return HashFunctionRaw(p_memory, ConstString::size(p_memory) - 1);
-		// return HashFunctionRaw(p_str, p_str.Size);
 	};
 };

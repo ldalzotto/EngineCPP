@@ -24,6 +24,14 @@ struct RenderableObjectEntry
 		this->renderableobject.set_material(p_render, this->default_material);
 		p_mesh_renderer->material = p_new_material;
 	};
+
+	inline void set_mesh(MeshRenderer* p_mesh_renderer, size_t p_new_mesh, AssetServerHandle& p_asset_server, RenderHandle& p_render)
+	{
+		MeshHandle l_new_mesh;
+		l_new_mesh.allocate(p_render, p_new_mesh);
+		this->renderableobject.set_mesh(p_render, l_new_mesh);
+		p_mesh_renderer->model = p_new_mesh;
+	};
 };
 
 struct CameraEntry
@@ -84,6 +92,7 @@ struct RenderMiddleware
 
 		MeshHandle l_mesh;
 		l_mesh.allocate(this->render, p_mesh_renderer.model.key);
+
 		RenderableObjectHandle l_renderable_object;
 		l_renderable_object.allocate(this->render, l_material, l_mesh);
 
@@ -153,7 +162,11 @@ struct RenderMiddleware
 		this->get_renderable_object(com::TPoolToken<Optional<RenderableObjectEntry>>(p_mesh_renderer->rendererable_object.Index))->set_material(p_mesh_renderer, p_new_material, this->asset_server, this->render);
 	};
 
-	
+	inline void set_mesh(MeshRenderer* p_mesh_renderer, size_t p_new_mesh)
+	{
+		this->get_renderable_object(com::TPoolToken<Optional<RenderableObjectEntry>>(p_mesh_renderer->rendererable_object.Index))->set_mesh(p_mesh_renderer, p_new_mesh, this->asset_server, this->render);
+	};
+
 };
 
 typedef RenderMiddleware* RenderMiddlewareHandle;

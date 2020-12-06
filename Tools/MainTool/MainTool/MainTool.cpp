@@ -27,7 +27,7 @@ struct MainToolConstants
 			return !SceneKernel::contains_tag(p_node.element, MainToolConstants::EditorNodeTag);
 		};
 	};
-	
+
 	inline static SceneNodeEditorFilter sceneNodeEditorFilter = SceneNodeEditorFilter();
 };
 
@@ -77,7 +77,7 @@ struct ScenePersister
 			l_scene_file.append(StringSlice(l_scene_json.Memory));
 			l_scene_file.free();
 		}
-		
+
 
 		l_scene_json.free();
 		l_dup_asset.free();
@@ -141,7 +141,66 @@ struct EditorSceneEventRotateNode
 	};
 };
 
+struct EditorSceneEventCreateNode
+{
+	inline static const unsigned int Type = EditorSceneEventRotateNode::Type + 1;
 
+	SceneNodeToken created_node;
+	SceneNodeToken parent;
+	Math::Transform local_transform;
+
+	inline EditorSceneEventCreateNode(const SceneNodeToken& p_parent, const Math::Transform& p_local_transform)
+	{
+		this->parent = p_parent;
+		this->local_transform = p_local_transform;
+	};
+
+	inline void _do(Scene* p_scene)
+	{
+		this->created_node = SceneKernel::add_node(p_scene, this->parent, this->local_transform);
+	};
+
+	inline void _undo(Scene* p_scene)
+	{
+		SceneKernel::free_node(p_scene, this->created_node);
+	};
+
+};
+
+struct EditorSceneEventAddComponent
+{
+	inline static const unsigned int Type = EditorSceneEventCreateNode::Type + 1;
+
+	SceneNodeComponentToken created_component;
+	const SceneNodeComponent_TypeInfo* component_type;
+	SceneNodeToken node;
+
+	inline EditorSceneEventAddComponent(const SceneNodeComponent_TypeInfo* p_component_type, const SceneNodeToken& p_node)
+	{
+		this->component_type = p_component_type;
+		this->node = p_node;
+	};
+
+	inline void _do(Scene* p_scene)
+	{
+		switch (this->component_type->id)
+		{
+		case MeshRenderer::Id:
+		{
+			MeshRenderer l_mesh_renderer = MeshRenderer();
+			l_mesh_renderer.initialize_default();
+			this->created_component = SceneKernel::add_component<MeshRenderer>(p_scene, this->node, l_mesh_renderer);
+		}
+		break;
+		}
+		
+	};
+
+	inline void _undo(Scene* p_scene)
+	{
+		SceneKernel::remove_component(p_scene, this->node, *this->component_type);
+	};
+};
 
 struct EditorSceneEvent
 {
@@ -165,10 +224,10 @@ struct EditorSceneEvent
 	};
 };
 
+
 struct EditorScene
 {
 	Scene* engine_scene;
-	// Scene proxy_scene;
 	com::Vector<EditorSceneEvent> undo_events;
 	String<> engine_scene_asset_path;
 
@@ -181,7 +240,6 @@ struct EditorScene
 
 	inline void free()
 	{
-		//SceneKernel::free_scene(&this->proxy_scene);
 		for (size_t i = 0; i < this->undo_events.Size; i++)
 		{
 			this->undo_events[i].free();
@@ -204,7 +262,6 @@ struct EditorScene
 		this->undo_events.push_back(l_event);
 
 		((EditorSceneEventMoveNode*)l_event.object)->_do(this->engine_scene);
-		//((EditorSceneEventMoveNode*)l_event.object)->_do(&this->proxy_scene);
 	};
 
 	inline void set_localrotation(NTreeResolve<SceneNode>& p_scene_node, Math::quat& p_local_rotation)
@@ -214,7 +271,26 @@ struct EditorScene
 		this->undo_events.push_back(l_event);
 
 		((EditorSceneEventRotateNode*)l_event.object)->_do(this->engine_scene);
-		//((EditorSceneEventRotateNode*)l_event.object)->_do(&this->proxy_scene);
+	};
+
+	inline SceneNodeToken create_node(const SceneNodeToken& p_parent, const Math::Transform& p_local_transform)
+	{
+		EditorSceneEvent l_event;
+		l_event.allocate(EditorSceneEventCreateNode(p_parent, p_local_transform));
+		this->undo_events.push_back(l_event);
+
+		((EditorSceneEventCreateNode*)l_event.object)->_do(this->engine_scene);
+		return ((EditorSceneEventCreateNode*)l_event.object)->created_node;
+	};
+
+	inline SceneNodeComponentToken add_component(const SceneNodeComponent_TypeInfo* p_component_type, const SceneNodeToken& p_node)
+	{
+		EditorSceneEvent l_event;
+		l_event.allocate(EditorSceneEventAddComponent(p_component_type, p_node));
+		this->undo_events.push_back(l_event);
+
+		((EditorSceneEventAddComponent*)l_event.object)->_do(this->engine_scene);
+		return ((EditorSceneEventAddComponent*)l_event.object)->created_component;
 	};
 
 	inline void _undo()
@@ -232,6 +308,16 @@ struct EditorScene
 			case EditorSceneEventRotateNode::Type:
 			{
 				((EditorSceneEventRotateNode*)l_event.object)->_undo(this->engine_scene);
+			}
+			break;
+			case EditorSceneEventCreateNode::Type:
+			{
+				((EditorSceneEventCreateNode*)l_event.object)->_undo(this->engine_scene);
+			}
+			break;
+			case EditorSceneEventAddComponent::Type:
+			{
+				((EditorSceneEventAddComponent*)l_event.object)->_undo(this->engine_scene);
 			}
 			break;
 			}
@@ -384,6 +470,12 @@ struct EngineRunner
 		}
 		return false;
 	};
+
+	inline EngineRunningModule& get_enginemodule(com::TPoolToken<Optional<EngineRunningModule>>& p_engine_module)
+	{
+		return this->engines[p_engine_module].value;
+	};
+
 };
 
 
@@ -826,6 +918,16 @@ struct SceneNodeSelection
 		return this->calculate_selectednode_state();
 	};
 
+	inline bool get_selected_node(SceneNodeToken* out_selected_node)
+	{
+		if (this->root_selected_node.Index != -1)
+		{
+			*out_selected_node = this->root_selected_node;
+			return true;
+		}
+		return false;
+	};
+
 	inline void print_selected_node(EngineHandle p_engine)
 	{
 		if (this->root_selected_node.Index != -1)
@@ -843,10 +945,25 @@ struct SceneNodeSelection
 			JSONSerializer<Math::vec3f>::serialize(l_deserializer, SceneKernel::get_localscale(this->root_selected_node, engine_scene(p_engine)));
 			l_deserializer.end_object();
 			l_deserializer.end();
-			// Deserialization::JSON::remove_spaces(l_deserializer.output);
+
 			printf(l_deserializer.output.Memory.Memory);
 			printf("\n");
 			l_deserializer.free();
+
+			printf("Components : ");
+
+			com::Vector<SceneNodeComponentToken>& l_components = SceneKernel::get_components(engine_scene(p_engine), this->root_selected_node);
+			for (size_t i = 0; i < l_components.Size; i++)
+			{
+				SceneNodeComponentHeader* l_header = SceneKernel::resolve_component(engine_scene(p_engine), l_components[i]);
+				const char* l_component_name;
+				if (SceneComponentUtils::get_name_from_id(l_header->id, &l_component_name))
+				{
+					printf(l_component_name);
+					printf(",");
+				}
+			}
+			printf("\n");
 		}
 	};
 
@@ -901,7 +1018,7 @@ struct SceneNodeSelection
 			};
 
 			SceneKernel::traverse(engine_scene(p_new_engine), this->root_selected_node,
-					SceneForeach2(&this->selected_nodes_renderer, engine_scene(p_new_engine), engine_render_middleware(p_new_engine), MainToolConstants::sceneNodeEditorFilter));
+				SceneForeach2(&this->selected_nodes_renderer, engine_scene(p_new_engine), engine_render_middleware(p_new_engine), MainToolConstants::sceneNodeEditorFilter));
 		}
 
 	};
@@ -951,6 +1068,31 @@ struct ToolState2
 		this->selected_node.clear();
 	};
 
+	inline SceneNodeToken create_node(const size_t p_parent_index, const Math::Transform& p_local_transform)
+	{
+		if (this->selected_engine.is_valid(this->engine_runner))
+		{
+			if (SceneKernel::check_scenetoken_validity(this->engine_runner.get_enginemodule(this->selected_engine.token).editor_scene.engine_scene, SceneNodeToken(p_parent_index)))
+			{
+				SceneNodeToken l_token = this->engine_runner.get_enginemodule(this->selected_engine.token).editor_scene.create_node(SceneNodeToken(p_parent_index), p_local_transform);
+				return l_token;
+			}
+		}
+
+		return SceneNodeToken(-1);
+	};
+
+	inline void remove_node(const size_t p_node_index)
+	{
+		if (this->selected_engine.is_valid(this->engine_runner))
+		{
+			if (SceneKernel::check_scenetoken_validity(this->engine_runner.get_enginemodule(this->selected_engine.token).editor_scene.engine_scene, SceneNodeToken(p_node_index)))
+			{
+				//TODO
+			}
+		}
+	};
+
 	inline void set_selected_node(const size_t p_node_index)
 	{
 		if (this->selected_engine.is_valid(this->engine_runner))
@@ -961,6 +1103,22 @@ struct ToolState2
 				SceneNodeSelection::SelectedNodeState l_old = this->selected_node_state;
 				this->selected_node_state = l_selectednode_state;
 				this->on_selectednodestate_changed(l_old, this->selected_node_state);
+			}
+		}
+	};
+
+	inline void add_component(StringSlice& p_component_name)
+	{
+		if (this->selected_engine.is_valid(this->engine_runner))
+		{
+			SceneNodeToken l_selected_node;
+			if (this->selected_node.get_selected_node(&l_selected_node))
+			{
+				const SceneNodeComponent_TypeInfo* l_component_type;
+				if (SceneComponentUtils::get_type_from_name(p_component_name, &l_component_type))
+				{
+					this->engine_runner.get_enginemodule(this->selected_engine.token).editor_scene.add_component(l_component_type, l_selected_node);
+				}
 			}
 		}
 	};
@@ -977,9 +1135,10 @@ struct ToolState2
 	{
 		if (this->selected_engine.is_valid(this->engine_runner))
 		{
-			if (this->selected_node.root_selected_node.Index != -1)
+			SceneNodeToken l_selected_node;
+			if (this->selected_node.get_selected_node(&l_selected_node))
 			{
-				this->node_movement.set_current_value(this->selected_node.root_selected_node, this->engine_runner.engines[this->selected_engine.token].value, p_value);
+				this->node_movement.set_current_value(l_selected_node, this->engine_runner.engines[this->selected_engine.token].value, p_value);
 			}
 		}
 	};
@@ -1019,9 +1178,10 @@ struct ToolState2
 	{
 		if (this->selected_engine.is_valid(this->engine_runner))
 		{
-			if (this->selected_node.root_selected_node.Index != -1)
+			SceneNodeToken l_selected_node;
+			if (this->selected_node.get_selected_node(&l_selected_node))
 			{
-				this->node_movement.perform_node_movement(this->selected_node.root_selected_node, this->engine_runner.engines[this->selected_engine.token].value);
+				this->node_movement.perform_node_movement(l_selected_node, this->engine_runner.engines[this->selected_engine.token].value);
 			}
 
 			EngineHandle l_engine = this->engine_runner.engines[this->selected_engine.token].value.running_engine;
@@ -1077,6 +1237,24 @@ struct CommandHandler2
 			l_depth++;
 			float l_step = FromString<float>::from_str(StringSlice(l_commands[l_depth]));
 			p_tool_state.set_rotation_step_deg(l_step);
+		}
+		else if (l_commands[l_depth].equals(StringSlice("create")))
+		{
+			l_depth++;
+
+			SceneNodeToken l_created_node = p_tool_state.create_node(0, Math::Transform());
+
+			String<> l_str; l_str.allocate(0);
+			l_str.append(l_created_node.Index);
+			printf("Created node : ");
+			printf(l_str.c_str());
+			printf("\n");
+			l_str.free();
+		}
+		else if (l_commands[l_depth].equals("add_component"))
+		{
+			l_depth++;
+			p_tool_state.add_component(l_commands[l_depth]);
 		}
 		else if (l_commands[l_depth].equals(StringSlice("s")))
 		{
@@ -1213,7 +1391,18 @@ else if (p_input.get_state(InputKey::InputKey_##cnl, KeyState::KeyStateFlag_PRES
 				CustomCommandLineCheckNumber(7, SEVEN)
 				CustomCommandLineCheckNumber(8, EIGHT)
 				CustomCommandLineCheckNumber(9, NINE)
-				CustomCommandLineCheckRaw(MINUS, -)
+			else if (p_input.get_state(InputKey::InputKey_MINUS, KeyState::KeyStateFlag_PRESSED_THIS_FRAME))
+			{
+				if (this->maj_holded)
+				{
+					l_char = "_";
+				}
+				else
+				{
+					l_char = "-";
+				}
+			}
+			CustomCommandLineCheckRaw(MINUS, -)
 				CustomCommandLineCheckRaw(PERIOD, .)
 				if (l_char != "\0")
 				{

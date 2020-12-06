@@ -62,6 +62,7 @@ void update(void* p_engine, float p_delta)
 		com::Vector<NTreeResolve<SceneNode>> l_nodes = SceneKernel::get_nodes_with_component<MeshRenderer>(l_scenehandle);
 		MeshRenderer* l_mesh_renderer = SceneKernel::get_component<MeshRenderer>(l_scenehandle, l_nodes[0].node->index);
 		engine_render_middleware(*l_engine)->set_material(l_mesh_renderer, Hash<StringSlice>::hash(StringSlice("materials/test.json")));
+		engine_render_middleware(*l_engine)->set_mesh(l_mesh_renderer, Hash<StringSlice>::hash(StringSlice("models/16.09.obj")));
 	}
 	else if (l_input.get_state(InputKey::InputKey_C, KeyState::KeyStateFlag_PRESSED_THIS_FRAME))
 	{

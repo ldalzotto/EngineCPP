@@ -19,10 +19,18 @@ void RenderableObjectHandle::push_trs(const RenderHandle& p_render, const Math::
 void RenderableObjectHandle::set_material(const RenderHandle& p_render, const MaterialHandle& p_material)
 {
 	Render* l_render = (Render*)p_render;
-	l_render->heap.set_material(com::TPoolToken<RenderableObject>(this->handle), 
-					com::TPoolToken<Material>(this->material.handle), com::TPoolToken<Shader>(this->material.shader.handle), com::TPoolToken<Material>(p_material.handle));
+	l_render->heap.set_material(com::TPoolToken<RenderableObject>(this->handle),
+		com::TPoolToken<Material>(this->material.handle), com::TPoolToken<Shader>(this->material.shader.handle), com::TPoolToken<Material>(p_material.handle));
 	this->material.free(p_render);
 	this->material = p_material;
+};
+
+void RenderableObjectHandle::set_mesh(const RenderHandle& p_render, const MeshHandle& p_mesh)
+{
+	Render* l_render = (Render*)p_render;
+	l_render->heap.set_mesh(com::TPoolToken<RenderableObject>(this->handle), com::TPoolToken<Mesh>(p_mesh.handle));
+	this->mesh.free(p_render);
+	this->mesh = p_mesh;
 };
 
 void RenderableObjectHandle::free(const RenderHandle& p_render)

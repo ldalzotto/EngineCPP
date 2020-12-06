@@ -101,28 +101,25 @@ struct SceneKernel
 	};
 
 
-
-
-	inline static SceneNodeComponentToken allocate_component(Scene* thiz, const SceneNodeComponent_TypeInfo& p_component_type_info, void* p_initial_value)
-	{
-		return thiz->heap.allocate_component(p_component_type_info, p_initial_value);
-	};
-
 	inline static void free_component(Scene* thiz, SceneNodeComponentToken& p_component_token)
 	{
 		thiz->heap.free_component(p_component_token);
 	};
 
-	inline static SceneNodeComponentToken add_component(Scene* thiz, const SceneNodeToken p_node, const SceneNodeComponent_TypeInfo& p_component_type_info, void* p_initial_value)
+	inline static void attach_component_to_node(Scene* thiz, const SceneNodeToken p_node, SceneNodeComponentToken p_component)
 	{
-		SceneNodeComponentToken l_component = allocate_component(thiz, p_component_type_info, p_initial_value);
 		NTreeResolve<SceneNode> l_node = resolve_node(thiz, p_node);
-		thiz->node_to_components[l_node.element->components].value.push_back(l_component);
-		ComponentAddedParameter l_param = ComponentAddedParameter(p_node, l_node, l_component, resolve_component(thiz, l_component));
+		thiz->node_to_components[l_node.element->components].value.push_back(p_component);
+		ComponentAddedParameter l_param = ComponentAddedParameter(p_node, l_node, p_component, resolve_component(thiz, p_component));
 		thiz->component_added_callback.call(&l_param);
-		return l_component;
 	};
 
+	inline static SceneNodeComponentToken add_component(Scene* thiz, const SceneNodeToken p_node, const SceneNodeComponent_TypeInfo& p_component_type_info, void* p_initial_value)
+	{
+		SceneNodeComponentToken l_component = thiz->heap.allocate_component(p_component_type_info, p_initial_value);
+		attach_component_to_node(thiz, p_node, l_component);
+		return l_component;
+	};
 
 	template<class ComponentType>
 	inline static SceneNodeComponentToken add_component(Scene* thiz, const SceneNodeToken p_node, const ComponentType& p_initialvalue = ComponentType())
@@ -179,6 +176,11 @@ struct SceneKernel
 		return thiz->heap.component_heap.map<SceneNodeComponentHeader>(p_component);
 	};
 
+
+	inline static com::Vector<SceneNodeComponentToken>& get_components(Scene* thiz, const SceneNodeToken p_node)
+	{
+		return thiz->node_to_components[resolve_node(thiz, p_node).element->components].value;
+	};
 
 	inline static SceneNodeComponentHeader* get_component(Scene* thiz, const SceneNodeToken p_node, const SceneNodeComponent_TypeInfo& p_component_type_info)
 	{

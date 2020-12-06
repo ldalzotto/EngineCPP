@@ -148,14 +148,7 @@ struct SceneHeap
 	//store components ?
 	inline SceneNodeComponentToken allocate_component(const SceneNodeComponent_TypeInfo& p_type, void* p_initial_value)
 	{
-		// if(this->component_heap.chunk_total_size <)
-		size_t l_allocationsize = sizeof(SceneNodeComponentHeader) + p_type.size;
-		SceneNodeComponentToken l_memory_allocated;
-		if (!this->component_heap.allocate_element<>(l_allocationsize, l_memory_allocated.cast_to_parent()))
-		{
-			abort();
-		}
-
+		SceneNodeComponentToken l_memory_allocated = allocate_component_internal(p_type);
 		SceneNodeComponentHeader* l_header = this->component_heap.map<SceneNodeComponentHeader>(l_memory_allocated);
 		l_header->id = p_type.id;
 		memcpy((char*)l_header + sizeof(SceneNodeComponentHeader), p_initial_value, p_type.size);
@@ -167,6 +160,19 @@ struct SceneHeap
 	{
 		this->component_heap.release_element(p_component);
 		p_component.Index = -1;
+	}
+
+private:
+	inline SceneNodeComponentToken allocate_component_internal(const SceneNodeComponent_TypeInfo& p_type)
+	{
+		size_t l_allocationsize = sizeof(SceneNodeComponentHeader) + p_type.size;
+		SceneNodeComponentToken l_memory_allocated;
+		if (!this->component_heap.allocate_element<>(l_allocationsize, l_memory_allocated.cast_to_parent()))
+		{
+			abort();
+		}
+
+		return l_memory_allocated;
 	}
 };
 

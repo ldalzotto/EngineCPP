@@ -62,6 +62,7 @@ struct RenderableObjectHandle : public Handle
 	void push_trs(const RenderHandle& p_render, const Math::mat4f& p_trs);
 	void free(const RenderHandle& p_render);
 	void set_material(const RenderHandle& p_render, const MaterialHandle& p_material);
+	void set_mesh(const RenderHandle& p_render, const MeshHandle& p_mesh);
 };
 
 

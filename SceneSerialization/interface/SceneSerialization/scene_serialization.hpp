@@ -17,14 +17,12 @@ struct ComponentSerializationConstants
 {
 	struct MeshRenderer
 	{
-		inline static const char* Name = "MeshRenderer";
 		inline static const char* Mesh = "mesh";
 		inline static const char* Material = "material";
 	};
 	
 	struct Camera
 	{
-		inline static const char* Name = "Camera";
 		inline static const char* Fov = "fov";
 		inline static const char* Near = "near";
 		inline static const char* Far = "far";
@@ -117,7 +115,7 @@ struct ComponentAssetSerializer
 	inline static bool deserializeJSON(StringSlice& p_component_type, Deserialization::JSON::JSONObjectIterator& p_component_object_iterator,
 		com::Vector<ComponentAsset>& p_component_assets, GeneralPurposeHeap2<GeneralPurposeHeap2_Times2Allocation>& p_compoent_asset_heap, ComponentAsset* out_component_asset)
 	{
-		if (p_component_type.equals(ComponentSerializationConstants::MeshRenderer::Name))
+		if (p_component_type.equals(MeshRenderer::TypeName))
 		{
 			out_component_asset->id = MeshRenderer::Id;
 
@@ -128,7 +126,7 @@ struct ComponentAssetSerializer
 
 			return true;
 		}
-		else if (p_component_type.equals(ComponentSerializationConstants::Camera::Name))
+		else if (p_component_type.equals(Camera::TypeName))
 		{
 			out_component_asset->id = Camera::Id;
 			allocate_component_asset<CameraAsset>(p_compoent_asset_heap, &out_component_asset->componentasset_heap_index);
@@ -148,12 +146,12 @@ struct ComponentAssetSerializer
 		bool l_component_detected = false;
 		if (p_component_asset.id == MeshRenderer::Id)
 		{
-			l_component_type = ComponentSerializationConstants::MeshRenderer::Name;
+			l_component_type = StringSlice(MeshRenderer::TypeName);
 			l_component_detected = true;
 		}
 		else if (p_component_asset.id == Camera::Id)
 		{
-			l_component_type = ComponentSerializationConstants::Camera::Name;
+			l_component_type = StringSlice(Camera::TypeName);
 			l_component_detected = true;
 		}
 

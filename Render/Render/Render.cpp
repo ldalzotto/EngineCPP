@@ -3103,7 +3103,7 @@ struct Material
 	com::Vector<ShaderParameter> parameters;
 
 	inline Material() {};
-	
+
 	inline void add_image_parameter(const com::PoolToken& p_parameter)
 	{
 		this->parameters.push_back(ShaderParameter(ShaderParameter::Type::TEXTURE, p_parameter));
@@ -3680,7 +3680,7 @@ public:
 				break;
 				}
 			}
-		
+
 		}
 		l_material_binary.free();
 
@@ -3774,6 +3774,11 @@ public:
 	{
 		//Create new link
 		this->material_to_renderableobjects[p_material.Index].push_back(p_renderable_object);
+	};
+
+	inline void set_mesh(com::TPoolToken<RenderableObject> p_renderable_object, com::TPoolToken<Mesh> p_mesh)
+	{
+		this->renderableobjects[p_renderable_object].mesh = p_mesh;
 	};
 
 private:
