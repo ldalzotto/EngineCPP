@@ -375,6 +375,19 @@ struct SceneKernel
 		thiz->tree.traverse(com::PoolToken(p_start_node.Index), p_foreach);
 	};
 
+	inline static bool check_scenetoken_validity(Scene* thiz, const SceneNodeToken& p_node)
+	{
+		if (p_node.Index < thiz->tree.Memory.Memory.Size)
+		{
+			NTreeResolve<SceneNode> l_node = resolve_node(thiz, p_node);
+			if (thiz->node_to_components[l_node.element->components].hasValue)
+			{
+				return true;
+			}
+		}
+		return false;
+	};
+	
 	inline static void add_tag(SceneNode* thiz, const SceneNodeTag& p_tag)
 	{
 		thiz->tags.push_back(p_tag);

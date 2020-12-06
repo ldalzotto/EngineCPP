@@ -453,8 +453,11 @@ struct NodeMovement2
 
 		inline void free(EngineHandle p_engine)
 		{
-			SceneKernel::free_node(engine_scene(p_engine), this->gizmo_scene_node);
-			this->gizmo_scene_node.reset();
+			if (this->gizmo_scene_node.Index != -1)
+			{
+				SceneKernel::free_node(engine_scene(p_engine), this->gizmo_scene_node);
+				this->gizmo_scene_node.reset();
+			}
 		};
 
 		inline void set_color(Math::vec4f& p_color, EngineHandle p_engine)
@@ -807,12 +810,18 @@ struct SceneNodeSelection
 			return this->calculate_selectednode_state();
 		}
 
-		EngineHandle l_old_engine = this->selected_node_engine;
-		this->selected_node_engine = p_engine;
-		SceneNodeToken l_old = this->root_selected_node;
-		this->root_selected_node = SceneNodeToken(p_node);
-		this->on_root_selected_node_changed(l_old, this->root_selected_node, l_old_engine, this->selected_node_engine);
-
+		if (p_node == -1 || SceneKernel::check_scenetoken_validity(engine_scene(p_engine), SceneNodeToken(p_node)))
+		{
+			EngineHandle l_old_engine = this->selected_node_engine;
+			this->selected_node_engine = p_engine;
+			SceneNodeToken l_old = this->root_selected_node;
+			this->root_selected_node = SceneNodeToken(p_node);
+			this->on_root_selected_node_changed(l_old, this->root_selected_node, l_old_engine, this->selected_node_engine);
+		}
+		else
+		{
+			return this->set_selected_node(p_engine, -1);
+		}
 
 		return this->calculate_selectednode_state();
 	};
