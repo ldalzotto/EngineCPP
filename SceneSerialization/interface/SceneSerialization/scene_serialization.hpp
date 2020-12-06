@@ -308,7 +308,8 @@ struct SceneSerializer2
 		return l_json_seralizer.output.Memory;
 	};
 
-	inline static SceneAsset Scene_to_SceneAsset(Scene& p_scene)
+	template<class SceneNodeFilter = SceneKernel::SceneIterationFilter_Default>
+	inline static SceneAsset Scene_to_SceneAsset(Scene& p_scene, SceneNodeFilter& p_scenenode_filer = SceneKernel::SceneIterationFilter_Default())
 	{
 		com::Vector<NTreeResolve<SceneNode>> l_first_scenetree_childs;
 
@@ -323,7 +324,7 @@ struct SceneSerializer2
 
 		for (size_t i = 0; i < l_first_scenetree_childs.Size; i++)
 		{
-			SceneNode_pushTo_sceneAsset(l_first_scenetree_childs[i], -1, p_scene, l_scene_asset);
+			SceneNode_pushTo_sceneAsset(l_first_scenetree_childs[i], -1, p_scene, l_scene_asset, p_scenenode_filer);
 		}
 
 		l_first_scenetree_childs.free();
@@ -524,7 +525,8 @@ private:
 		p_json_deserializer.end_array();
 	}
 
-	inline static void SceneNode_pushTo_sceneAsset(NTreeResolve<SceneNode>& p_scene_node, size_t p_parent_sceneasset_node_index, Scene& p_scene, SceneAsset& in_out_sceneasset)
+	template<class SceneNodeFilter>
+	inline static void SceneNode_pushTo_sceneAsset(NTreeResolve<SceneNode>& p_scene_node, size_t p_parent_sceneasset_node_index, Scene& p_scene, SceneAsset& in_out_sceneasset, SceneNodeFilter& p_scenenode_filter)
 	{
 		struct NodeAssetBuilder
 		{
@@ -546,21 +548,23 @@ private:
 		struct NodeAssetChildsBuilder
 		{
 			Scene* scene;
+			SceneNodeFilter* scenenode_filter;
 
-			inline NodeAssetChildsBuilder(Scene& p_scene)
+			inline NodeAssetChildsBuilder(Scene& p_scene, SceneNodeFilter& p_scenenode_filter)
 			{
 				this->scene = &p_scene;
+				this->scenenode_filter = &p_scenenode_filter;
 			};
 
 			inline com::Vector<NTreeResolve<SceneNode>> build(NTreeResolve<SceneNode>& p_scene_node)
 			{
-				return SceneNode_get_childs(p_scene_node, this->scene);
+				return SceneNode_get_childs(p_scene_node, this->scene, *this->scenenode_filter);
 			};
 		};
 
 		TSceneAsset_builder_fromexternal(p_scene_node, p_parent_sceneasset_node_index, in_out_sceneasset.nodes,
 			NodeAssetBuilder(p_scene, in_out_sceneasset),
-			NodeAssetChildsBuilder(p_scene));
+			NodeAssetChildsBuilder(p_scene, p_scenenode_filter));
 	}
 
 	inline static NodeAsset SceneNode_to_NodeAsset_withoutchilds(NTreeResolve<SceneNode>& p_node, size_t p_parent_sceneasset_node_index, Scene* p_scene,
@@ -592,13 +596,18 @@ private:
 		return l_node_asset;
 	};
 
-	inline static com::Vector<NTreeResolve<SceneNode>> SceneNode_get_childs(NTreeResolve<SceneNode>& p_node, Scene* p_scene)
+	template<class SceneNodeFilter>
+	inline static com::Vector<NTreeResolve<SceneNode>> SceneNode_get_childs(NTreeResolve<SceneNode>& p_node, Scene* p_scene, SceneNodeFilter& p_scenenode_filter)
 	{
 		com::Vector<NTreeResolve<SceneNode>> l_return;
 		auto& l_node_childs = p_scene->tree.get_childs(p_node);
 		for (size_t i = 0; i < l_node_childs.Size; i++)
 		{
-			l_return.push_back(p_scene->tree.resolve(l_node_childs[i]));
+			NTreeResolve<SceneNode> l_node = p_scene->tree.resolve(l_node_childs[i]);
+			if (p_scenenode_filter.evaluate(l_node))
+			{
+				l_return.push_back(l_node);
+			}
 		}
 		return l_return;
 	};

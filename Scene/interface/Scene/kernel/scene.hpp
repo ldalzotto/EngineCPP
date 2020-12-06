@@ -329,7 +329,7 @@ struct SceneKernel
 			if (l_newchild.node->has_parent())
 			{
 				NTreeResolve<SceneNode> l_newchild_parent = SceneKernel::resolve_node(p_scene, l_newchild.node->parent);
-				com::Vector<com::TPoolToken<NTreeNode>>& l_newchild_parent_childs =  p_scene->tree.get_childs(l_newchild_parent);
+				com::Vector<com::TPoolToken<NTreeNode>>& l_newchild_parent_childs = p_scene->tree.get_childs(l_newchild_parent);
 				for (size_t i = 0; i < l_newchild_parent_childs.Size; i++)
 				{
 					if (l_newchild_parent_childs[i].Index == l_newchild.node->parent)
@@ -342,11 +342,38 @@ struct SceneKernel
 
 			l_newchild.node->parent = thiz->scenetree_entry.Index;
 			p_scene->tree.get_childs(l_current).push_back(*l_newchild.element->scenetree_entry.cast_to_treenode());
-			
+
 			mark_for_recalculation(l_newchild.element, p_scene);
 		}
+	};
 
-	}
+	struct SceneIterationFilter_Default { inline bool evaluate(NTreeResolve<SceneNode>& p_node) { return true; }; };
+
+	template<class SceneInteratorFilter = SceneIterationFilter_Default>
+	struct SceneNodeForeach
+	{
+		SceneInteratorFilter filter;
+
+		inline SceneNodeForeach(SceneInteratorFilter& p_filter = SceneIterationFilter_Default())
+		{
+			this->filter = p_filter;
+		};
+
+		inline void foreach(NTreeResolve<SceneNode>& p_node) {
+			if (this->filter.evaluate(p_node))
+			{
+				this->foreach_internal(p_node);
+			}
+		};
+
+		virtual void foreach_internal(NTreeResolve<SceneNode>& p_node) = 0;
+	};
+
+	template<class SceneNodeForeach>
+	inline static void traverse(Scene* thiz, const SceneNodeToken& p_start_node, SceneNodeForeach& p_foreach)
+	{
+		thiz->tree.traverse(com::PoolToken(p_start_node.Index), p_foreach);
+	};
 
 	inline static void add_tag(SceneNode* thiz, const SceneNodeTag& p_tag)
 	{

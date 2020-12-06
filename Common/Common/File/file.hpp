@@ -189,7 +189,15 @@ struct File
 	inline void create()
 	{
 		String<> l_path = this->path.get_as_string();
-		this->file = CreateFile(l_path.c_str(), GENERIC_READ | GENERIC_WRITE, FILE_SHARE_DELETE | FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, CREATE_NEW, FILE_ATTRIBUTE_NORMAL, NULL);
+		switch (this->type)
+		{
+		case FileType::CONTENT:
+			this->file = CreateFile(l_path.c_str(), GENERIC_READ | GENERIC_WRITE, FILE_SHARE_DELETE | FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, CREATE_NEW, FILE_ATTRIBUTE_NORMAL, NULL);
+			break;
+		case FileType::FOLDER:
+			CreateDirectory(l_path.c_str(), NULL);
+			break;
+		}
 		l_path.free();
 	};
 

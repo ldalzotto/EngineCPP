@@ -19,119 +19,70 @@
 struct MainToolConstants
 {
 	inline static const SceneNodeTag EditorNodeTag = SceneNodeTag(Hash<ConstString>::hash("editor"));
+
+	struct SceneNodeEditorFilter
+	{
+		inline bool evaluate(NTreeResolve<SceneNode>& p_node)
+		{
+			return !SceneKernel::contains_tag(p_node.element, MainToolConstants::EditorNodeTag);
+		};
+	};
+	
+	inline static SceneNodeEditorFilter sceneNodeEditorFilter = SceneNodeEditorFilter();
 };
 
-struct InterpretorFile2
+struct ScenePersister
 {
-	File<FilePathMemoryLayout::STRING> file;
-	size_t user_start_read;
-	String<> user_input;
-
-	enum State
+	inline static void persist(EngineHandle& p_engine, Scene* p_scene, const String<>& p_scene_asset_path)
 	{
-		UNDEFINED = 0,
-		WAITING_FOR_MACHINE = 1,
-		WAITING_FOR_USER = 2
-	} state = State::UNDEFINED;
+		AssetServerHandle l_asset_server = engine_assetserver(p_engine);
 
-	inline void allocate()
-	{
-		FilePath<FilePathMemoryLayout::STRING> l_path;
-		l_path.allocate(99999);
-		l_path.path.append("C:/Users/loicd/Desktop/test_file.txt");
-		this->file.allocate(FileType::CONTENT, l_path);
-		this->file.create_or_open();
-		this->user_input.allocate(99999);
-	};
+		SceneAsset l_dup_asset = SceneSerializer2::Scene_to_SceneAsset(*p_scene, MainToolConstants::sceneNodeEditorFilter);
+		com::Vector<char> l_scene_json = SceneSerializer2::SceneAsset_to_JSON(l_dup_asset, l_asset_server);
 
-	inline void free()
-	{
-		this->file.free();
-		this->user_input.free();
-	};
-
-
-	inline void machine_start()
-	{
-		this->set_state(State::WAITING_FOR_MACHINE);
-	};
-
-	inline void machine_end()
-	{
-		this->set_state(State::WAITING_FOR_USER);
-	};
-
-	inline void machine_write(StringSlice& p_str)
-	{
-		if (this->state == State::WAITING_FOR_MACHINE)
+		//backup
 		{
-			this->file.append(p_str);
-			this->file.append(StringSlice("\n"));
-		}
-	}
-
-	inline bool has_input_ended()
-	{
-		if (this->state == State::WAITING_FOR_USER)
-		{
-			this->file.read(this->user_start_read, FileAlgorithm::get_char_nb(this->file.path.path.c_str()) - this->user_start_read, this->user_input);
-			if (this->user_input.Memory[this->user_input.Memory.Size - 1] == '\n')
 			{
-				return true;
+				File<FilePathMemoryLayout::STRING> l_tmp_scene_folder;
+				FilePath<FilePathMemoryLayout::STRING> l_tmp_scene_folder_path;
+				l_tmp_scene_folder_path.allocate(0);
+				l_tmp_scene_folder_path.path.append(l_asset_server.get_asset_basepath().c_str());
+				l_tmp_scene_folder_path.path.append(".tmp/scenes/");
+				l_tmp_scene_folder.allocate(FileType::FOLDER, l_tmp_scene_folder_path);
+				l_tmp_scene_folder.create();
+				l_tmp_scene_folder.free();
 			}
+
+			File<FilePathMemoryLayout::STRING> l_scene_file;
+			FilePath<FilePathMemoryLayout::STRING> l_scene_file_path;
+			l_scene_file_path.allocate(0);
+			l_scene_file_path.path.append(l_asset_server.get_asset_basepath().c_str());
+			l_scene_file_path.path.append(".tmp/");
+			l_scene_file_path.path.append(p_scene_asset_path);
+			l_scene_file_path.path.append(".");
+			l_scene_file_path.path.append(clock_currenttime_mics());
+			l_scene_file.allocate(FileType::CONTENT, l_scene_file_path);
+			l_scene_file.create_override();
+			l_scene_file.append(StringSlice(l_scene_json.Memory));
+			l_scene_file.free();
 		}
+		{
+			File<FilePathMemoryLayout::STRING> l_scene_file;
+			FilePath<FilePathMemoryLayout::STRING> l_scene_file_path;
+			l_scene_file_path.allocate(0);
+			l_scene_file_path.path.append(l_asset_server.get_asset_basepath().c_str());
+			l_scene_file_path.path.append(p_scene_asset_path);
+			l_scene_file.allocate(FileType::CONTENT, l_scene_file_path);
+			l_scene_file.create_override();
+			l_scene_file.append(StringSlice(l_scene_json.Memory));
+			l_scene_file.free();
+		}
+		
 
-		return false;
-	};
-
-	inline String<> allocate_formatted_input()
-	{
-		this->user_input.Memory[this->user_input.Memory.Size] = '\0';
-		String<> l_str;
-		l_str.allocate(0);
-		l_str.append(this->user_input.toSlice());
-		l_str.remove_chars('\t');
-		l_str.remove_chars('\r');
-		l_str.remove_chars('\n');
-		return l_str;
+		l_scene_json.free();
+		l_dup_asset.free();
 	}
-
-private:
-	inline void set_state(const State p_next_state)
-	{
-		if ((this->state != p_next_state) && (this->state_transition(this->state, p_next_state)))
-		{
-			State l_old_state = this->state;
-			this->state = p_next_state;
-			this->on_state_changed(l_old_state, this->state);
-		}
-	};
-
-	inline bool state_transition(const State p_old_state, const State p_new_state)
-	{
-		return true;
-	};
-
-	inline void on_state_changed(const State p_old_state, const State p_new_state)
-	{
-		switch (p_new_state)
-		{
-		case State::WAITING_FOR_MACHINE:
-		{
-			this->user_start_read = FileAlgorithm::get_char_nb(this->file.path.path.c_str());
-		}
-		break;
-		case State::WAITING_FOR_USER:
-		{
-			this->user_input.clear();
-			this->user_start_read = FileAlgorithm::get_char_nb(this->file.path.path.c_str());
-		}
-		break;
-		}
-	};
-
 };
-
 
 struct EditorSceneEventHeader
 {
@@ -243,24 +194,7 @@ struct EditorScene
 
 	inline void persist_current_scene(EngineHandle p_engine)
 	{
-		AssetServerHandle l_asset_server = engine_assetserver(p_engine);
-
-		SceneAsset l_dup_asset = SceneSerializer2::Scene_to_SceneAsset(*this->engine_scene);
-		com::Vector<char> l_scene_json = SceneSerializer2::SceneAsset_to_JSON(l_dup_asset, l_asset_server);
-
-		File<FilePathMemoryLayout::STRING> l_scene_file;
-		FilePath<FilePathMemoryLayout::STRING> l_scene_file_path;
-		l_scene_file_path.allocate(0);
-		l_scene_file_path.path.append(l_asset_server.get_asset_basepath().c_str());
-		l_scene_file_path.path.append("scenes/alala_scene.json");
-		l_scene_file.allocate(FileType::CONTENT, l_scene_file_path);
-		l_scene_file.create_override();
-		l_scene_file.append(StringSlice(l_scene_json.Memory));
-
-		l_scene_file.free();
-
-		l_scene_json.free();
-		l_dup_asset.free();
+		ScenePersister::persist(p_engine, this->engine_scene, this->engine_scene_asset_path);
 	};
 
 	inline void set_localposition(NTreeResolve<SceneNode>& p_scene_node, Math::vec3f& p_local_position)
@@ -929,36 +863,36 @@ struct SceneNodeSelection
 
 		if (p_new.Index != -1)
 		{
-			struct SceneForeach
+			struct SceneForeach2 : public SceneKernel::SceneNodeForeach<MainToolConstants::SceneNodeEditorFilter>
 			{
 				com::Vector<SelectedNodeRenderer>* out_selected_node_renderers;
 				Scene* scene = nullptr;
 				RenderMiddleware* render_middleware;
 
-				inline SceneForeach(com::Vector<SelectedNodeRenderer>* p_selected_node_renderers, Scene* p_scene, RenderMiddleware* p_render_middleware) {
+				inline SceneForeach2(com::Vector<SelectedNodeRenderer>* p_selected_node_renderers, Scene* p_scene, RenderMiddleware* p_render_middleware, MainToolConstants::SceneNodeEditorFilter& p_filter) :
+					SceneKernel::SceneNodeForeach<MainToolConstants::SceneNodeEditorFilter>(p_filter) {
 					this->out_selected_node_renderers = p_selected_node_renderers;
 					this->scene = p_scene;
 					this->render_middleware = p_render_middleware;
 				}
 
-				inline void foreach(NTreeResolve<SceneNode>& p_node)
+
+				inline void foreach_internal(NTreeResolve<SceneNode>& p_node)
 				{
-					if (!SceneKernel::contains_tag(p_node.element, MainToolConstants::EditorNodeTag))
+					MeshRenderer* l_mesh_renderer = SceneKernel::get_component<MeshRenderer>(this->scene, p_node.node->index);
+					if (l_mesh_renderer)
 					{
-						MeshRenderer* l_mesh_renderer = SceneKernel::get_component<MeshRenderer>(this->scene, p_node.node->index);
-						if (l_mesh_renderer)
-						{
-							SelectedNodeRenderer l_selected_node_renderer;
-							l_selected_node_renderer.node = p_node.node->index;
-							l_selected_node_renderer.original_material = l_mesh_renderer->material.key;
-							this->render_middleware->set_material(l_mesh_renderer, Hash<StringSlice>::hash(StringSlice("materials/editor_selected.json")));
-							this->out_selected_node_renderers->push_back(l_selected_node_renderer);
-						}
+						SelectedNodeRenderer l_selected_node_renderer;
+						l_selected_node_renderer.node = p_node.node->index;
+						l_selected_node_renderer.original_material = l_mesh_renderer->material.key;
+						this->render_middleware->set_material(l_mesh_renderer, Hash<StringSlice>::hash(StringSlice("materials/editor_selected.json")));
+						this->out_selected_node_renderers->push_back(l_selected_node_renderer);
 					}
 				};
 			};
 
-			engine_scene(p_new_engine)->tree.traverse(this->root_selected_node, SceneForeach(&this->selected_nodes_renderer, engine_scene(p_new_engine), engine_render_middleware(p_new_engine)));
+			SceneKernel::traverse(engine_scene(p_new_engine), this->root_selected_node,
+					SceneForeach2(&this->selected_nodes_renderer, engine_scene(p_new_engine), engine_render_middleware(p_new_engine), MainToolConstants::sceneNodeEditorFilter));
 		}
 
 	};
@@ -1063,6 +997,15 @@ struct ToolState2
 		}
 	};
 
+	inline void persist_currentscene()
+	{
+		if (this->selected_engine.is_valid(this->engine_runner))
+		{
+			this->set_selected_node(-1);
+			this->engine_runner.engines[this->selected_engine.token].value.editor_scene.persist_current_scene(this->engine_runner.engines[this->selected_engine.token].value.running_engine);
+		}
+	}
+
 	inline void udpate()
 	{
 		if (this->selected_engine.is_valid(this->engine_runner))
@@ -1125,6 +1068,11 @@ struct CommandHandler2
 			l_depth++;
 			float l_step = FromString<float>::from_str(StringSlice(l_commands[l_depth]));
 			p_tool_state.set_rotation_step_deg(l_step);
+		}
+		else if (l_commands[l_depth].equals(StringSlice("s")))
+		{
+			l_depth++;
+			p_tool_state.persist_currentscene();
 		}
 
 		l_commands.free();
