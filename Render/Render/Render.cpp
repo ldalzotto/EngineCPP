@@ -3670,6 +3670,8 @@ public:
 					l_material.add_image_parameter(this->allocate_material_image_parameter(this->allocate_texture(*l_texture)));
 				}
 				break;
+				//TODO -> complex object imply the creation of a uniform buffer for every field.
+				//        having a more generic approach by giving the size of the uniform buffer instead of type ?
 				case MaterialAssetParameterType::VEC4F:
 				{
 					vec4f* l_value = l_material_asset.parameters.get_element<vec4f>(l_parameter_header.chunk);

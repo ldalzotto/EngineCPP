@@ -4,10 +4,9 @@
 #include "Scene/component_def.hpp"
 #include <Render/assets.hpp>
 
-//TODO -> does component id can be replaced from an arbitrary number to the compiletime computed hash name ?
 struct MeshRenderer
 {
-	inline static const size_t Id = 0;
+	inline static const size_t Id = Hash<ConstString>::hash("MeshRenderer");
 	static const SceneNodeComponent_TypeInfo Type;
 	inline static constexpr char const* TypeName = "MeshRenderer";
 
@@ -62,7 +61,7 @@ struct CameraAsset
 
 struct Camera
 {
-	inline static const size_t Id = (MeshRenderer::Id + 1);
+	inline static const size_t Id = Hash<ConstString>::hash("Camera");
 	static const SceneNodeComponent_TypeInfo Type;
 	inline static constexpr const char* TypeName = "Camera";
 

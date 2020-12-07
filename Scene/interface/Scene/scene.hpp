@@ -136,7 +136,7 @@ struct SceneHeap
 
 	inline void allocate()
 	{
-		this->component_heap.allocate(1); //TODO -> tune
+		this->component_heap.allocate(1);
 	}
 
 	inline SceneHeap clone()
