@@ -637,7 +637,7 @@ private:
 
 
 		l_node_asset.components_begin = p_component_assets.Size;
-		com::Vector<SceneNodeComponentToken>& l_components = p_scene->node_to_components[p_node.element->components].value;
+		com::Vector<SceneNodeComponentToken>& l_components = SceneKernel::get_components(p_scene, p_node.element->scenetree_entry);
 		for (size_t i = 0; i < l_components.Size; i++)
 		{
 			SceneNodeComponentHeader* l_scene_node_component_header = SceneKernel::resolve_component(p_scene, l_components[i]);

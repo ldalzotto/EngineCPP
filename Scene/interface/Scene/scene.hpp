@@ -52,6 +52,8 @@ struct SceneNodeToken : public com::PoolToken
 	inline SceneNodeToken(size_t p_index) : com::PoolToken(p_index) {};
 	// inline com::TPoolToken<SceneNode>* cast_to_scenenode() { return (com::TPoolToken<SceneNode>*)this; };
 	inline com::TPoolToken<NTreeNode>* cast_to_treenode() { return (com::TPoolToken<NTreeNode>*)this; };
+	inline com::TPoolToken<Optional<com::Vector<SceneNodeComponentToken>>>* cast_to_componentstoken() { return (com::TPoolToken<Optional<com::Vector<SceneNodeComponentToken>>>*)this; }
+	inline const com::TPoolToken<Optional<com::Vector<SceneNodeComponentToken>>>* cast_to_componentstoken() const { return (const com::TPoolToken<Optional<com::Vector<SceneNodeComponentToken>>>*)this; }
 };
 
 struct SceneNode
@@ -70,7 +72,6 @@ struct SceneNode
 	Math::mat4f localtoworld;
 
 	SceneNodeToken scenetree_entry;
-	com::TPoolToken<Optional<com::Vector<SceneNodeComponentToken>>> components;
 	com::Vector<SceneNodeTag> tags;
 public:
 	inline SceneNode() {};

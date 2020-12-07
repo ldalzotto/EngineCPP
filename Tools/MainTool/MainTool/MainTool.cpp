@@ -86,12 +86,12 @@ struct ScenePersister
 
 struct EditorSceneEventHeader
 {
-	unsigned int Type;
+	size_t Type;
 };
 
 struct EditorSceneEventMoveNode
 {
-	inline static const unsigned int Type = 1;
+	inline static const size_t Type = Hash<ConstString>::hash("EditorSceneEventMoveNode");
 
 	SceneNodeToken scene_node;
 	Math::vec3f old_localposition;
@@ -117,7 +117,7 @@ struct EditorSceneEventMoveNode
 
 struct EditorSceneEventRotateNode
 {
-	inline static const unsigned int Type = EditorSceneEventMoveNode::Type + 1;
+	inline static const size_t Type = Hash<ConstString>::hash("EditorSceneEventRotateNode");
 
 	SceneNodeToken scene_node;
 	Math::quat old_localrotation;
@@ -143,7 +143,7 @@ struct EditorSceneEventRotateNode
 
 struct EditorSceneEventCreateNode
 {
-	inline static const unsigned int Type = EditorSceneEventRotateNode::Type + 1;
+	inline static const size_t Type = Hash<ConstString>::hash("EditorSceneEventCreateNode");
 
 	SceneNodeToken created_node;
 	SceneNodeToken parent;
@@ -169,7 +169,7 @@ struct EditorSceneEventCreateNode
 
 struct EditorSceneEventRemoveNode
 {
-	inline static const unsigned int Type = EditorSceneEventCreateNode::Type + 1;
+	inline static const size_t Type = Hash<ConstString>::hash("EditorSceneEventRemoveNode");
 
 	SceneNodeToken erased_node;
 
@@ -217,7 +217,7 @@ struct EditorSceneEventRemoveNode
 
 struct EditorSceneEventAddComponent
 {
-	inline static const unsigned int Type = EditorSceneEventRemoveNode::Type + 1;
+	inline static const size_t Type = Hash<ConstString>::hash("EditorSceneEventAddComponent");
 
 	SceneNodeComponentToken created_component;
 	const SceneNodeComponent_TypeInfo* component_type;

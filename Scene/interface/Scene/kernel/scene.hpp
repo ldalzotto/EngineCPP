@@ -19,8 +19,7 @@ struct SceneKernel
 		thiz->node_to_components.allocate(1);
 		thiz->heap.allocate();
 
-		SceneNodeToken l_root = SceneNodeToken(thiz->tree.push_root_value(SceneNode()).Index);
-		allocate_node(resolve_node(thiz, l_root).element, thiz, Math::Transform(), l_root.Index, thiz->node_to_components.alloc_element(com::Vector<SceneNodeComponentToken>()), com::MemorySlice<SceneNodeTag>());
+		allocate_node(thiz, Math::Transform());
 	}
 
 	inline static Scene clone(Scene* thiz)
@@ -117,7 +116,7 @@ struct SceneKernel
 	inline static void attach_component_to_node(Scene* thiz, const SceneNodeToken p_node, SceneNodeComponentToken p_component)
 	{
 		NTreeResolve<SceneNode> l_node = resolve_node(thiz, p_node);
-		thiz->node_to_components[l_node.element->components].value.push_back(p_component);
+		thiz->node_to_components[*l_node.element->scenetree_entry.cast_to_componentstoken()].value.push_back(p_component);
 		ComponentAddedParameter l_param = ComponentAddedParameter(p_node, l_node, p_component, resolve_component(thiz, p_component));
 		thiz->component_added_callback.call(&l_param);
 	};
@@ -137,7 +136,7 @@ struct SceneKernel
 
 	inline static void remove_component(Scene* thiz, const SceneNodeToken p_node, const SceneNodeComponent_TypeInfo& p_component_type_info)
 	{
-		com::Vector<SceneNodeComponentToken>& l_components = thiz->node_to_components[resolve_node(thiz, p_node).element->components].value;
+		com::Vector<SceneNodeComponentToken>& l_components = thiz->node_to_components[*resolve_node(thiz, p_node).element->scenetree_entry.cast_to_componentstoken()].value;
 		for (size_t i = 0; i < l_components.Size; i++)
 		{
 			SceneNodeComponentHeader* l_component_header = resolve_component(thiz, l_components[i]);
@@ -151,7 +150,7 @@ struct SceneKernel
 
 	inline static void remove_component(Scene* thiz, NTreeResolve<SceneNode>& p_node, SceneNodeComponentToken& p_component_token)
 	{
-		com::Vector<SceneNodeComponentToken>& l_components = thiz->node_to_components[p_node.element->components].value;
+		com::Vector<SceneNodeComponentToken>& l_components = thiz->node_to_components[*p_node.element->scenetree_entry.cast_to_componentstoken()].value;
 		for (size_t i = 0; i < l_components.Size; i++)
 		{
 			if (l_components[i].Index == p_component_token.Index)
@@ -187,12 +186,12 @@ struct SceneKernel
 
 	inline static com::Vector<SceneNodeComponentToken>& get_components(Scene* thiz, const SceneNodeToken p_node)
 	{
-		return thiz->node_to_components[resolve_node(thiz, p_node).element->components].value;
+		return thiz->node_to_components[*resolve_node(thiz, p_node).element->scenetree_entry.cast_to_componentstoken()].value;
 	};
 
 	inline static SceneNodeComponentHeader* get_component(Scene* thiz, const SceneNodeToken p_node, const SceneNodeComponent_TypeInfo& p_component_type_info)
 	{
-		com::Vector<SceneNodeComponentToken>& l_components = thiz->node_to_components[resolve_node(thiz, p_node).element->components].value;
+		com::Vector<SceneNodeComponentToken>& l_components = thiz->node_to_components[*resolve_node(thiz, p_node).element->scenetree_entry.cast_to_componentstoken()].value;
 		for (size_t i = 0; i < l_components.Size; i++)
 		{
 			SceneNodeComponentHeader* l_component_header = resolve_component(thiz, l_components[i]);
@@ -231,7 +230,7 @@ struct SceneKernel
 			};
 			inline void foreach(NTreeResolve<SceneNode>& p_node)
 			{
-				com::Vector<SceneNodeComponentToken>& l_node_components = this->scene->node_to_components[p_node.element->components].value;
+				com::Vector<SceneNodeComponentToken>& l_node_components = this->scene->node_to_components[*p_node.element->scenetree_entry.cast_to_componentstoken()].value;
 				for (size_t i = 0; i < l_node_components.Size; i++)
 				{
 					if (SceneKernel::resolve_component(this->scene, l_node_components[i])->id == this->component_type->id)
@@ -260,19 +259,17 @@ struct SceneKernel
 
 
 
-	inline static void allocate_node(NodeKernel_InputParams, const Math::Transform& p_transform, const SceneNodeToken& p_scenetree_entry, com::TPoolToken<Optional<com::Vector<SceneNodeComponentToken>>> p_scenecomponents_token)
+	inline static void allocate_node(NodeKernel_InputParams, const Math::Transform& p_transform, const SceneNodeToken& p_scenetree_entry)
 	{
 		thiz->transform = p_transform;
 		thiz->scenetree_entry = p_scenetree_entry;
-		thiz->components = p_scenecomponents_token;
 		mark_for_recalculation(NodeKernel_InputValues);
 	}
 
-	inline static void allocate_node(NodeKernel_InputParams, const Math::Transform& p_transform, const SceneNodeToken& p_scenetree_entry, com::TPoolToken<Optional<com::Vector<SceneNodeComponentToken>>> p_scenecomponents_token,
-		com::MemorySlice<SceneNodeTag>& p_scenenode_tags)
+	inline static void allocate_node(NodeKernel_InputParams, const Math::Transform& p_transform, const SceneNodeToken& p_scenetree_entry, com::MemorySlice<SceneNodeTag>& p_scenenode_tags)
 	{
 		thiz->tags.push_back(p_scenenode_tags);
-		allocate_node(NodeKernel_InputValues, p_transform, p_scenetree_entry, p_scenecomponents_token);
+		allocate_node(NodeKernel_InputValues, p_transform, p_scenetree_entry);
 	};
 
 	inline static void free_node(NodeKernel_InputParams)
@@ -289,14 +286,14 @@ struct SceneKernel
 	inline static SceneNodeToken allocate_node(Scene* thiz, const Math::Transform& p_initial_local_transform)
 	{
 		SceneNodeToken l_node = SceneNodeToken(thiz->tree.push_value(SceneNode()).Index);
-		allocate_node(thiz->tree.resolve(l_node).element, thiz, p_initial_local_transform, l_node.Index, thiz->node_to_components.alloc_element(com::Vector<SceneNodeComponentToken>()),
-			com::MemorySlice<SceneNodeTag>());
+		thiz->node_to_components.alloc_element(com::Vector<SceneNodeComponentToken>());
+		allocate_node(thiz->tree.resolve(l_node).element, thiz, p_initial_local_transform, l_node.Index, com::MemorySlice<SceneNodeTag>());
 		return l_node;
 	};
 
 	inline static bool allocate_node_at_freenode(Scene* thiz, const SceneNodeToken& p_node, const Math::Transform& p_initial_local_transform)
 	{
-		com::TPoolToken<Optional<com::Vector<SceneNodeComponentToken>>> p_node_to_component_token = com::TPoolToken<Optional<com::Vector<SceneNodeComponentToken>>>(p_node.Index);
+		const com::TPoolToken<Optional<com::Vector<SceneNodeComponentToken>>>* p_node_to_component_token = p_node.cast_to_componentstoken();
 		if (thiz->tree.set_value_at_freenode(com::TPoolToken<NTreeNode>(p_node.Index), SceneNode()))
 		{
 			for (size_t i = 0; i < thiz->node_to_components.pool.FreeBlocks.Size; i++)
@@ -304,13 +301,13 @@ struct SceneKernel
 				if (thiz->node_to_components.pool.FreeBlocks[i] == p_node.Index)
 				{
 					thiz->node_to_components.pool.FreeBlocks.erase_at(i, 1);
-					thiz->node_to_components[p_node_to_component_token].value.free();
-					thiz->node_to_components[p_node_to_component_token].hasValue = true;
+					thiz->node_to_components[*p_node_to_component_token].value.free();
+					thiz->node_to_components[*p_node_to_component_token].hasValue = true;
 					break;
 				}
 			}
 
-			allocate_node(thiz->tree.resolve(p_node).element, thiz, p_initial_local_transform, p_node.Index, p_node_to_component_token, com::MemorySlice<SceneNodeTag>());
+			allocate_node(thiz->tree.resolve(p_node).element, thiz, p_initial_local_transform, p_node.Index, com::MemorySlice<SceneNodeTag>());
 
 			return true;
 		}
@@ -347,14 +344,14 @@ struct SceneKernel
 
 			inline void foreach(NTreeResolve<SceneNode>& p_node)
 			{
-				com::Vector<SceneNodeComponentToken>& l_components = this->scene->node_to_components.resolve(p_node.element->components).value;
+				com::Vector<SceneNodeComponentToken>& l_components = SceneKernel::get_components(this->scene, p_node.element->scenetree_entry);
 				for (size_t i = l_components.Size - 1; i < l_components.Size; i--)
 				{
 					SceneKernel::remove_component(this->scene, p_node, l_components[i]);
 				}
 
 				l_components.free();
-				this->scene->node_to_components.release_element(p_node.element->components);
+				this->scene->node_to_components.release_element(*p_node.element->scenetree_entry.cast_to_componentstoken());
 				free_node(p_node.element, this->scene);
 			};
 		};
@@ -448,7 +445,7 @@ struct SceneKernel
 		if (p_node.Index < thiz->tree.Memory.Memory.Size)
 		{
 			NTreeResolve<SceneNode> l_node = resolve_node(thiz, p_node);
-			if (thiz->node_to_components[l_node.element->components].hasValue)
+			if (thiz->node_to_components[*l_node.element->scenetree_entry.cast_to_componentstoken()].hasValue)
 			{
 				return true;
 			}
