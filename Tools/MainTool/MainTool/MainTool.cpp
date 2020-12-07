@@ -316,6 +316,33 @@ struct EditorSceneEventRemoveComponent
 	};
 };
 
+struct EditorSceneEventSetParent
+{
+	inline static const size_t Type = Hash<ConstString>::hash("EditorSceneEventSetParent");
+
+	SceneNodeToken node;
+	SceneNodeToken parent;
+
+	SceneNodeToken old_parent;
+
+	inline EditorSceneEventSetParent(const SceneNodeToken& p_node, const SceneNodeToken& p_parent)
+	{
+		this->node = p_node;
+		this->parent = p_parent;
+	};
+
+	inline void _do(Scene* p_scene)
+	{
+		this->old_parent = SceneKernel::resolve_node(p_scene, this->node).node->parent;
+		SceneKernel::add_child(p_scene, this->parent, this->node);
+	};
+
+	inline void _undo(Scene* p_scene)
+	{
+		SceneKernel::add_child(p_scene, this->old_parent, this->node);
+	};
+};
+
 struct EditorSceneEvent
 {
 	EditorSceneEventHeader header;
@@ -385,6 +412,15 @@ struct EditorScene
 		this->undo_events.push_back(l_event);
 
 		((EditorSceneEventRotateNode*)l_event.object)->_do(this->engine_scene);
+	};
+
+	inline void set_parent(SceneNodeToken p_node, SceneNodeToken p_parent)
+	{
+		EditorSceneEvent l_event;
+		l_event.allocate(EditorSceneEventSetParent(p_node, p_parent));
+		this->undo_events.push_back(l_event);
+
+		((EditorSceneEventSetParent*)l_event.object)->_do(this->engine_scene);
 	};
 
 	inline SceneNodeToken create_node(const SceneNodeToken& p_parent, const Math::Transform& p_local_transform)
@@ -461,6 +497,12 @@ struct EditorScene
 			{
 				((EditorSceneEventRemoveComponent*)l_event.object)->_undo(this->engine_scene);
 			}
+			break;	
+			case EditorSceneEventSetParent::Type:
+			{
+				((EditorSceneEventSetParent*)l_event.object)->_undo(this->engine_scene);
+			}
+			break;
 			}
 
 			l_event.free();
@@ -1087,6 +1129,7 @@ struct SceneNodeSelection
 			Serialization::JSON::Deserializer l_deserializer;
 			l_deserializer.allocate();
 			l_deserializer.start();
+			l_deserializer.push_field("parent", SceneKernel::resolve_node(engine_scene(p_engine), this->root_selected_node).node->parent);
 			l_deserializer.start_object("local_position");
 			JSONSerializer<Math::vec3f>::serialize(l_deserializer, SceneKernel::get_localposition(this->root_selected_node, engine_scene(p_engine)));
 			l_deserializer.end_object();
@@ -1257,6 +1300,18 @@ struct ToolState2
 				SceneNodeSelection::SelectedNodeState l_old = this->selected_node_state;
 				this->selected_node_state = l_selectednode_state;
 				this->on_selectednodestate_changed(l_old, this->selected_node_state);
+			}
+		}
+	};
+
+	inline void set_parent(const size_t p_parent)
+	{
+		if (this->selected_engine.is_valid(this->engine_runner))
+		{
+			SceneNodeToken l_selected_node;
+			if (this->selected_node.get_selected_node(&l_selected_node))
+			{
+				this->engine_runner.get_enginemodule(this->selected_engine.token).editor_scene.set_parent(l_selected_node, SceneNodeToken(p_parent));
 			}
 		}
 	};
@@ -1456,6 +1511,12 @@ struct CommandHandler2
 			printf(l_str.c_str());
 			printf("\n");
 			l_str.free();
+		}
+		else if (l_commands[l_depth].equals(StringSlice("parent")))
+		{
+			l_depth++;
+			size_t l_parent = FromString<size_t>::from_str(StringSlice(l_commands[l_depth]));
+			p_tool_state.set_parent(l_parent);
 		}
 		else if (l_commands[l_depth].equals(StringSlice("delete")))
 		{

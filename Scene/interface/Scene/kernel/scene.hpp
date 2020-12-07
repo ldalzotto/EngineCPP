@@ -412,6 +412,11 @@ struct SceneKernel
 		}
 	};
 
+	inline static void add_child(Scene* thiz, const SceneNodeToken& p_parent, const SceneNodeToken& p_newchild)
+	{
+		addchild(resolve_node(thiz, p_parent).element, thiz, p_newchild);
+	}
+
 	struct SceneIterationFilter_Default { inline bool evaluate(NTreeResolve<SceneNode>& p_node) { return true; }; };
 
 	template<class SceneInteratorFilter = SceneIterationFilter_Default>
