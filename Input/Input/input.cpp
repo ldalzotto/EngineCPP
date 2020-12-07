@@ -214,6 +214,7 @@ void handle_global_input_event(GLFWwindow* p_window, int key, int scancode, int 
 	case GLFW_KEY_LEFT_CONTROL: l_event.key = InputKey::InputKey_LEFT_CONTROL; break;
 	case GLFW_KEY_PERIOD: l_event.key = InputKey::InputKey_PERIOD; break;
 	case GLFW_KEY_MINUS: l_event.key = InputKey::InputKey_MINUS; break;
+	case GLFW_KEY_SLASH: l_event.key = InputKey::InputKey_SLASH; break;
 	default: return;
 	}
 

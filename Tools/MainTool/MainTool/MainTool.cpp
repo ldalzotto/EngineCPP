@@ -203,8 +203,8 @@ struct EditorSceneEventRemoveNode
 
 			inline SceneNodeToken add_node(Scene* thiz, const SceneNodeToken& p_parent, const Math::Transform& p_initial_local_transform, const size_t p_nodeaddet_index)
 			{
-				 SceneKernel::add_node_at_freenode(thiz, this->sceneassetnode_to_scenenode->operator[](p_nodeaddet_index), p_parent, p_initial_local_transform);
-				 return this->sceneassetnode_to_scenenode->operator[](p_nodeaddet_index);
+				SceneKernel::add_node_at_freenode(thiz, this->sceneassetnode_to_scenenode->operator[](p_nodeaddet_index), p_parent, p_initial_local_transform);
+				return this->sceneassetnode_to_scenenode->operator[](p_nodeaddet_index);
 			};
 		};
 
@@ -241,12 +241,78 @@ struct EditorSceneEventAddComponent
 		}
 		break;
 		}
-		
+
 	};
 
 	inline void _undo(Scene* p_scene)
 	{
 		SceneKernel::remove_component(p_scene, this->node, *this->component_type);
+	};
+};
+
+struct EditorSceneEventRemoveComponent
+{
+	inline static const size_t Type = Hash<ConstString>::hash("EditorSceneEventRemoveComponent");
+
+	ComponentAsset component_asset;
+	const SceneNodeComponent_TypeInfo* component_type;
+	SceneNodeToken node;
+
+	void* allocated_component_asset_object;
+
+	inline EditorSceneEventRemoveComponent(const SceneNodeComponent_TypeInfo* p_component_type, const SceneNodeToken& p_node)
+	{
+		this->component_type = p_component_type;
+		this->node = p_node;
+	};
+
+	struct LocalComponentAssetAllocator
+	{
+		void** allocated_component_object;
+		inline LocalComponentAssetAllocator(void** p_allocated_component_object)
+		{
+			this->allocated_component_object = p_allocated_component_object;
+		};
+
+		template<class ElementType>
+		inline ElementType* allocate()
+		{
+			(*allocated_component_object) = malloc(sizeof(ElementType));
+			return (ElementType*)(*allocated_component_object);
+		}
+	};
+
+	inline void _do(Scene* p_scene)
+	{
+		SceneNodeComponentHeader* l_component_header = SceneKernel::get_component(p_scene, this->node, *this->component_type);
+		if (l_component_header)
+		{
+			LocalComponentAssetAllocator l_local_allocator = LocalComponentAssetAllocator(&this->allocated_component_asset_object);
+			ComponentAssetSerializer::Component_to_ComponentAsset2(l_component_header, l_local_allocator);
+			SceneKernel::remove_component(p_scene, this->node, *this->component_type);
+		}
+	};
+
+	inline void _undo(Scene* p_scene)
+	{
+		struct OnComponentDeserialized
+		{
+			Scene* scene;
+			SceneNodeToken scene_node;
+			inline OnComponentDeserialized(Scene* p_scene, SceneNodeToken& p_node)
+			{
+				this->scene = p_scene;
+				this->scene_node = p_node;
+			};
+
+			inline void with_component(void* p_component, const SceneNodeComponent_TypeInfo& p_type)
+			{
+				SceneKernel::add_component(this->scene, this->scene_node, p_type, p_component);
+			};
+		};
+
+		ComponentAssetSerializer::ComponentAsset_to_Component(this->component_type->id, this->allocated_component_asset_object, OnComponentDeserialized(p_scene, this->node));
+		free(this->allocated_component_asset_object);
 	};
 };
 
@@ -350,6 +416,15 @@ struct EditorScene
 		return ((EditorSceneEventAddComponent*)l_event.object)->created_component;
 	};
 
+	inline void remove_component(const SceneNodeComponent_TypeInfo* p_component_type, const SceneNodeToken& p_node)
+	{
+		EditorSceneEvent l_event;
+		l_event.allocate(EditorSceneEventRemoveComponent(p_component_type, p_node));
+		this->undo_events.push_back(l_event);
+
+		((EditorSceneEventRemoveComponent*)l_event.object)->_do(this->engine_scene);
+	};
+
 	inline void _undo()
 	{
 		if (this->undo_events.Size > 0)
@@ -382,6 +457,10 @@ struct EditorScene
 				((EditorSceneEventAddComponent*)l_event.object)->_undo(this->engine_scene);
 			}
 			break;
+			case EditorSceneEventRemoveComponent::Type:
+			{
+				((EditorSceneEventRemoveComponent*)l_event.object)->_undo(this->engine_scene);
+			}
 			}
 
 			l_event.free();
@@ -1198,6 +1277,23 @@ struct ToolState2
 		}
 	};
 
+	inline void remove_component(StringSlice& p_component_name)
+	{
+		if (this->selected_engine.is_valid(this->engine_runner))
+		{
+			SceneNodeToken l_selected_node;
+			if (this->selected_node.get_selected_node(&l_selected_node))
+			{
+				const SceneNodeComponent_TypeInfo* l_component_type;
+				if (SceneComponentUtils::get_type_from_name(p_component_name, &l_component_type))
+				{
+					this->set_selected_node(-1);
+					this->engine_runner.get_enginemodule(this->selected_engine.token).editor_scene.remove_component(l_component_type, l_selected_node);
+				}
+			}
+		}
+	};
+
 	inline void print_selected_node()
 	{
 		if (this->selected_engine.is_valid(this->engine_runner))
@@ -1247,7 +1343,42 @@ struct ToolState2
 			this->set_selected_node(-1);
 			this->engine_runner.engines[this->selected_engine.token].value.editor_scene.persist_current_scene(this->engine_runner.engines[this->selected_engine.token].value.running_engine);
 		}
-	}
+	};
+
+	inline void meshrenderer_set_material(StringSlice& p_material_path)
+	{
+		if (this->selected_engine.is_valid(this->engine_runner))
+		{
+			EngineRunningModule& l_engine = this->engine_runner.get_enginemodule(this->selected_engine.token);
+			SceneNodeToken l_selected_node;
+			if (this->selected_node.get_selected_node(&l_selected_node))
+			{
+				MeshRenderer* l_mesh_renderer = SceneKernel::get_component<MeshRenderer>(l_engine.editor_scene.engine_scene, l_selected_node);
+				if (l_mesh_renderer)
+				{
+					this->set_selected_node(-1);
+					engine_render_middleware(l_engine.running_engine)->set_material(l_mesh_renderer, Hash<StringSlice>::hash(p_material_path));
+				}
+			}
+		}
+	};
+
+	inline void meshrenderer_set_mesh(StringSlice& p_material_path)
+	{
+		if (this->selected_engine.is_valid(this->engine_runner))
+		{
+			EngineRunningModule& l_engine = this->engine_runner.get_enginemodule(this->selected_engine.token);
+			SceneNodeToken l_selected_node;
+			if (this->selected_node.get_selected_node(&l_selected_node))
+			{
+				MeshRenderer* l_mesh_renderer = SceneKernel::get_component<MeshRenderer>(l_engine.editor_scene.engine_scene, l_selected_node);
+				if (l_mesh_renderer)
+				{
+					engine_render_middleware(l_engine.running_engine)->set_mesh(l_mesh_renderer, Hash<StringSlice>::hash(p_material_path));
+				}
+			}
+		}
+	};
 
 	inline void udpate()
 	{
@@ -1331,10 +1462,29 @@ struct CommandHandler2
 			l_depth++;
 			p_tool_state.remove_node();
 		}
-		else if (l_commands[l_depth].equals("add_component"))
+		else if (l_commands[l_depth].equals("addc"))
 		{
 			l_depth++;
 			p_tool_state.add_component(l_commands[l_depth]);
+		}
+		else if (l_commands[l_depth].equals("delc"))
+		{
+			l_depth++;
+			p_tool_state.remove_component(l_commands[l_depth]);
+		}
+		else if (l_commands[l_depth].equals("MeshRenderer"))
+		{
+			l_depth++;
+			if (l_commands[l_depth].equals("mat"))
+			{
+				l_depth++;
+				p_tool_state.meshrenderer_set_material(l_commands[l_depth]);
+			}
+			else if (l_commands[l_depth].equals("mesh"))
+			{
+				l_depth++;
+				p_tool_state.meshrenderer_set_mesh(l_commands[l_depth]);
+			}
 		}
 		else if (l_commands[l_depth].equals(StringSlice("s")))
 		{
@@ -1484,6 +1634,7 @@ else if (p_input.get_state(InputKey::InputKey_##cnl, KeyState::KeyStateFlag_PRES
 			}
 			CustomCommandLineCheckRaw(MINUS, -)
 				CustomCommandLineCheckRaw(PERIOD, .)
+				CustomCommandLineCheckRaw(SLASH, /)
 				if (l_char != "\0")
 				{
 					this->buffer.append(StringSlice(l_char));

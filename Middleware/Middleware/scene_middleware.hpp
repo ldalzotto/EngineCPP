@@ -69,7 +69,7 @@ struct SceneComponentCallbacks
 			}
 		};
 
-		ComponentAssetSerializer::ComponentAsset_to_Component(p_parameter->component_asset, p_parameter->component_asset_object, WithComponent(p_parameter));
+		ComponentAssetSerializer::ComponentAsset_to_Component(p_parameter->component_asset->id, p_parameter->component_asset_object, WithComponent(p_parameter));
 	};
 };
 
