@@ -106,7 +106,7 @@ namespace com
 	{
 		for (size_t i = 0; i < this->FreeBlocks.Size; i++)
 		{
-			if (i == p_element.Index)
+			if (this->FreeBlocks[i] == p_element.Index)
 			{
 				return true;
 			}

@@ -1,10 +1,19 @@
 #pragma once
 
 #include "Scene/scene.hpp"
-#include "Common/Exception/exception.hpp"
 
 #define NodeKernel_InputParams SceneNode* thiz, Scene* p_scene
 #define NodeKernel_InputValues thiz, p_scene
+
+#if SCENE_BOUND_TEST
+#define CHECK_SCENE_BOUND(ConditionFn, b) \
+if(ConditionFn == b) \
+{ \
+	abort(); \
+}
+#else
+#define CHECK_SCENE_BOUND(ConditionFn, b) ConditionFn
+#endif
 
 struct SceneKernel
 {
@@ -181,7 +190,7 @@ struct SceneKernel
 		return thiz->node_to_components[*resolve_node(thiz, p_node).element->scenetree_entry.cast_to_componentstoken()];
 	};
 
-	inline static SceneNodeComponentHeader* get_component(Scene* thiz, const SceneNodeToken p_node, const SceneNodeComponent_TypeInfo& p_component_type_info)
+	inline static bool get_component(Scene* thiz, const SceneNodeToken p_node, const SceneNodeComponent_TypeInfo& p_component_type_info, SceneNodeComponentHeader** out_component_header)
 	{
 		com::Vector<SceneNodeComponentToken>& l_components = thiz->node_to_components[*resolve_node(thiz, p_node).element->scenetree_entry.cast_to_componentstoken()];
 		for (size_t i = 0; i < l_components.Size; i++)
@@ -189,23 +198,32 @@ struct SceneKernel
 			SceneNodeComponentHeader* l_component_header = resolve_component(thiz, l_components[i]);
 			if (l_component_header->id == p_component_type_info.id)
 			{
-				return l_component_header;
+				*out_component_header = l_component_header;
+				return true;
 			};
 		}
-		return nullptr;
+		return false;
 	};
 
 	template<class ComponentType>
-	inline static ComponentType* get_component(Scene* thiz, const SceneNodeToken p_node)
+	inline static bool get_component(Scene* thiz, const SceneNodeToken& p_node, ComponentType** out_component)
 	{
-		SceneNodeComponentHeader* l_component_header = get_component(thiz, p_node, ComponentType::Type);
-		if (l_component_header)
+		SceneNodeComponentHeader* l_component_header;
+		if (get_component(thiz, p_node, ComponentType::Type, &l_component_header))
 		{
-			return l_component_header->cast<ComponentType>();
-		}
-		return nullptr;
+			*out_component = l_component_header->cast<ComponentType>();
+			return true;
+		};
+		return false;
 	};
 
+	template<class ComponentType>
+	inline static ComponentType& get_component(Scene* thiz, const SceneNodeToken p_node)
+	{
+		SceneNodeComponentHeader* l_component_header;
+		CHECK_SCENE_BOUND(get_component(thiz, p_node, ComponentType::Type, &l_component_header), false);
+		return *l_component_header->cast<ComponentType>();
+	};
 
 
 	inline static com::Vector<NTreeResolve<SceneNode>> get_nodes_with_component(Scene* thiz, const SceneNodeComponent_TypeInfo& p_component_type_info)
@@ -299,7 +317,7 @@ struct SceneKernel
 
 	inline static void add_node_at_freenode(Scene* thiz, const SceneNodeToken& p_free_node_token, const SceneNodeToken& p_parent, const Math::Transform& p_initial_local_transform)
 	{
-		ABORT_IF_FN(add_node_at_freenode(thiz, p_free_node_token, p_initial_local_transform), false);
+		CHECK_SCENE_BOUND(add_node_at_freenode(thiz, p_free_node_token, p_initial_local_transform), false);
 		add_child(resolve_node(thiz, p_parent).element, thiz, p_free_node_token);
 	};
 
@@ -313,7 +331,7 @@ struct SceneKernel
 		else
 		{
 			SceneNodeToken l_node_token = SceneNodeToken(p_minimum_pool_position);
-			ABORT_IF_FN(add_node_at_freenode(thiz, l_node_token, p_initial_local_transform), false);
+			CHECK_SCENE_BOUND(add_node_at_freenode(thiz, l_node_token, p_initial_local_transform), false);
 			return l_node_token;
 		}
 	};

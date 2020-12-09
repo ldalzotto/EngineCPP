@@ -18,19 +18,19 @@ struct RenderableObjectEntry
 	bool force_update = false;
 	RenderableObjectEntry() {};
 
-	inline void set_material(MeshRenderer* p_mesh_renderer, size_t p_new_material, AssetServerHandle& p_asset_server, RenderHandle& p_render)
+	inline void set_material(MeshRenderer& p_mesh_renderer, size_t p_new_material, AssetServerHandle& p_asset_server, RenderHandle& p_render)
 	{
 		this->material.allocate(p_render, p_new_material);
 		this->renderableobject.set_material(p_render, this->material);
-		p_mesh_renderer->meshrenderer_asset.material.key = p_new_material;
+		p_mesh_renderer.meshrenderer_asset.material.key = p_new_material;
 	};
 
-	inline void set_mesh(MeshRenderer* p_mesh_renderer, size_t p_new_mesh, AssetServerHandle& p_asset_server, RenderHandle& p_render)
+	inline void set_mesh(MeshRenderer& p_mesh_renderer, size_t p_new_mesh, AssetServerHandle& p_asset_server, RenderHandle& p_render)
 	{
 		MeshHandle l_new_mesh;
 		l_new_mesh.allocate(p_render, p_new_mesh);
 		this->renderableobject.set_mesh(p_render, l_new_mesh);
-		p_mesh_renderer->meshrenderer_asset.mesh.key = p_new_mesh;
+		p_mesh_renderer.meshrenderer_asset.mesh.key = p_new_mesh;
 	};
 };
 
@@ -83,9 +83,9 @@ struct RenderMiddleware
 		return this->allocated_renderableobjects[p_renderable_object];
 	};
 
-	inline RenderableObjectEntry& get_renderable_object(MeshRenderer* p_mesh_renderer)
+	inline RenderableObjectEntry& get_renderable_object(const MeshRenderer& p_mesh_renderer)
 	{
-		return this->get_renderable_object(com::TPoolToken<RenderableObjectEntry>(p_mesh_renderer->rendererable_object.Index));
+		return this->get_renderable_object(com::TPoolToken<RenderableObjectEntry>(p_mesh_renderer.rendererable_object.Index));
 	};
 
 	inline void on_elligible(const SceneNodeToken p_node_token, const NTreeResolve<SceneNode>& p_node, MeshRenderer& p_mesh_renderer)
@@ -136,9 +136,9 @@ struct RenderMiddleware
 				NTreeResolve<SceneNode> l_camera_scene_node = SceneKernel::resolve_node(p_scene, this->allocated_camera.node);
 				if (l_camera_scene_node.element->state.haschanged_thisframe)
 				{
-					Camera* l_camera = SceneKernel::get_component<Camera>(p_scene, this->allocated_camera.node);
+					Camera& l_camera = SceneKernel::get_component<Camera>(p_scene, this->allocated_camera.node);
 					Math::mat4f& l_localtoworld = SceneKernel::get_localtoworld(l_camera_scene_node.element, p_scene);
-					render_push_camera_buffer(this->render, l_camera->fov, l_camera->near_, l_camera->far_, SceneKernel::get_worldposition(l_camera_scene_node.element, p_scene), l_localtoworld.Forward.Vec3, l_localtoworld.Up.Vec3);
+					render_push_camera_buffer(this->render, l_camera.fov, l_camera.near_, l_camera.far_, SceneKernel::get_worldposition(l_camera_scene_node.element, p_scene), l_localtoworld.Forward.Vec3, l_localtoworld.Up.Vec3);
 				}
 			}
 		}
@@ -155,14 +155,14 @@ struct RenderMiddleware
 		}
 	};
 
-	inline void set_material(MeshRenderer* p_mesh_renderer, size_t p_new_material)
+	inline void set_material(MeshRenderer& p_mesh_renderer, size_t p_new_material)
 	{
-		this->get_renderable_object(com::TPoolToken<RenderableObjectEntry>(p_mesh_renderer->rendererable_object.Index)).set_material(p_mesh_renderer, p_new_material, this->asset_server, this->render);
+		this->get_renderable_object(com::TPoolToken<RenderableObjectEntry>(p_mesh_renderer.rendererable_object.Index)).set_material(p_mesh_renderer, p_new_material, this->asset_server, this->render);
 	};
 
-	inline void set_mesh(MeshRenderer* p_mesh_renderer, size_t p_new_mesh)
+	inline void set_mesh(MeshRenderer& p_mesh_renderer, size_t p_new_mesh)
 	{
-		this->get_renderable_object(com::TPoolToken<RenderableObjectEntry>(p_mesh_renderer->rendererable_object.Index)).set_mesh(p_mesh_renderer, p_new_mesh, this->asset_server, this->render);
+		this->get_renderable_object(com::TPoolToken<RenderableObjectEntry>(p_mesh_renderer.rendererable_object.Index)).set_mesh(p_mesh_renderer, p_new_mesh, this->asset_server, this->render);
 	};
 
 };

@@ -36,12 +36,12 @@ struct MeshRenderer
 
 	inline void initialize(const StringSlice& p_material, const StringSlice& p_model)
 	{
-		this->initialize(MeshRendererAsset(MeshRendererAsset::MeshKey(p_material), MeshRendererAsset::MaterialKey(p_model)));
+		this->initialize(MeshRendererAsset(MeshRendererAsset::MeshKey(p_model), MeshRendererAsset::MaterialKey(p_material)));
 	};
 
 	inline void initialize_default()
 	{
-		this->initialize(MeshRendererAsset(MeshRendererAsset::MeshKey("materials/editor_gizmo.json"), MeshRendererAsset::MaterialKey("models/cube.obj")));
+		this->initialize(MeshRendererAsset(MeshRendererAsset::MeshKey("models/cube.obj"), MeshRendererAsset::MaterialKey("materials/editor_gizmo.json")));
 	};
 };
 

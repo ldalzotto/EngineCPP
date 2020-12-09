@@ -284,13 +284,12 @@ struct EditorSceneEventRemoveComponent
 
 	inline void _do(Scene* p_scene)
 	{
-		SceneNodeComponentHeader* l_component_header = SceneKernel::get_component(p_scene, this->node, *this->component_type);
-		if (l_component_header)
-		{
-			LocalComponentAssetAllocator l_local_allocator = LocalComponentAssetAllocator(&this->allocated_component_asset_object);
-			ComponentAssetSerializer::Component_to_ComponentAsset2(l_component_header, l_local_allocator);
-			SceneKernel::remove_component(p_scene, this->node, *this->component_type);
-		}
+
+		SceneNodeComponentHeader* l_component_header;
+		SceneKernel::get_component(p_scene, this->node, *this->component_type, &l_component_header);
+		LocalComponentAssetAllocator l_local_allocator = LocalComponentAssetAllocator(&this->allocated_component_asset_object);
+		ComponentAssetSerializer::Component_to_ComponentAsset2(l_component_header, l_local_allocator);
+		SceneKernel::remove_component(p_scene, this->node, *this->component_type);
 	};
 
 	inline void _undo(Scene* p_scene)
@@ -497,7 +496,7 @@ struct EditorScene
 			{
 				((EditorSceneEventRemoveComponent*)l_event.object)->_undo(this->engine_scene);
 			}
-			break;	
+			break;
 			case EditorSceneEventSetParent::Type:
 			{
 				((EditorSceneEventSetParent*)l_event.object)->_undo(this->engine_scene);
@@ -702,6 +701,9 @@ struct NodeMovement2
 			if (this->gizmo_scene_node.Index == -1)
 			{
 				this->gizmo_scene_node = SceneKernel::add_node_memoryposition_constrained(engine_scene(p_engine), p_parent, Math::Transform(), gizmo_scene_node_scenememory_contraint);
+				printf("Allocated gizmo : ");
+				printf("%lld", this->gizmo_scene_node.Index);
+				printf("\n");
 				if (this->gizmo_scene_node.Index >= this->gizmo_scene_node_scenememory_contraint)
 				{
 					this->gizmo_scene_node_scenememory_contraint = this->gizmo_scene_node.Index;
@@ -748,8 +750,8 @@ struct NodeMovement2
 
 		inline void set_color(Math::vec4f& p_color, EngineHandle p_engine)
 		{
-			MeshRenderer* l_ms_ptr = SceneKernel::get_component<MeshRenderer>(engine_scene(p_engine), this->gizmo_scene_node);
-			engine_render_middleware(p_engine)->get_renderable_object(l_ms_ptr)->material.set_uniform_parameter(engine_render_middleware(p_engine)->render, 0, GPtr::fromType<Math::vec4f>(&p_color));
+			MeshRenderer& l_ms_ptr = SceneKernel::get_component<MeshRenderer>(engine_scene(p_engine), this->gizmo_scene_node);
+			engine_render_middleware(p_engine)->get_renderable_object(l_ms_ptr).material.set_uniform_parameter(engine_render_middleware(p_engine)->render, 0, GPtr::fromType<Math::vec4f>(&p_color));
 		};
 	} gizmo;
 
@@ -1200,15 +1202,15 @@ struct SceneNodeSelection
 
 				inline void foreach_internal(NTreeResolve<SceneNode>& p_node)
 				{
-					MeshRenderer* l_mesh_renderer = SceneKernel::get_component<MeshRenderer>(this->scene, p_node.node->index);
-					if (l_mesh_renderer)
+					MeshRenderer* l_mesh_renderer;
+					if (SceneKernel::get_component<MeshRenderer>(this->scene, p_node.node->index, &l_mesh_renderer))
 					{
 						SelectedNodeRenderer l_selected_node_renderer;
 						l_selected_node_renderer.node = p_node.node->index;
 						l_selected_node_renderer.original_material = l_mesh_renderer->meshrenderer_asset.material.key;
-						this->render_middleware->set_material(l_mesh_renderer, Hash<StringSlice>::hash(StringSlice("materials/editor_selected.json")));
+						this->render_middleware->set_material(*l_mesh_renderer, Hash<StringSlice>::hash(StringSlice("materials/editor_selected.json")));
 						this->out_selected_node_renderers->push_back(l_selected_node_renderer);
-					}
+					};
 				};
 			};
 
@@ -1408,12 +1410,9 @@ struct ToolState2
 			SceneNodeToken l_selected_node;
 			if (this->selected_node.get_selected_node(&l_selected_node))
 			{
-				MeshRenderer* l_mesh_renderer = SceneKernel::get_component<MeshRenderer>(l_engine.editor_scene.engine_scene, l_selected_node);
-				if (l_mesh_renderer)
-				{
-					this->set_selected_node(-1);
-					engine_render_middleware(l_engine.running_engine)->set_material(l_mesh_renderer, Hash<StringSlice>::hash(p_material_path));
-				}
+				this->set_selected_node(-1);
+				MeshRenderer& l_mesh_renderer = SceneKernel::get_component<MeshRenderer>(l_engine.editor_scene.engine_scene, l_selected_node);
+				engine_render_middleware(l_engine.running_engine)->set_material(l_mesh_renderer, Hash<StringSlice>::hash(p_material_path));
 			}
 		}
 	};
@@ -1426,11 +1425,8 @@ struct ToolState2
 			SceneNodeToken l_selected_node;
 			if (this->selected_node.get_selected_node(&l_selected_node))
 			{
-				MeshRenderer* l_mesh_renderer = SceneKernel::get_component<MeshRenderer>(l_engine.editor_scene.engine_scene, l_selected_node);
-				if (l_mesh_renderer)
-				{
-					engine_render_middleware(l_engine.running_engine)->set_mesh(l_mesh_renderer, Hash<StringSlice>::hash(p_material_path));
-				}
+				MeshRenderer& l_mesh_renderer = SceneKernel::get_component<MeshRenderer>(l_engine.editor_scene.engine_scene, l_selected_node);
+				engine_render_middleware(l_engine.running_engine)->set_mesh(l_mesh_renderer, Hash<StringSlice>::hash(p_material_path));
 			}
 		}
 	};
@@ -1695,7 +1691,7 @@ else if (p_input.get_state(InputKey::InputKey_##cnl, KeyState::KeyStateFlag_PRES
 			}
 			CustomCommandLineCheckRaw(MINUS, -)
 				CustomCommandLineCheckRaw(PERIOD, .)
-				CustomCommandLineCheckRaw(SLASH, /)
+				CustomCommandLineCheckRaw(SLASH, / )
 				if (l_char != "\0")
 				{
 					this->buffer.append(StringSlice(l_char));
