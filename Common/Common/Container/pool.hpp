@@ -89,7 +89,7 @@ namespace com
 	};
 
 	template<class TYPE, class Allocator>
-	inline 		TPoolToken<TYPE> Pool<TYPE, Allocator>::get_next_freentry()
+	inline TPoolToken<TYPE> Pool<TYPE, Allocator>::get_next_freentry()
 	{
 		if (this->FreeBlocks.Size > 0)
 		{
@@ -101,7 +101,18 @@ namespace com
 		}
 	};
 
-
+	template<class TYPE, class Allocator>
+	inline bool Pool<TYPE, Allocator>::is_token_free(const TPoolToken<TYPE>& p_element)
+	{
+		for (size_t i = 0; i < this->FreeBlocks.Size; i++)
+		{
+			if (i == p_element.Index)
+			{
+				return true;
+			}
+		}
+		return false;
+	};
 
 	template<class TYPE, class Allocator>
 	inline OptionalPool<TYPE, Allocator>::OptionalPool()

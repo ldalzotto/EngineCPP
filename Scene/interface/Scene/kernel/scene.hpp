@@ -247,7 +247,7 @@ struct SceneKernel
 
 	inline static NTreeResolve<SceneNode> resolve_node(Scene* thiz, const SceneNodeToken p_node)
 	{
-#if SCENE_DEBUG
+#if SCENE_BOUND_TEST
 		if (!check_scenetoken_validity(thiz, p_node)) { abort(); }
 #endif
 		return thiz->tree.resolve(p_node);

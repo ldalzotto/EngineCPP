@@ -10,7 +10,7 @@
 #include "SceneComponents/components.hpp"
 #include "Math/serialization.hpp"
 #include "Input/input.hpp"
-#include "Middleware/RenderMiddleware.hpp"
+#include "Middleware/render_middleware.hpp"
 #include "Scene/kernel/scene.hpp"
 #include "SceneSerialization/scene_serialization.hpp"
 

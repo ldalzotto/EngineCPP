@@ -1,8 +1,22 @@
 #pragma once
 
 #include <string>
+#include "Common/Asset/asset_key.hpp"
 #include "Scene/component_def.hpp"
 #include <Render/assets.hpp>
+
+struct MeshRendererAsset
+{
+	struct MeshKey : public AssetKey { using AssetKey::AssetKey; } mesh;
+	struct MaterialKey : public AssetKey { using AssetKey::AssetKey; } material;
+
+	inline MeshRendererAsset() {};
+	inline MeshRendererAsset(const MeshKey& p_mesh_key, const MaterialKey& p_material_key)
+	{
+		this->mesh = p_mesh_key;
+		this->material = p_material_key;
+	};
+};
 
 struct MeshRenderer
 {
@@ -10,46 +24,29 @@ struct MeshRenderer
 	static const SceneNodeComponent_TypeInfo Type;
 	inline static constexpr char const* TypeName = "MeshRenderer";
 
-	struct MaterialKey
-	{
-		size_t key;
-		inline MaterialKey() {};
-		inline MaterialKey(size_t p_key) { this->key = p_key; };
-	} material;
-
-	struct MeshKey {
-		size_t key;
-		inline MeshKey() {};
-		inline MeshKey(size_t p_key) { this->key = p_key; };
-	} model;
-
+	
+	MeshRendererAsset meshrenderer_asset;
+	
 	com::PoolToken rendererable_object;
 
-	inline void initialize(const MeshRenderer::MaterialKey& p_material, const MeshRenderer::MeshKey& p_model)
+	inline void initialize(const MeshRendererAsset& p_asset)
 	{
-		this->material = p_material;
-		this->model = p_model;
+		this->meshrenderer_asset = p_asset;
 	}
 
 	inline void initialize(const StringSlice& p_material, const StringSlice& p_model)
 	{
-		this->initialize(Hash<StringSlice>::hash(p_material), Hash<StringSlice>::hash(p_model));
+		this->initialize(MeshRendererAsset(MeshRendererAsset::MeshKey(p_material), MeshRendererAsset::MaterialKey(p_model)));
 	};
 
 	inline void initialize_default()
 	{
-		this->initialize(Hash<ConstString>::hash("materials/editor_gizmo.json"), Hash<ConstString>::hash("models/cube.obj"));
+		this->initialize(MeshRendererAsset(MeshRendererAsset::MeshKey("materials/editor_gizmo.json"), MeshRendererAsset::MaterialKey("models/cube.obj")));
 	};
 };
 
 inline const SceneNodeComponent_TypeInfo MeshRenderer::Type = SceneNodeComponent_TypeInfo(MeshRenderer::Id, sizeof(MeshRenderer));
 
-
-struct MeshRendererAsset
-{
-	size_t mesh;
-	size_t material;
-};
 
 struct CameraAsset
 {

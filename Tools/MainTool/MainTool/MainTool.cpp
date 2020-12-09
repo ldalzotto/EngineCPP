@@ -14,7 +14,7 @@
 #include "Math/math.hpp"
 #include "Math/contants.hpp"
 #include "SceneComponents/components.hpp"
-#include "Middleware/RenderMiddleware.hpp"
+#include "Middleware/render_middleware.hpp"
 
 struct MainToolConstants
 {
@@ -749,7 +749,7 @@ struct NodeMovement2
 		inline void set_color(Math::vec4f& p_color, EngineHandle p_engine)
 		{
 			MeshRenderer* l_ms_ptr = SceneKernel::get_component<MeshRenderer>(engine_scene(p_engine), this->gizmo_scene_node);
-			engine_render_middleware(p_engine)->get_renderable_object(l_ms_ptr)->default_material.set_uniform_parameter(engine_render_middleware(p_engine)->render, 0, GPtr::fromType<Math::vec4f>(&p_color));
+			engine_render_middleware(p_engine)->get_renderable_object(l_ms_ptr)->material.set_uniform_parameter(engine_render_middleware(p_engine)->render, 0, GPtr::fromType<Math::vec4f>(&p_color));
 		};
 	} gizmo;
 
@@ -1205,7 +1205,7 @@ struct SceneNodeSelection
 					{
 						SelectedNodeRenderer l_selected_node_renderer;
 						l_selected_node_renderer.node = p_node.node->index;
-						l_selected_node_renderer.original_material = l_mesh_renderer->material.key;
+						l_selected_node_renderer.original_material = l_mesh_renderer->meshrenderer_asset.material.key;
 						this->render_middleware->set_material(l_mesh_renderer, Hash<StringSlice>::hash(StringSlice("materials/editor_selected.json")));
 						this->out_selected_node_renderers->push_back(l_selected_node_renderer);
 					}

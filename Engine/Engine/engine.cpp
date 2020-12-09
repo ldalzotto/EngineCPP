@@ -9,7 +9,7 @@
 #include "Input/input.hpp"
 
 #include "SceneComponents/components.hpp"
-#include "Middleware/RenderMiddleware.hpp"
+#include "Middleware/render_middleware.hpp"
 #include "Middleware/scene_middleware.hpp"
 
 struct Engine;

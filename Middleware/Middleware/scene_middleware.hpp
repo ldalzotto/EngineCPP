@@ -2,7 +2,7 @@
 
 #include "Scene/scene.hpp"
 #include "SceneSerialization/scene_serialization.hpp"
-#include "RenderMiddleware.hpp"
+#include "render_middleware.hpp"
 
 struct ComponentMiddlewares
 {

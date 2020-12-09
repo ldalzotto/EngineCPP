@@ -55,6 +55,7 @@ namespace com
 		void release_element(const TPoolToken<TYPE>& p_element);
 		TYPE& resolve(const TPoolToken<TYPE>& p_element);
 		TPoolToken<TYPE> get_next_freentry();
+		bool is_token_free(const TPoolToken<TYPE>& p_element);
 	};
 
 	template<class TYPE, class Allocator = HeapAllocator>

@@ -54,12 +54,12 @@ struct JSONDeserializer<MeshRendererAsset>
 		MeshRendererAsset l_asset;
 		p_iterator.next_field(ComponentSerializationConstants::MeshRenderer::Mesh);
 		String<> l_mesh_str = JSONDeserializer<String<>>::deserialize(p_iterator);
-		l_asset.mesh = Hash<StringSlice>::hash(l_mesh_str.toSlice());
+		l_asset.mesh = l_mesh_str.toSlice();
 		l_mesh_str.free();
 
 		p_iterator.next_field(ComponentSerializationConstants::MeshRenderer::Material);
 		String<> l_material_str = JSONDeserializer<String<>>::deserialize(p_iterator);
-		l_asset.material = Hash<StringSlice>::hash(l_material_str.toSlice());
+		l_asset.material = l_material_str.toSlice();
 		l_material_str.free();
 
 		return l_asset;
@@ -72,10 +72,10 @@ struct JSONSerializer<MeshRendererAsset>
 	inline static void serialize(Serialization::JSON::Deserializer& p_serializer, const MeshRendererAsset& p_object, AssetServerHandle& p_asset_server)
 	{
 		String<> l_path_tmp;
-		l_path_tmp = p_asset_server.get_path_from_resourcehash(p_object.mesh);
+		l_path_tmp = p_asset_server.get_path_from_resourcehash(p_object.mesh.key);
 		p_serializer.push_field(ComponentSerializationConstants::MeshRenderer::Mesh, l_path_tmp.toSlice());
 		l_path_tmp.free();
-		l_path_tmp = p_asset_server.get_path_from_resourcehash(p_object.material);
+		l_path_tmp = p_asset_server.get_path_from_resourcehash(p_object.material.key);
 		p_serializer.push_field(ComponentSerializationConstants::MeshRenderer::Material, l_path_tmp.toSlice());
 		l_path_tmp.free();
 	};
@@ -187,9 +187,8 @@ struct ComponentAssetSerializer
 		{
 		case MeshRenderer::Id:
 		{
-			MeshRendererAsset* l_asset = (MeshRendererAsset*)p_component_asset_object;
 			MeshRenderer l_mesh_renderer;
-			l_mesh_renderer.initialize(l_asset->material, l_asset->mesh);
+			l_mesh_renderer.initialize(*(MeshRendererAsset*)p_component_asset_object);
 			p_with_component.with_component(&l_mesh_renderer, MeshRenderer::Type);
 		}
 		break;
@@ -212,8 +211,8 @@ struct ComponentAssetSerializer
 		{
 			MeshRenderer* l_mesh_renderer = p_component_header->cast<MeshRenderer>();
 			MeshRendererAsset* l_meshrenderer_asset = p_component_asset_allocator.allocate<MeshRendererAsset>();
-			l_meshrenderer_asset->material = l_mesh_renderer->material.key;
-			l_meshrenderer_asset->mesh = l_mesh_renderer->model.key;
+			l_meshrenderer_asset->material.key = l_mesh_renderer->meshrenderer_asset.material.key;
+			l_meshrenderer_asset->mesh.key = l_mesh_renderer->meshrenderer_asset.mesh.key;
 			return true;
 		}
 		break;

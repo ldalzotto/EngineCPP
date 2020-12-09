@@ -5,7 +5,7 @@
 #include "Render/rdwindow.hpp"
 #include <string>
 #include "Input/input.hpp"
-#include "Middleware/RenderMiddleware.hpp"
+#include "Middleware/render_middleware.hpp"
 
 typedef void* EngineHandle;
 
