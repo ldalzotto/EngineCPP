@@ -7,5 +7,5 @@ if(ConditionFn == b) \
 	abort(); \
 }
 #else
-#define ABORT_IF_FN_TRUE(ConditionFn, b) ConditionFn
+#define ABORT_IF_FN(ConditionFn, b) ConditionFn
 #endif // DEBUG

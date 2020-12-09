@@ -6,6 +6,7 @@ set(CMAKE_CXX_STANDARD 17)
 
 add_compile_definitions(USE_OPTICK=0)
 add_compile_definitions(ASSETPATH_DEV=1)
+add_compile_definitions(SCENE_DEBUG=0)
 
 add_subdirectory(ThirdParty)
 add_subdirectory(Common)

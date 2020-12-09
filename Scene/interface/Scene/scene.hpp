@@ -52,8 +52,8 @@ struct SceneNodeToken : public com::PoolToken
 	inline SceneNodeToken(size_t p_index) : com::PoolToken(p_index) {};
 	// inline com::TPoolToken<SceneNode>* cast_to_scenenode() { return (com::TPoolToken<SceneNode>*)this; };
 	inline com::TPoolToken<NTreeNode>* cast_to_treenode() { return (com::TPoolToken<NTreeNode>*)this; };
-	inline com::TPoolToken<Optional<com::Vector<SceneNodeComponentToken>>>* cast_to_componentstoken() { return (com::TPoolToken<Optional<com::Vector<SceneNodeComponentToken>>>*)this; }
-	inline const com::TPoolToken<Optional<com::Vector<SceneNodeComponentToken>>>* cast_to_componentstoken() const { return (const com::TPoolToken<Optional<com::Vector<SceneNodeComponentToken>>>*)this; }
+	inline com::TPoolToken<com::Vector<SceneNodeComponentToken>>* cast_to_componentstoken() { return (com::TPoolToken<com::Vector<SceneNodeComponentToken>>*)this; }
+	inline const com::TPoolToken<com::Vector<SceneNodeComponentToken>>* cast_to_componentstoken() const { return (const com::TPoolToken<com::Vector<SceneNodeComponentToken>>*)this; }
 };
 
 struct SceneNode
@@ -202,7 +202,7 @@ private:
 struct Scene
 {
 	NTree<SceneNode> tree;
-	com::OptionalPool<com::Vector<SceneNodeComponentToken>, HeapZeroingAllocator> node_to_components;
+	com::Pool<com::Vector<SceneNodeComponentToken>> node_to_components;
 	SceneHeap heap;
 
 	Callback<void, ComponentAddedParameter> component_added_callback;

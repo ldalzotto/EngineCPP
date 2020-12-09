@@ -5,7 +5,7 @@
 
 struct NTreeNode
 {
-	typedef com::TPoolToken<Optional<com::Vector<com::TPoolToken<NTreeNode>>>> ChildsToken;
+	typedef com::TPoolToken<com::Vector<com::TPoolToken<NTreeNode>>> ChildsToken;
 
 	size_t index;
 	size_t parent;
@@ -46,7 +46,7 @@ struct NTree
 
 	com::Pool<ElementType, Allocator> Memory;
 	com::Pool<NTreeNode, Allocator> Indices;
-	com::OptionalPool<com::Vector<com::TPoolToken<NTreeNode>>> Indices_childs;
+	com::Pool<com::Vector<com::TPoolToken<NTreeNode>>> Indices_childs;
 
 	void allocate(size_t p_initialSize, const Allocator& p_allocator = Allocator());
 	NTree<ElementType, Allocator> clone();

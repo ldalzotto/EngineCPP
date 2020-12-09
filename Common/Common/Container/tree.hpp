@@ -67,10 +67,7 @@ inline NTree<ElementType, Allocator> NTree<ElementType, Allocator>::clone()
 	l_return.Indices_childs = this->Indices_childs.clone();
 	for (size_t i = 0; i < l_return.Indices_childs.size(); i++)
 	{
-		if (l_return.Indices_childs[i].hasValue)
-		{
-			l_return.Indices_childs[i].value = l_return.Indices_childs[i].value.clone();
-		}
+		l_return.Indices_childs[i] = l_return.Indices_childs[i].clone();
 	}
 
 	return l_return;
@@ -84,11 +81,7 @@ inline void NTree<ElementType, Allocator>::free()
 	this->Indices.free();
 	for (size_t i = 0; i < this->Indices_childs.size(); i++)
 	{
-		auto& l_entry = this->Indices_childs[i];
-		if (l_entry.hasValue)
-		{
-			l_entry.value.free();
-		}
+		this->Indices_childs[i].free();
 	}
 	this->Indices.free();
 };
@@ -116,21 +109,13 @@ inline NTreeResolve<ElementType> NTree<ElementType, Allocator>::resolve(com::Poo
 	return NTreeResolve<ElementType>(
 		this->Memory.resolve(com::TPoolToken<ElementType>(p_token.Index)),
 		this->Indices.resolve(com::TPoolToken<NTreeNode>(p_token.Index))
-		);
+	);
 };
 
 template<class ElementType, class Allocator>
 com::Vector<com::TPoolToken<NTreeNode>>& NTree<ElementType, Allocator>::get_childs(const NTreeResolve<ElementType>& p_node_resolve)
 {
-	auto& l_indives_childs = this->Indices_childs[p_node_resolve.node->childs];
-	if (l_indives_childs.hasValue)
-	{
-		return l_indives_childs.value;
-	}
-	else
-	{
-		abort();
-	}
+	return this->Indices_childs[p_node_resolve.node->childs];
 };
 
 template<class ElementType, class Allocator>
@@ -181,7 +166,7 @@ inline com::TPoolToken<ElementType> NTree<ElementType, Allocator>::push_value(co
 	tree_allocate_node(this, p_parent, p_value, &l_created_element, &l_created_index, &l_created_childs);
 
 	//this->Indices.resolve()
-	this->Indices_childs.resolve(this->Indices[p_parent].childs).value.push_back(l_created_index);
+	this->Indices_childs.resolve(this->Indices[p_parent].childs).push_back(l_created_index);
 	return l_created_element;
 };
 
@@ -202,14 +187,14 @@ inline bool NTree<ElementType, Allocator>::set_value_at_freenode(const com::TPoo
 	{
 		if (this->Memory.FreeBlocks[i] == p_node.Index
 			&& this->Indices.FreeBlocks[i] == p_node.Index
-			&& this->Indices_childs.pool.FreeBlocks[i] == p_node.Index)
+			&& this->Indices_childs.FreeBlocks[i] == p_node.Index)
 		{
 			this->Memory.FreeBlocks.erase_at(i, 1);
 			this->Indices.FreeBlocks.erase_at(i, 1);
-			this->Indices_childs.pool.FreeBlocks.erase_at(i, 1);
+			this->Indices_childs.FreeBlocks.erase_at(i, 1);
 			
 
-			this->Indices_childs.resolve(p_node.Index).hasValue = true;
+			// this->Indices_childs.resolve(p_node.Index).hasValue = true;
 			this->Memory[p_node.Index] = p_value;
 			NTreeNode l_node;
 			l_node.allocate(p_node.Index, -1, p_node.Index);
@@ -265,7 +250,7 @@ inline void NTree<ElementType, Allocator>::remove(com::PoolToken p_value, NTreeF
 			NTreeResolve<ElementType>& l_resolve = l_removetree_foreach.involved_nodes[i];
 			l_resolve.node->free();
 			this->Indices.release_element(l_resolve.node->index);
-			this->Indices_childs.resolve(l_resolve.node->index).value.free();
+			this->Indices_childs.resolve(l_resolve.node->index).free();
 			this->Indices_childs.release_element(l_resolve.node->index);
 			this->Memory.release_element(l_resolve.node->index);
 		}
