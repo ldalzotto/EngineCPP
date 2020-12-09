@@ -7,6 +7,13 @@
 #include "Render/render.hpp"
 #include <optick.h>
 
+/*
+	Middleware are the communication layer between the SceneTree and internal systems (like render).
+	They track SceneNodes with a combination of components. When founds, the elligible node communicate it's presence to the internal system.
+
+*/
+
+
 struct RenderableObjectEntry
 {
 	SceneNodeToken node;
@@ -22,7 +29,7 @@ struct RenderableObjectEntry
 	{
 		this->material.allocate(p_render, p_new_material);
 		this->renderableobject.set_material(p_render, this->material);
-		p_mesh_renderer.meshrenderer_asset.material.key = p_new_material;
+		p_mesh_renderer.material.key = p_new_material;
 	};
 
 	inline void set_mesh(MeshRenderer& p_mesh_renderer, size_t p_new_mesh, AssetServerHandle& p_asset_server, RenderHandle& p_render)
@@ -30,7 +37,7 @@ struct RenderableObjectEntry
 		MeshHandle l_new_mesh;
 		l_new_mesh.allocate(p_render, p_new_mesh);
 		this->renderableobject.set_mesh(p_render, l_new_mesh);
-		p_mesh_renderer.meshrenderer_asset.mesh.key = p_new_mesh;
+		p_mesh_renderer.mesh.key = p_new_mesh;
 	};
 };
 
@@ -91,10 +98,10 @@ struct RenderMiddleware
 	inline void on_elligible(const SceneNodeToken p_node_token, const NTreeResolve<SceneNode>& p_node, MeshRenderer& p_mesh_renderer)
 	{
 		MaterialHandle l_material;
-		l_material.allocate(this->render, p_mesh_renderer.meshrenderer_asset.material.key);
+		l_material.allocate(this->render, p_mesh_renderer.material.key);
 
 		MeshHandle l_mesh;
-		l_mesh.allocate(this->render, p_mesh_renderer.meshrenderer_asset.mesh.key);
+		l_mesh.allocate(this->render, p_mesh_renderer.mesh.key);
 
 		RenderableObjectHandle l_renderable_object;
 		l_renderable_object.allocate(this->render, l_material, l_mesh);
@@ -138,7 +145,8 @@ struct RenderMiddleware
 				{
 					Camera& l_camera = SceneKernel::get_component<Camera>(p_scene, this->allocated_camera.node);
 					Math::mat4f& l_localtoworld = SceneKernel::get_localtoworld(l_camera_scene_node.element, p_scene);
-					render_push_camera_buffer(this->render, l_camera.fov, l_camera.near_, l_camera.far_, SceneKernel::get_worldposition(l_camera_scene_node.element, p_scene), l_localtoworld.Forward.Vec3, l_localtoworld.Up.Vec3);
+					render_push_camera_buffer(this->render, l_camera.fov, l_camera.near_, l_camera.far_, 
+						SceneKernel::get_worldposition(l_camera_scene_node.element, p_scene), l_localtoworld.Forward.Vec3, l_localtoworld.Up.Vec3);
 				}
 			}
 		}

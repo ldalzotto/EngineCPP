@@ -5,18 +5,15 @@
 #include "Scene/component_def.hpp"
 #include <Render/assets.hpp>
 
-struct MeshRendererAsset
-{
-	struct MeshKey : public AssetKey { using AssetKey::AssetKey; } mesh;
-	struct MaterialKey : public AssetKey { using AssetKey::AssetKey; } material;
+/*
+	Scene components are data holder objects. 
+	They are used :
+		* as interface between Scene and SceneAsset for serialization.
+		* as SceneNode tag for middlewares
 
-	inline MeshRendererAsset() {};
-	inline MeshRendererAsset(const MeshKey& p_mesh_key, const MaterialKey& p_material_key)
-	{
-		this->mesh = p_mesh_key;
-		this->material = p_material_key;
-	};
-};
+	No logic are applied to the data. 
+	Any logic is done in middlewares that usually duplicate the value.
+*/
 
 struct MeshRenderer
 {
@@ -24,36 +21,29 @@ struct MeshRenderer
 	static const SceneNodeComponent_TypeInfo Type;
 	inline static constexpr char const* TypeName = "MeshRenderer";
 
-	
-	MeshRendererAsset meshrenderer_asset;
-	
+	struct MeshKey : public AssetKey { using AssetKey::AssetKey; } mesh;
+	struct MaterialKey : public AssetKey { using AssetKey::AssetKey; } material;
+
 	com::PoolToken rendererable_object;
 
-	inline void initialize(const MeshRendererAsset& p_asset)
+	inline void initialize(const MeshKey& p_mesh_key, const MaterialKey& p_material_key)
 	{
-		this->meshrenderer_asset = p_asset;
+		this->mesh = p_mesh_key;
+		this->material = p_material_key;
 	}
 
 	inline void initialize(const StringSlice& p_material, const StringSlice& p_model)
 	{
-		this->initialize(MeshRendererAsset(MeshRendererAsset::MeshKey(p_model), MeshRendererAsset::MaterialKey(p_material)));
+		this->initialize(MeshKey(p_model), MaterialKey(p_material));
 	};
 
 	inline void initialize_default()
 	{
-		this->initialize(MeshRendererAsset(MeshRendererAsset::MeshKey("models/cube.obj"), MeshRendererAsset::MaterialKey("materials/editor_gizmo.json")));
+		this->initialize(MeshKey("models/cube.obj"), MaterialKey("materials/editor_gizmo.json"));
 	};
 };
 
 inline const SceneNodeComponent_TypeInfo MeshRenderer::Type = SceneNodeComponent_TypeInfo(MeshRenderer::Id, sizeof(MeshRenderer));
-
-
-struct CameraAsset
-{
-	float fov = 0.0f;
-	float near_ = 0.0f;
-	float far_ = 0.0f;
-};
 
 
 struct Camera
@@ -62,15 +52,17 @@ struct Camera
 	static const SceneNodeComponent_TypeInfo Type;
 	inline static constexpr const char* TypeName = "Camera";
 
+
 	float fov = 0.0f;
 	float near_ = 0.0f;
 	float far_ = 0.0f;
 
-	inline Camera(const CameraAsset& p_asset)
+	inline Camera() {};
+	inline Camera(const float& p_fov, const float& p_near, const float& p_far)
 	{
-		this->fov = p_asset.fov;
-		this->near_ = p_asset.near_;
-		this->far_ = p_asset.far_;
+		this->fov = p_fov;
+		this->near_ = p_near;
+		this->far_ = p_far;
 	};
 };
 

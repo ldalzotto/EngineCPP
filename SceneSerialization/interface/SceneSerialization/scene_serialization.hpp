@@ -47,11 +47,11 @@ struct SceneSerializationConstants
 };
 
 template<>
-struct JSONDeserializer<MeshRendererAsset>
+struct JSONDeserializer<MeshRenderer>
 {
-	inline static MeshRendererAsset deserialize(Deserialization::JSON::JSONObjectIterator& p_iterator)
+	inline static MeshRenderer deserialize(Deserialization::JSON::JSONObjectIterator& p_iterator)
 	{
-		MeshRendererAsset l_asset;
+		MeshRenderer l_asset;
 		p_iterator.next_field(ComponentSerializationConstants::MeshRenderer::Mesh);
 		String<> l_mesh_str = JSONDeserializer<String<>>::deserialize(p_iterator);
 		l_asset.mesh = l_mesh_str.toSlice();
@@ -67,9 +67,9 @@ struct JSONDeserializer<MeshRendererAsset>
 };
 
 template<>
-struct JSONSerializer<MeshRendererAsset>
+struct JSONSerializer<MeshRenderer>
 {
-	inline static void serialize(Serialization::JSON::Deserializer& p_serializer, const MeshRendererAsset& p_object, AssetServerHandle& p_asset_server)
+	inline static void serialize(Serialization::JSON::Deserializer& p_serializer, const MeshRenderer& p_object, AssetServerHandle& p_asset_server)
 	{
 		String<> l_path_tmp;
 		l_path_tmp = p_asset_server.get_path_from_resourcehash(p_object.mesh.key);
@@ -82,11 +82,11 @@ struct JSONSerializer<MeshRendererAsset>
 };
 
 template<>
-struct JSONDeserializer<CameraAsset>
+struct JSONDeserializer<Camera>
 {
-	inline static CameraAsset deserialize(Deserialization::JSON::JSONObjectIterator& p_iterator)
+	inline static Camera deserialize(Deserialization::JSON::JSONObjectIterator& p_iterator)
 	{
-		CameraAsset l_asset;
+		Camera l_asset;
 		p_iterator.next_field(ComponentSerializationConstants::Camera::Fov, &l_asset.fov);
 		p_iterator.next_field(ComponentSerializationConstants::Camera::Near, &l_asset.near_);
 		p_iterator.next_field(ComponentSerializationConstants::Camera::Far, &l_asset.far_);
@@ -97,9 +97,9 @@ struct JSONDeserializer<CameraAsset>
 };
 
 template<>
-struct JSONSerializer<CameraAsset>
+struct JSONSerializer<Camera>
 {
-	inline static void serialize(Serialization::JSON::Deserializer& p_serializer, const CameraAsset& p_object)
+	inline static void serialize(Serialization::JSON::Deserializer& p_serializer, const Camera& p_object)
 	{
 		p_serializer.push_field(ComponentSerializationConstants::Camera::Fov, p_object.fov);
 		p_serializer.push_field(ComponentSerializationConstants::Camera::Near, p_object.near_);
@@ -119,20 +119,20 @@ struct ComponentAssetSerializer
 		{
 			out_component_asset->id = MeshRenderer::Id;
 
-			allocate_component_asset<MeshRendererAsset>(p_compoent_asset_heap, &out_component_asset->componentasset_heap_index);
+			allocate_component_asset<MeshRenderer>(p_compoent_asset_heap, &out_component_asset->componentasset_heap_index);
 
-			MeshRendererAsset* l_mesh_renderer_asset = p_compoent_asset_heap.map<MeshRendererAsset>(out_component_asset->componentasset_heap_index);
-			*l_mesh_renderer_asset = JSONDeserializer<MeshRendererAsset>::deserialize(p_component_object_iterator);
+			MeshRenderer* l_mesh_renderer_asset = p_compoent_asset_heap.map<MeshRenderer>(out_component_asset->componentasset_heap_index);
+			*l_mesh_renderer_asset = JSONDeserializer<MeshRenderer>::deserialize(p_component_object_iterator);
 
 			return true;
 		}
 		else if (p_component_type.equals(Camera::TypeName))
 		{
 			out_component_asset->id = Camera::Id;
-			allocate_component_asset<CameraAsset>(p_compoent_asset_heap, &out_component_asset->componentasset_heap_index);
+			allocate_component_asset<Camera>(p_compoent_asset_heap, &out_component_asset->componentasset_heap_index);
 
-			CameraAsset* l_camera_asset = p_compoent_asset_heap.map<CameraAsset>(out_component_asset->componentasset_heap_index);
-			*l_camera_asset = JSONDeserializer<CameraAsset>::deserialize(p_component_object_iterator);
+			Camera* l_camera_asset = p_compoent_asset_heap.map<Camera>(out_component_asset->componentasset_heap_index);
+			*l_camera_asset = JSONDeserializer<Camera>::deserialize(p_component_object_iterator);
 
 			return true;
 		}
@@ -166,12 +166,12 @@ struct ComponentAssetSerializer
 			{
 			case MeshRenderer::Id:
 			{
-				JSONSerializer<MeshRendererAsset>::serialize(p_serializer, *(MeshRendererAsset*)l_component, p_asset_server);
+				JSONSerializer<MeshRenderer>::serialize(p_serializer, *(MeshRenderer*)l_component, p_asset_server);
 			}
 			break;
 			case Camera::Id:
 			{
-				JSONSerializer<CameraAsset>::serialize(p_serializer, *(CameraAsset*)l_component);
+				JSONSerializer<Camera>::serialize(p_serializer, *(Camera*)l_component);
 			}
 			break;
 			}
@@ -187,16 +187,12 @@ struct ComponentAssetSerializer
 		{
 		case MeshRenderer::Id:
 		{
-			MeshRenderer l_mesh_renderer;
-			l_mesh_renderer.initialize(*(MeshRendererAsset*)p_component_asset_object);
-			p_with_component.with_component(&l_mesh_renderer, MeshRenderer::Type);
+			p_with_component.with_component((MeshRenderer*)p_component_asset_object, MeshRenderer::Type);
 		}
 		break;
 		case Camera::Id:
 		{
-			CameraAsset* l_asset = (CameraAsset*)p_component_asset_object;
-			Camera l_camera = Camera(*l_asset);
-			p_with_component.with_component(&l_camera, Camera::Type);
+			p_with_component.with_component((Camera*)p_component_asset_object, Camera::Type);
 		}
 		break;
 		}
@@ -210,19 +206,16 @@ struct ComponentAssetSerializer
 		case MeshRenderer::Id:
 		{
 			MeshRenderer* l_mesh_renderer = p_component_header->cast<MeshRenderer>();
-			MeshRendererAsset* l_meshrenderer_asset = p_component_asset_allocator.allocate<MeshRendererAsset>();
-			l_meshrenderer_asset->material.key = l_mesh_renderer->meshrenderer_asset.material.key;
-			l_meshrenderer_asset->mesh.key = l_mesh_renderer->meshrenderer_asset.mesh.key;
+			MeshRenderer* l_meshrenderer_asset = p_component_asset_allocator.allocate<MeshRenderer>();
+			*l_meshrenderer_asset = *l_mesh_renderer;
 			return true;
 		}
 		break;
 		case Camera::Id:
 		{
 			Camera* l_camera = p_component_header->cast<Camera>();
-			CameraAsset* l_camera_asset = p_component_asset_allocator.allocate<CameraAsset>();
-			l_camera_asset->far_ = l_camera->far_;
-			l_camera_asset->fov = l_camera->fov;
-			l_camera_asset->near_ = l_camera->near_;
+			Camera* l_camera_asset = p_component_asset_allocator.allocate<Camera>();
+			*l_camera_asset = *l_camera;
 			return true;
 		}
 		break;

@@ -1207,7 +1207,7 @@ struct SceneNodeSelection
 					{
 						SelectedNodeRenderer l_selected_node_renderer;
 						l_selected_node_renderer.node = p_node.node->index;
-						l_selected_node_renderer.original_material = l_mesh_renderer->meshrenderer_asset.material.key;
+						l_selected_node_renderer.original_material = l_mesh_renderer->material.key;
 						this->render_middleware->set_material(*l_mesh_renderer, Hash<StringSlice>::hash(StringSlice("materials/editor_selected.json")));
 						this->out_selected_node_renderers->push_back(l_selected_node_renderer);
 					};
