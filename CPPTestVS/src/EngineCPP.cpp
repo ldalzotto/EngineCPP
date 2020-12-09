@@ -67,7 +67,7 @@ void update(void* p_engine, float p_delta)
 	else if (l_input.get_state(InputKey::InputKey_C, KeyState::KeyStateFlag_PRESSED_THIS_FRAME))
 	{
 		com::Vector<NTreeResolve<SceneNode>> l_nodes = SceneKernel::get_nodes_with_component<MeshRenderer>(l_scenehandle);
-		SceneKernel::free_node(l_scenehandle, com::PoolToken(l_nodes[0].node->index));
+		SceneKernel::remove_node(l_scenehandle, com::PoolToken(l_nodes[0].node->index));
 	}
 
 	for (size_t i = 0; i < testContext.moving_nodes.Size; i++)

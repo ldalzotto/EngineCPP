@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Scene/scene.hpp"
+#include "Common/Exception/exception.hpp"
 
 #define NodeKernel_InputParams SceneNode* thiz, Scene* p_scene
 #define NodeKernel_InputValues thiz, p_scene
@@ -19,7 +20,7 @@ struct SceneKernel
 		thiz->node_to_components.allocate(1);
 		thiz->heap.allocate();
 
-		allocate_node(thiz, Math::Transform());
+		add_node(thiz, Math::Transform());
 	}
 
 	inline static Scene clone(Scene* thiz)
@@ -50,7 +51,7 @@ struct SceneKernel
 
 	inline static void free_scene(Scene* thiz)
 	{
-		free_node(thiz, com::PoolToken(0));
+		remove_node(thiz, com::PoolToken(0));
 
 		thiz->heap.free();
 		thiz->tree.free();
@@ -253,45 +254,31 @@ struct SceneKernel
 		return get_nodes_with_component(thiz, ComponentType::Type);
 	};
 
-
-
-
-
-
-
-	inline static void allocate_node(NodeKernel_InputParams, const Math::Transform& p_transform, const SceneNodeToken& p_scenetree_entry)
-	{
-		thiz->transform = p_transform;
-		thiz->scenetree_entry = p_scenetree_entry;
-		mark_for_recalculation(NodeKernel_InputValues);
-	}
-
-	inline static void allocate_node(NodeKernel_InputParams, const Math::Transform& p_transform, const SceneNodeToken& p_scenetree_entry, com::MemorySlice<SceneNodeTag>& p_scenenode_tags)
-	{
-		thiz->tags.push_back(p_scenenode_tags);
-		allocate_node(NodeKernel_InputValues, p_transform, p_scenetree_entry);
-	};
-
-	inline static void free_node(NodeKernel_InputParams)
-	{
-		thiz->tags.free();
-	};
-
 	inline static NTreeResolve<SceneNode> resolve_node(Scene* thiz, const SceneNodeToken p_node)
 	{
 		return thiz->tree.resolve(p_node);
 	};
 
 
-	inline static SceneNodeToken allocate_node(Scene* thiz, const Math::Transform& p_initial_local_transform)
+	inline static SceneNodeToken add_node(Scene* thiz, const Math::Transform& p_initial_local_transform)
 	{
 		SceneNodeToken l_node = SceneNodeToken(thiz->tree.push_value(SceneNode()).Index);
 		thiz->node_to_components.alloc_element(com::Vector<SceneNodeComponentToken>());
-		allocate_node(thiz->tree.resolve(l_node).element, thiz, p_initial_local_transform, l_node.Index, com::MemorySlice<SceneNodeTag>());
+		SceneNode* l_allocated_node = thiz->tree.resolve(l_node).element;
+		l_allocated_node->allocate(p_initial_local_transform, l_node.Index, com::MemorySlice<SceneNodeTag>());
+		mark_for_recalculation(l_allocated_node, thiz);
 		return l_node;
 	};
 
-	inline static bool allocate_node_at_freenode(Scene* thiz, const SceneNodeToken& p_node, const Math::Transform& p_initial_local_transform)
+	inline static SceneNodeToken add_node(Scene* thiz, const SceneNodeToken& p_parent, const Math::Transform& p_initial_local_transform)
+	{
+		SceneNodeToken l_node = add_node(thiz, p_initial_local_transform);
+		add_child(resolve_node(thiz, p_parent).element, thiz, l_node);
+		return l_node;
+	};
+
+	/* Add a new node at the specified p_node. Adding is performed only if the p_node token points to a free Node. */
+	inline static bool add_node_at_freenode(Scene* thiz, const SceneNodeToken& p_node, const Math::Transform& p_initial_local_transform)
 	{
 		const com::TPoolToken<Optional<com::Vector<SceneNodeComponentToken>>>* p_node_to_component_token = p_node.cast_to_componentstoken();
 		if (thiz->tree.set_value_at_freenode(com::TPoolToken<NTreeNode>(p_node.Index), SceneNode()))
@@ -307,7 +294,9 @@ struct SceneKernel
 				}
 			}
 
-			allocate_node(thiz->tree.resolve(p_node).element, thiz, p_initial_local_transform, p_node.Index, com::MemorySlice<SceneNodeTag>());
+			SceneNode* l_free_node = thiz->tree.resolve(p_node).element;
+			l_free_node->allocate(p_initial_local_transform, p_node.Index, com::MemorySlice<SceneNodeTag>());
+			mark_for_recalculation(l_free_node, thiz);
 
 			return true;
 		}
@@ -315,26 +304,37 @@ struct SceneKernel
 		return false;
 	};
 
-	inline static SceneNodeToken allocate_node_memoryposition_constrained(Scene* thiz, const Math::Transform& p_initial_local_transform, const size_t p_minimum_pool_position)
+	inline static void add_node_at_freenode(Scene* thiz, const SceneNodeToken& p_free_node_token, const SceneNodeToken& p_parent, const Math::Transform& p_initial_local_transform)
+	{
+		ABORT_IF_FN(add_node_at_freenode(thiz, p_free_node_token, p_initial_local_transform), false);
+		add_child(resolve_node(thiz, p_parent).element, thiz, p_free_node_token);
+	};
+
+	/* Add a new node by constraining it's position in the tree memory layout. */
+	inline static SceneNodeToken add_node_memoryposition_constrained(Scene* thiz, const Math::Transform& p_initial_local_transform, const size_t p_minimum_pool_position)
 	{
 		if (thiz->tree.Memory.size() - 1 > p_minimum_pool_position)
 		{
-			return allocate_node(thiz, p_initial_local_transform);
+			return add_node(thiz, p_initial_local_transform);
 		}
 		else
 		{
 			SceneNodeToken l_node_token = SceneNodeToken(p_minimum_pool_position);
-			if (!allocate_node_at_freenode(thiz, l_node_token, p_initial_local_transform))
-			{
-				abort();
-			}
+			ABORT_IF_FN(add_node_at_freenode(thiz, l_node_token, p_initial_local_transform), false);
 			return l_node_token;
 		}
-	}
+	};
 
-	inline static void free_node(Scene* thiz, com::PoolToken& p_node)
+	inline static SceneNodeToken add_node_memoryposition_constrained(Scene* thiz, const SceneNodeToken& p_parent, const Math::Transform& p_initial_local_transform,
+		const size_t p_minimum_treememory_position)
 	{
+		SceneNodeToken l_node = add_node_memoryposition_constrained(thiz, p_initial_local_transform, p_minimum_treememory_position);
+		add_child(resolve_node(thiz, p_parent).element, thiz, l_node);
+		return l_node;
+	};
 
+	inline static void remove_node(Scene* thiz, com::PoolToken& p_node)
+	{
 		struct RemoveAllComponents
 		{
 			Scene* scene;
@@ -352,7 +352,7 @@ struct SceneKernel
 
 				l_components.free();
 				this->scene->node_to_components.release_element(*p_node.element->scenetree_entry.cast_to_componentstoken());
-				free_node(p_node.element, this->scene);
+				p_node.element->free();
 			};
 		};
 
@@ -360,31 +360,7 @@ struct SceneKernel
 		p_node.reset();
 	};
 
-	inline static SceneNodeToken add_node(Scene* thiz, const SceneNodeToken& p_parent, const Math::Transform& p_initial_local_transform)
-	{
-		SceneNodeToken l_node = allocate_node(thiz, p_initial_local_transform);
-		addchild(resolve_node(thiz, p_parent).element, thiz, l_node);
-		return l_node;
-	};
-
-	inline static SceneNodeToken add_node_memoryconstrained(Scene* thiz, const SceneNodeToken& p_parent, const Math::Transform& p_initial_local_transform, 
-			const size_t p_minimum_treememory_position)
-	{
-		SceneNodeToken l_node = allocate_node_memoryposition_constrained(thiz, p_initial_local_transform, p_minimum_treememory_position);
-		addchild(resolve_node(thiz, p_parent).element, thiz, l_node);
-		return l_node;
-	};
-
-	inline static void add_node_at_freenode(Scene* thiz, const SceneNodeToken& p_free_node_token, const SceneNodeToken& p_parent, const Math::Transform& p_initial_local_transform)
-	{
-		if (!allocate_node_at_freenode(thiz, p_free_node_token, p_initial_local_transform))
-		{
-			abort();
-		}
-		addchild(resolve_node(thiz, p_parent).element, thiz, p_free_node_token);
-	};
-	
-	inline static void addchild(NodeKernel_InputParams, const SceneNodeToken& p_newchild)
+	inline static void add_child(NodeKernel_InputParams, const SceneNodeToken& p_newchild)
 	{
 		NTreeResolve<SceneNode> l_current = SceneKernel::resolve_node(p_scene, thiz->scenetree_entry);
 		NTreeResolve<SceneNode> l_newchild = SceneKernel::resolve_node(p_scene, p_newchild);
@@ -414,7 +390,7 @@ struct SceneKernel
 
 	inline static void add_child(Scene* thiz, const SceneNodeToken& p_parent, const SceneNodeToken& p_newchild)
 	{
-		addchild(resolve_node(thiz, p_parent).element, thiz, p_newchild);
+		add_child(resolve_node(thiz, p_parent).element, thiz, p_newchild);
 	}
 
 	struct SceneIterationFilter_Default { inline bool evaluate(NTreeResolve<SceneNode>& p_node) { return true; }; };

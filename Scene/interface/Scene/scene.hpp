@@ -75,6 +75,23 @@ struct SceneNode
 	com::Vector<SceneNodeTag> tags;
 public:
 	inline SceneNode() {};
+
+	inline void allocate(const Math::Transform& p_transform, const SceneNodeToken& p_scenetree_entry)
+	{
+		this->transform = p_transform;
+		this->scenetree_entry = p_scenetree_entry;
+	}
+
+	inline void allocate(const Math::Transform& p_transform, const SceneNodeToken& p_scenetree_entry, com::MemorySlice<SceneNodeTag>& p_scenenode_tags)
+	{
+		this->tags.push_back(p_scenenode_tags);
+		this->allocate(p_transform, p_scenetree_entry);
+	};
+
+	inline void free()
+	{
+		this->tags.free();
+	};
 };
 
 

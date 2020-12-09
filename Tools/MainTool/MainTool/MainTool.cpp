@@ -162,7 +162,7 @@ struct EditorSceneEventCreateNode
 
 	inline void _undo(Scene* p_scene)
 	{
-		SceneKernel::free_node(p_scene, this->created_node);
+		SceneKernel::remove_node(p_scene, this->created_node);
 	};
 
 };
@@ -188,7 +188,7 @@ struct EditorSceneEventRemoveNode
 		this->parent = SceneKernel::resolve_node(p_scene, this->erased_node).node->parent;
 		SceneSerializer2::SceneSingleNode_to_SceneAsset(*p_scene, this->erased_node, &this->erased_node_as_sceneasset, &this->sceneassetnode_to_scenenode, MainToolConstants::sceneNodeEditorFilter);
 		//We wrap the this->erased_node to bypass the fact that token is resetted when freed
-		SceneKernel::free_node(p_scene, SceneNodeToken(this->erased_node.Index));
+		SceneKernel::remove_node(p_scene, SceneNodeToken(this->erased_node.Index));
 	};
 
 	inline void _undo(Scene* p_scene)
@@ -701,7 +701,7 @@ struct NodeMovement2
 		{
 			if (this->gizmo_scene_node.Index == -1)
 			{
-				this->gizmo_scene_node = SceneKernel::add_node_memoryconstrained(engine_scene(p_engine), p_parent, Math::Transform(), gizmo_scene_node_scenememory_contraint);
+				this->gizmo_scene_node = SceneKernel::add_node_memoryposition_constrained(engine_scene(p_engine), p_parent, Math::Transform(), gizmo_scene_node_scenememory_contraint);
 				if (this->gizmo_scene_node.Index >= this->gizmo_scene_node_scenememory_contraint)
 				{
 					this->gizmo_scene_node_scenememory_contraint = this->gizmo_scene_node.Index;
@@ -741,7 +741,7 @@ struct NodeMovement2
 		{
 			if (this->gizmo_scene_node.Index != -1)
 			{
-				SceneKernel::free_node(engine_scene(p_engine), this->gizmo_scene_node);
+				SceneKernel::remove_node(engine_scene(p_engine), this->gizmo_scene_node);
 				this->gizmo_scene_node.reset();
 			}
 		};
