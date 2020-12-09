@@ -1593,7 +1593,7 @@ struct DeferredCommandbufferExecutionToken
 
 	inline void invalidate(DeferredCommandBufferExecution& p_execution)
 	{
-		p_execution.invalidate_command(this->QueueIndex);
+		p_execution.invalidate_command(this->CompletionToken.Index);
 		this->QueueIndex = -1;
 	};
 
@@ -1604,7 +1604,7 @@ struct DeferredCommandbufferExecutionToken
 
 	inline void free(DeferredCommandBufferExecution& p_execution)
 	{
-		if (this->isCompleted(p_execution))
+		if (!this->isCompleted(p_execution))
 		{
 			this->invalidate(p_execution);
 		};
@@ -2811,7 +2811,7 @@ struct Texture
 
 		for (size_t i = 0; i < this->layout_transitions.Size; i++)
 		{
-			if (this->layout_transitions[i].isCompleted(p_commandbuffer_execution))
+			if (!this->layout_transitions[i].isCompleted(p_commandbuffer_execution))
 			{
 				this->layout_transitions[i].invalidate(p_commandbuffer_execution);
 			}

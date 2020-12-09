@@ -42,6 +42,12 @@ namespace com
 	Vector_TemplateHeader
 		inline TYPE& Vector_ClassName::operator[](size_t i)
 	{
+#if CONTAINER_BOUND_TEST
+		if (i >= this->Size)
+		{
+			abort();
+		}
+#endif
 		return this->Memory[i];
 	};
 

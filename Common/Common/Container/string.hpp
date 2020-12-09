@@ -192,7 +192,7 @@ inline bool String<Allocator>::equals(const StringSlice& p_str)
 template<class Allocator>
 void String<Allocator>::remove_chars(const char p_char)
 {
-	for (size_t i = this->Memory.Size; i <= this->Memory.Size; i--)
+	for (size_t i = this->Memory.Size - 1; i < this->Memory.Size; --i)
 	{
 		if (this->Memory[i] == p_char)
 		{

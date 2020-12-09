@@ -50,13 +50,13 @@ namespace com
 	template<class TYPE, class Allocator>
 	inline TYPE& Pool<TYPE, Allocator>::operator[](size_t i)
 	{
-		return this->Memory.Memory[i];
+		return this->Memory[i];
 	}
 
 	template<class TYPE, class Allocator>
 	inline TYPE& Pool<TYPE, Allocator>::operator[](const TPoolToken<TYPE> i)
 	{
-		return this->Memory.Memory[i.Index];
+		return this->Memory[i.Index];
 	}
 
 	template<class TYPE, class Allocator>
@@ -64,8 +64,8 @@ namespace com
 	{
 		if (this->FreeBlocks.Size > 0)
 		{
-			size_t l_availableIndex = this->FreeBlocks.Memory[this->FreeBlocks.Size - 1];
-			this->Memory.Memory[l_availableIndex] = p_element;
+			size_t l_availableIndex = this->FreeBlocks[this->FreeBlocks.Size - 1];
+			this->Memory[l_availableIndex] = p_element;
 			this->FreeBlocks.erase_at(this->FreeBlocks.Size - 1, 1);
 			return l_availableIndex;
 		}
@@ -85,7 +85,7 @@ namespace com
 	template<class TYPE, class Allocator>
 	inline TYPE& Pool<TYPE, Allocator>::resolve(const TPoolToken<TYPE>& p_element)
 	{
-		return this->Memory.Memory[p_element.Index];
+		return this->Memory[p_element.Index];
 	};
 
 	template<class TYPE, class Allocator>
