@@ -1812,7 +1812,7 @@ private:
 
 	inline void pick_rendertarget_extent()
 	{
-		this->rendertarget_extend = vk::Extent2D(800, 600);
+		this->rendertarget_extend = vk::Extent2D(1024, 768);
 
 	}
 
@@ -3722,7 +3722,6 @@ struct RTDrawStep
 	struct GlobalBuffer
 	{
 		TShaderUniformBufferParameter<CameraMatrices> camera_matrices_globalbuffer;
-		ShaderCombinedImageSamplerParameter dither_texture;
 		ShaderLayout shader_layout;
 
 		inline void allocate(RenderAPI* p_render_api, RenderHeap2* p_render_heap)
@@ -3736,19 +3735,12 @@ struct RTDrawStep
 
 			this->camera_matrices_globalbuffer.create(*p_render_api, p_render_api->shaderparameter_layouts.uniformbuffer_vertex_layout_b0);
 			this->camera_matrices_globalbuffer.bind(0, p_render_api->device);
-
-			this->dither_texture.create(p_render_heap->allocate_texture(Hash<ConstString>::hash("textures/dither_pattern.png")), *p_render_api, p_render_api->shaderparameter_layouts.texture_fragment_layout_b0);
-			this->dither_texture.bind(0, p_render_api->device, p_render_api->image_samplers, p_render_heap->textures);
 		};
 
 		inline void free(RenderAPI* p_render_api, RenderHeap2* p_render_heap)
 		{
 			this->shader_layout.free(p_render_api->device);
 			this->camera_matrices_globalbuffer.dispose(p_render_api->device, p_render_api->descriptor_pool);
-
-			p_render_heap->free_texture(this->dither_texture.texture);
-			this->dither_texture.dispose(*p_render_api);
-
 		};
 
 	} global_buffer;
@@ -3783,7 +3775,6 @@ struct RTDrawStep
 		{
 
 			this->global_buffer.camera_matrices_globalbuffer.bind_command(p_command_buffer, 0, this->global_buffer.shader_layout.layout);
-			this->global_buffer.dither_texture.bind_command(p_command_buffer, 1, this->global_buffer.shader_layout.layout);
 
 			for (size_t l_shader_index = 0; l_shader_index < this->heap->shaders_sortedBy_executionOrder.Size; l_shader_index++)
 			{
@@ -3798,13 +3789,13 @@ struct RTDrawStep
 					com::TPoolToken<Material> l_material_heap_token = l_materials[l_material_index];
 					Material& l_material = this->heap->materials[l_material_heap_token];
 
-					l_material.bind_command(p_command_buffer, 3, this->heap->shader_uniform_parameters, this->heap->shader_imagesample_parameters, l_shader.pipeline_layout.layout);
+					l_material.bind_command(p_command_buffer, 2, this->heap->shader_uniform_parameters, this->heap->shader_imagesample_parameters, l_shader.pipeline_layout.layout);
 
 					com::Vector<com::TPoolToken<RenderableObject>>& l_renderableobjects = this->heap->material_to_renderableobjects[l_material_heap_token.Index];
 					for (size_t l_renderableobject_index = 0; l_renderableobject_index < l_renderableobjects.Size; l_renderableobject_index++)
 					{
 						RenderableObject& l_renderableobject = this->heap->renderableobjects[l_renderableobjects[l_renderableobject_index]];
-						l_renderableobject.model_matrix_buffer.bind_command(p_command_buffer, 2, l_shader.pipeline_layout.layout);
+						l_renderableobject.model_matrix_buffer.bind_command(p_command_buffer, 1, l_shader.pipeline_layout.layout);
 						l_renderableobject.draw(p_command_buffer, this->heap->meshes);
 					}
 				}
@@ -3908,7 +3899,7 @@ struct Render
 
 	inline Render(const AssetServerHandle p_asset_server)
 	{
-		this->window.allocate(800, 600, "MyGame");
+		this->window.allocate(1024, 768, "MyGame");
 		this->renderApi.init(window);
 		this->heap.allocate(p_asset_server, this->renderApi);
 		this->rt_draw_step.allocate(&this->renderApi, &this->heap);

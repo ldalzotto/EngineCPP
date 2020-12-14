@@ -130,9 +130,10 @@ namespace com
 	Vector_TemplateHeader
 		inline char Vector_ClassName::insert_at(MemorySlice<TYPE>& p_elements, const size_t p_index)
 	{
+		//TODO -> this must be a bounding test
 		if (p_index > this->Size)
 		{
-			return 1;
+			return 0;
 		}
 
 		if (this->Size + p_elements.count() > this->Capacity)
@@ -153,7 +154,7 @@ namespace com
 			this->Size += p_elements.count();
 		}
 
-		return 0;
+		return 1;
 	};
 
 	Vector_TemplateHeader
@@ -172,10 +173,12 @@ namespace com
 	Vector_TemplateHeader
 		inline char Vector_ClassName::erase_at(const size_t p_index, const size_t p_size)
 	{
+#if CONTAINER_BOUND_TEST
 		if (p_index >= this->Size)
 		{
-			return 1;
+			abort();
 		}
+#endif
 
 		// If we are not erasing the last element, then we move memory. Else, we have nothing to do.
 		if (p_index + p_size != this->Size)
@@ -185,7 +188,7 @@ namespace com
 		}
 
 		this->Size -= p_size;
-		return 0;
+		return 1;
 	};
 
 	Vector_TemplateHeader

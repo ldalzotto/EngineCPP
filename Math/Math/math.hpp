@@ -478,11 +478,11 @@ namespace Math
 		}
 
 		//yaw
-		l_return.Points[1] = 
-				asin(Math::clamp(((TYPE)-2) * (p_quat.x * p_quat.z - p_quat.w * p_quat.y) , (TYPE)-1, (TYPE)1));
+		l_return.Points[1] =
+			asin(Math::clamp(((TYPE)-2) * (p_quat.x * p_quat.z - p_quat.w * p_quat.y), (TYPE)-1, (TYPE)1));
 
 		//roll
-		l_return.Points[2] = 
+		l_return.Points[2] =
 			atan2(((TYPE)2) * (p_quat.x * p_quat.y + p_quat.w * p_quat.z), p_quat.w * p_quat.w + p_quat.x * p_quat.x - p_quat.y * p_quat.y - p_quat.z * p_quat.z)
 			;
 

@@ -85,6 +85,12 @@ struct GeneralPurposeHeap
 	template<class ElementType>
 	inline ElementType* map(com::TPoolToken<GeneralPurposeHeapMemoryChunk> p_memory)
 	{
+#if CONTAINER_BOUND_TEST
+		if (this->allocated_chunks[p_memory].offset >= this->memory.capacity_in_bytes())
+		{
+			abort();
+		}
+#endif
 		return (ElementType*)(this->memory.Memory + this->allocated_chunks[p_memory].offset);
 	};
 
