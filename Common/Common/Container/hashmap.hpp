@@ -40,7 +40,7 @@ inline size_t hashmap_calculateindex_from_key(const Key& p_key, const size_t p_m
 
 
 template<class Key, class Value, class HashFn, class Allocator>
-inline void hashmap_reallocate_entries(HashMap<Key, Value, HashFn, Allocator>& p_hashmap,const size_t p_newCapacity)
+inline void hashmap_reallocate_entries(HashMap<Key, Value, HashFn, Allocator>& p_hashmap, const size_t p_newCapacity)
 {
 	if (p_newCapacity > p_hashmap.Entries.Capacity)
 	{
@@ -66,7 +66,7 @@ template<class Key, class Value, class HashFn, class Allocator>
 inline Value& HashMap<Key, Value, HashFn, Allocator>::operator[](const Key& p_key)
 {
 	size_t l_inputkey_hash = HashFn::hash(p_key);
-	Entry& l_entry = this->Entries.Memory[hashmap_calculateindex_from_hash(l_inputkey_hash, this->Entries.Capacity)] ;
+	Entry& l_entry = this->Entries.Memory[hashmap_calculateindex_from_hash(l_inputkey_hash, this->Entries.Capacity)];
 	if (l_entry.isOccupied)
 	{
 		if (HashFn::hash(l_entry.key) == l_inputkey_hash)
@@ -121,16 +121,16 @@ inline void HashMap<Key, Value, HashFn, Allocator>::push_entry(const Entry& p_en
 		Entry& l_target_entry = this->Entries.Memory[hashmap_calculateindex_from_hash(l_inputkey_hash, this->Entries.Capacity)];
 		if (l_target_entry.isOccupied)
 		{
-			if(hashmap_calculateindex_from_key<Key, HashFn>(l_target_entry.key, this->Entries.Capacity) == l_inputkey_hash)
+
+#if CONTAINER_BOUND_TEST
+			// ERROR we are trying to insert the same key
+			if (hashmap_calculateindex_from_key<Key, HashFn>(l_target_entry.key, this->Entries.Capacity) == l_inputkey_hash)
 			{
-				//TODO -> ERROR we are trying to insert the same key
-				return;
+				abort();
 			}
-			else
-			{
-				hashmap_reallocate_entries(*this, this->Entries.Capacity == 0 ? 1 : (this->Entries.Capacity * 2));
-				this->push_entry(p_entry);
-			}
+#endif
+			hashmap_reallocate_entries(*this, this->Entries.Capacity == 0 ? 1 : (this->Entries.Capacity * 2));
+			this->push_entry(p_entry);
 		}
 		else
 		{

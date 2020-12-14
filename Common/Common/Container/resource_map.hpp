@@ -82,7 +82,6 @@ struct ResourceMap
 
 	inline ResourceMapEnum::Step allocate_resource(const Key& p_key, Value* out_value)
 	{
-		
 		struct OnResourceAllocated { 
 			ResourceMapEnum::Step* step;
 			inline OnResourceAllocated(ResourceMapEnum::Step* p_step) { this->step = p_step; }
@@ -97,6 +96,20 @@ struct ResourceMap
 		ResourceMapEnum::Step l_execution_step = ResourceMapEnum::Step::UNDEFINED;
 		*out_value = this->Tallocate_resource(p_key, OnResourceAllocated(&l_execution_step), OnResourceIncremented(&l_execution_step));
 		return l_execution_step;
+	};
+
+	inline void push_resource(const Key& p_key, const Value& p_value)
+	{
+#if CONTAINER_BOUND_TEST
+		if (this->map.conains_key(p_key))
+		{
+			abort();
+		}
+#endif
+		CountedResource<Value> l_usage;
+		l_usage.value = p_value;
+		l_usage.usage = 1;
+		this->map.push_entry(HashMap<Key, CountedResource<Value>>::Entry(p_key, l_usage));
 	};
 	
 	template<class OnResourceDeallocatedFn = DefaultResourceCallback, class OnResourceDecrementedFn = DefaultResourceCallback>

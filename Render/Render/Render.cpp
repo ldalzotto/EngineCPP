@@ -1812,7 +1812,7 @@ private:
 
 	inline void pick_rendertarget_extent()
 	{
-		this->rendertarget_extend = vk::Extent2D(320, 240);
+		this->rendertarget_extend = vk::Extent2D(800, 600);
 
 	}
 
@@ -2023,70 +2023,49 @@ private:
 
 struct ShaderParameterLayouts
 {
-	vk::DescriptorSetLayout uniformbuffer_vertex_layout;
-	vk::DescriptorSetLayout uniformbuffer_layout;
-	vk::DescriptorSetLayout texture_fragment_layout;
+	vk::DescriptorSetLayout uniformbuffer_vertex_layout_b0;
+	vk::DescriptorSetLayout uniformbuffer_layout_b0;
+	vk::DescriptorSetLayout texture_fragment_layout_b0;
 
 	inline void create_layouts(const Device& p_device)
 	{
-		{
-			vk::DescriptorSetLayoutBinding l_layout_bindings[1];
-			{
-				vk::DescriptorSetLayoutBinding& l_camera_matrices_layout_binding = l_layout_bindings[0];
-				l_camera_matrices_layout_binding.setBinding(0);
-				l_camera_matrices_layout_binding.setDescriptorCount(1);
-				l_camera_matrices_layout_binding.setDescriptorType(vk::DescriptorType::eUniformBuffer);
-				l_camera_matrices_layout_binding.setStageFlags(vk::ShaderStageFlagBits::eVertex);
-				l_camera_matrices_layout_binding.setPImmutableSamplers(nullptr);
-			}
+		this->uniformbuffer_vertex_layout_b0 = create_layout(p_device, 0, vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eVertex);
+		this->uniformbuffer_layout_b0 = create_layout(p_device, 0, vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlags(vk::ShaderStageFlagBits::eFragment | vk::ShaderStageFlagBits::eVertex));
 
-			vk::DescriptorSetLayoutCreateInfo l_descriptorset_layot_create;
-			l_descriptorset_layot_create.setBindingCount(1);
-			l_descriptorset_layot_create.setPBindings(l_layout_bindings);
-
-			this->uniformbuffer_vertex_layout = p_device.device.createDescriptorSetLayout(l_descriptorset_layot_create);
-		}
-		{
-			vk::DescriptorSetLayoutBinding l_layout_bindings[1];
-			{
-				vk::DescriptorSetLayoutBinding& l_camera_matrices_layout_binding = l_layout_bindings[0];
-				l_camera_matrices_layout_binding.setBinding(0);
-				l_camera_matrices_layout_binding.setDescriptorCount(1);
-				l_camera_matrices_layout_binding.setDescriptorType(vk::DescriptorType::eCombinedImageSampler);
-				l_camera_matrices_layout_binding.setStageFlags(vk::ShaderStageFlagBits::eFragment);
-				l_camera_matrices_layout_binding.setPImmutableSamplers(nullptr);
-			}
-
-			vk::DescriptorSetLayoutCreateInfo l_descriptorset_layot_create;
-			l_descriptorset_layot_create.setBindingCount(1);
-			l_descriptorset_layot_create.setPBindings(l_layout_bindings);
-
-			this->texture_fragment_layout = p_device.device.createDescriptorSetLayout(l_descriptorset_layot_create);
-		}
-		{
-			vk::DescriptorSetLayoutBinding l_layout_bindings[1];
-			{
-				vk::DescriptorSetLayoutBinding& l_camera_matrices_layout_binding = l_layout_bindings[0];
-				l_camera_matrices_layout_binding.setBinding(0);
-				l_camera_matrices_layout_binding.setDescriptorCount(1);
-				l_camera_matrices_layout_binding.setDescriptorType(vk::DescriptorType::eUniformBuffer);
-				l_camera_matrices_layout_binding.setStageFlags(vk::ShaderStageFlags(vk::ShaderStageFlagBits::eFragment | vk::ShaderStageFlagBits::eVertex));
-				l_camera_matrices_layout_binding.setPImmutableSamplers(nullptr);
-			}
-
-			vk::DescriptorSetLayoutCreateInfo l_descriptorset_layot_create;
-			l_descriptorset_layot_create.setBindingCount(1);
-			l_descriptorset_layot_create.setPBindings(l_layout_bindings);
-
-			this->uniformbuffer_layout = p_device.device.createDescriptorSetLayout(l_descriptorset_layot_create);
-		}
+		this->texture_fragment_layout_b0 = create_layout(p_device, 0, vk::DescriptorType::eCombinedImageSampler, vk::ShaderStageFlagBits::eFragment);
 	};
 
 	inline void destroy_layouts(const Device& p_device)
 	{
-		p_device.device.destroyDescriptorSetLayout(uniformbuffer_vertex_layout);
-		p_device.device.destroyDescriptorSetLayout(texture_fragment_layout);
-		p_device.device.destroyDescriptorSetLayout(uniformbuffer_layout);
+		p_device.device.destroyDescriptorSetLayout(uniformbuffer_vertex_layout_b0);
+		p_device.device.destroyDescriptorSetLayout(texture_fragment_layout_b0);
+		p_device.device.destroyDescriptorSetLayout(uniformbuffer_layout_b0);
+	};
+
+
+	inline static vk::DescriptorSetLayout create_layout(const Device& p_device, const uint32_t p_binding, const vk::DescriptorType p_descriptor_type, const vk::ShaderStageFlags p_stage_flags)
+	{
+		vk::DescriptorSetLayoutBinding l_layout_bindings[1];
+		{
+			l_layout_bindings[0] = create_layout_binding(p_binding, p_descriptor_type, p_stage_flags);
+		}
+
+		vk::DescriptorSetLayoutCreateInfo l_descriptorset_layot_create;
+		l_descriptorset_layot_create.setBindingCount(1);
+		l_descriptorset_layot_create.setPBindings(l_layout_bindings);
+
+		return p_device.device.createDescriptorSetLayout(l_descriptorset_layot_create);
+	};
+
+	inline static vk::DescriptorSetLayoutBinding create_layout_binding(const uint32_t p_binding, const vk::DescriptorType p_descriptor_type, const vk::ShaderStageFlags p_stage_flags)
+	{
+		vk::DescriptorSetLayoutBinding l_camera_matrices_layout_binding;
+		l_camera_matrices_layout_binding.setBinding(p_binding);
+		l_camera_matrices_layout_binding.setDescriptorCount(1);
+		l_camera_matrices_layout_binding.setDescriptorType(p_descriptor_type);
+		l_camera_matrices_layout_binding.setStageFlags(p_stage_flags);
+		l_camera_matrices_layout_binding.setPImmutableSamplers(nullptr);
+		return l_camera_matrices_layout_binding;
 	};
 };
 
@@ -2836,92 +2815,6 @@ private:
 };
 
 
-template<class ElementType>
-struct GlobalUniformBuffer
-{
-	uint32_t descriptorset_index;
-	uint32_t binding_index;
-
-	vk::DescriptorSetLayout descriptorset_layout;
-	vk::PipelineLayout pipeline_layout;
-	vk::DescriptorSet descriptor_set;
-	TUniformMemory_HostWrite<ElementType> memory;
-
-	inline void create(vk::ShaderStageFlags p_shader_stage, const uint32_t p_descriptorset_index, const uint32_t p_binding_idnex, Device& p_device, const vk::DescriptorPool p_descriptorpool)
-	{
-		this->descriptorset_index = p_descriptorset_index;
-		this->binding_index = p_binding_idnex;
-
-		vk::DescriptorSetLayoutBinding l_layout_bindings[1];
-		{
-			vk::DescriptorSetLayoutBinding& l_camera_matrices_layout_binding = l_layout_bindings[0];
-			l_camera_matrices_layout_binding.setBinding(0);
-			l_camera_matrices_layout_binding.setDescriptorCount(1);
-			l_camera_matrices_layout_binding.setDescriptorType(vk::DescriptorType::eUniformBuffer);
-			l_camera_matrices_layout_binding.setStageFlags(p_shader_stage);
-			l_camera_matrices_layout_binding.setPImmutableSamplers(nullptr);
-		}
-
-		vk::DescriptorSetLayoutCreateInfo l_descriptorset_layot_create;
-		l_descriptorset_layot_create.setBindingCount(1);
-		l_descriptorset_layot_create.setPBindings(l_layout_bindings);
-
-		this->descriptorset_layout = p_device.device.createDescriptorSetLayout(l_descriptorset_layot_create);
-
-		vk::PipelineLayoutCreateInfo l_pipelinelayout_create_info;
-		l_pipelinelayout_create_info.setSetLayoutCount(1);
-		l_pipelinelayout_create_info.setPSetLayouts(&this->descriptorset_layout);
-		this->pipeline_layout = p_device.device.createPipelineLayout(l_pipelinelayout_create_info);
-
-		vk::DescriptorSetAllocateInfo l_allocate_info;
-		l_allocate_info.setDescriptorPool(p_descriptorpool);
-		l_allocate_info.setDescriptorSetCount(1);
-		l_allocate_info.setPSetLayouts(&this->descriptorset_layout);
-		this->descriptor_set = p_device.device.allocateDescriptorSets(l_allocate_info)[0];
-
-		this->memory.allocate(1, p_device);
-	}
-
-	inline void dispose(Device& p_device, const vk::DescriptorPool p_descriptorpool)
-	{
-		p_device.device.destroyDescriptorSetLayout(this->descriptorset_layout);
-		this->descriptorset_layout = nullptr;
-		p_device.device.destroyPipelineLayout(this->pipeline_layout);
-		this->pipeline_layout = nullptr;
-
-		p_device.device.freeDescriptorSets(p_descriptorpool, 1, &this->descriptor_set);
-		this->descriptor_set = nullptr;
-		this->memory.dispose(p_device);
-	}
-
-	inline void pushbuffer(const ElementType* p_source, const Device& p_device)
-	{
-		this->memory.push(p_source);
-	}
-
-	inline void bind(const Device& p_device)
-	{
-		vk::DescriptorBufferInfo l_descriptor_buffer_info;
-		l_descriptor_buffer_info.setBuffer(this->memory.buffer);
-		l_descriptor_buffer_info.setOffset(0);
-		l_descriptor_buffer_info.setRange(this->memory.capacity * sizeof(ElementType));
-
-		vk::WriteDescriptorSet l_write_descriptor_set;
-		l_write_descriptor_set.setDstSet(this->descriptor_set);
-		l_write_descriptor_set.setDescriptorCount(1);
-		l_write_descriptor_set.setDescriptorType(vk::DescriptorType::eUniformBuffer);
-		l_write_descriptor_set.setDstBinding(this->binding_index);
-		l_write_descriptor_set.setPBufferInfo(&l_descriptor_buffer_info);
-
-		p_device.device.updateDescriptorSets(1, &l_write_descriptor_set, 0, nullptr);
-	}
-
-	inline void bind_command(CommandBuffer& p_commandbuffer)
-	{
-		p_commandbuffer.command_buffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, this->pipeline_layout, this->descriptorset_index, 1, &this->descriptor_set, 0, nullptr);
-	}
-};
-
 struct ShaderUniformBufferParameter
 {
 	vk::DescriptorSet descriptor_set;
@@ -3012,12 +2905,12 @@ struct ShaderCombinedImageSamplerDescriptorSet
 {
 	vk::DescriptorSet descriptor_set;
 
-	inline void create(RenderAPI& p_renderapi)
+	inline void create(RenderAPI& p_renderapi, const vk::DescriptorSetLayout& p_layout)
 	{
 		vk::DescriptorSetAllocateInfo l_allocate_info;
 		l_allocate_info.setDescriptorPool(p_renderapi.descriptor_pool);
 		l_allocate_info.setDescriptorSetCount(1);
-		l_allocate_info.setPSetLayouts(&p_renderapi.shaderparameter_layouts.texture_fragment_layout);
+		l_allocate_info.setPSetLayouts(&p_layout);
 		this->descriptor_set = p_renderapi.device.device.allocateDescriptorSets(l_allocate_info)[0];
 	};
 
@@ -3056,9 +2949,9 @@ struct ShaderCombinedImageSamplerParameter
 	ShaderCombinedImageSamplerDescriptorSet descriptor_set;
 	com::TPoolToken<Texture> texture;
 
-	inline void create(const com::TPoolToken<Texture>& p_texture, RenderAPI& p_renderapi)
+	inline void create(const com::TPoolToken<Texture>& p_texture, RenderAPI& p_renderapi, const vk::DescriptorSetLayout& p_descriptor_set_layout)
 	{
-		this->descriptor_set.create(p_renderapi);
+		this->descriptor_set.create(p_renderapi, p_descriptor_set_layout);
 		this->texture = p_texture;
 	}
 
@@ -3175,7 +3068,7 @@ struct RenderableObject
 	inline void allocate(const com::TPoolToken<Mesh>& p_mesh, RenderAPI& p_render_api)
 	{
 		this->mesh = p_mesh;
-		this->model_matrix_buffer.create(p_render_api, p_render_api.shaderparameter_layouts.uniformbuffer_vertex_layout);
+		this->model_matrix_buffer.create(p_render_api, p_render_api.shaderparameter_layouts.uniformbuffer_vertex_layout_b0);
 		this->model_matrix_buffer.bind(0, p_render_api.device);
 	}
 
@@ -3298,27 +3191,40 @@ struct RenderHeap2
 			{
 				com::Vector<char> l_shader_resource_binary = this->asset_server.get_resource(p_key);
 				ShaderLayoutAsset l_shaderlayout_asset = ShaderLayoutAsset::deserialize(l_shader_resource_binary.Memory);
+				ShaderLayout l_shader_layout = allocate_shaderlayout_from_shaderlayoutparameters(p_key, this->render_heap, l_shaderlayout_asset.parameters);
+				l_shader_resource_binary.free();
+				return this->render_heap->shader_layouts.alloc_element(l_shader_layout);
+			};
 
+			inline void free(const com::TPoolToken<ShaderLayout>& p_shader)
+			{
+				ShaderLayout& l_shader_layout = this->render_heap->shader_layouts[p_shader];
+				l_shader_layout.free(this->render_heap->render_api->device);
+				this->render_heap->shader_layouts.release_element(p_shader);
+			};
+
+			inline static ShaderLayout allocate_shaderlayout_from_shaderlayoutparameters(const size_t p_key, RenderHeap2* p_renderheap, com::Vector<ShaderLayoutParameter::Type>& p_shaderlyaout_parameters)
+			{
 				com::Vector<vk::DescriptorSetLayout> l_descriptorset_layouts;
-				l_descriptorset_layouts.allocate(l_shaderlayout_asset.parameters.Size);
+				l_descriptorset_layouts.allocate(p_shaderlyaout_parameters.Size);
 
-				for (size_t i = 0; i < l_shaderlayout_asset.parameters.Size; i++)
+				for (size_t i = 0; i < p_shaderlyaout_parameters.Size; i++)
 				{
-					switch (l_shaderlayout_asset.parameters[i])
+					switch (p_shaderlyaout_parameters[i])
 					{
 					case ShaderLayoutParameter::Type::UNIFORM_BUFFER_VERTEX:
 					{
-						l_descriptorset_layouts.push_back(this->render_heap->render_api->shaderparameter_layouts.uniformbuffer_vertex_layout);
+						l_descriptorset_layouts.push_back(p_renderheap->render_api->shaderparameter_layouts.uniformbuffer_vertex_layout_b0);
 					}
 					break;
 					case ShaderLayoutParameter::Type::UNIFORM_BUFFER_VERTEX_FRAGMENT:
 					{
-						l_descriptorset_layouts.push_back(this->render_heap->render_api->shaderparameter_layouts.uniformbuffer_layout);
+						l_descriptorset_layouts.push_back(p_renderheap->render_api->shaderparameter_layouts.uniformbuffer_layout_b0);
 					}
 					break;
 					case ShaderLayoutParameter::Type::TEXTURE_FRAGMENT:
 					{
-						l_descriptorset_layouts.push_back(this->render_heap->render_api->shaderparameter_layouts.texture_fragment_layout);
+						l_descriptorset_layouts.push_back(p_renderheap->render_api->shaderparameter_layouts.texture_fragment_layout_b0);
 					}
 					break;
 					}
@@ -3329,20 +3235,12 @@ struct RenderHeap2
 				l_pipelinelayout_create_info.setPSetLayouts(l_descriptorset_layouts.Memory);
 
 				ShaderLayout l_shader_layout;
-				l_shader_layout.allocate(p_key, this->render_heap->render_api->device, l_pipelinelayout_create_info);
+				l_shader_layout.allocate(p_key, p_renderheap->render_api->device, l_pipelinelayout_create_info);
 
-				l_shader_resource_binary.free();
 				l_descriptorset_layouts.free();
 
-				return this->render_heap->shader_layouts.alloc_element(l_shader_layout);
-			};
-
-			inline void free(const com::TPoolToken<ShaderLayout>& p_shader)
-			{
-				ShaderLayout& l_shader_layout = this->render_heap->shader_layouts[p_shader];
-				l_shader_layout.free(this->render_heap->render_api->device);
-				this->render_heap->shader_layouts.release_element(p_shader);
-			};
+				return l_shader_layout;
+			}
 		};
 
 		struct ShaderResourceAllocator
@@ -3605,6 +3503,13 @@ public:
 		return this->resource.shader_layouts.allocate_resource(p_path);
 	};
 
+	inline com::TPoolToken<ShaderLayout> push_shaderlayout(const ShaderLayout& p_shader_layout)
+	{
+		com::TPoolToken<ShaderLayout> l_shader_layout = this->shader_layouts.alloc_element(p_shader_layout);
+		this->resource.shader_layouts.push_resource(p_shader_layout.id, l_shader_layout);
+		return l_shader_layout;
+	};
+
 	inline void free_shaderlayout(const com::TPoolToken<ShaderLayout> p_shader_layout)
 	{
 		this->resource.shader_layouts.free_resource(this->shader_layouts[p_shader_layout].id);
@@ -3793,7 +3698,7 @@ private:
 	inline com::TPoolToken<ShaderCombinedImageSamplerParameter> allocate_material_image_parameter(const com::TPoolToken<Texture>& p_texture)
 	{
 		ShaderCombinedImageSamplerParameter l_diffuse_texture;
-		l_diffuse_texture.create(p_texture, *this->render_api);
+		l_diffuse_texture.create(p_texture, *this->render_api, this->render_api->shaderparameter_layouts.texture_fragment_layout_b0);
 		l_diffuse_texture.bind(0, this->render_api->device, this->render_api->image_samplers, this->textures);
 		return this->shader_imagesample_parameters.alloc_element(l_diffuse_texture);
 	};
@@ -3801,7 +3706,7 @@ private:
 	inline com::TPoolToken<ShaderUniformBufferParameter> allocate_material_uniform_parameter(const GPtr& p_initial_value)
 	{
 		ShaderUniformBufferParameter l_diffuse_color;
-		l_diffuse_color.create(*this->render_api, p_initial_value.element_size, this->render_api->shaderparameter_layouts.uniformbuffer_layout);
+		l_diffuse_color.create(*this->render_api, p_initial_value.element_size, this->render_api->shaderparameter_layouts.uniformbuffer_layout_b0);
 		l_diffuse_color.bind(0, p_initial_value.element_size, this->render_api->device);
 		l_diffuse_color.pushbuffer(p_initial_value, this->render_api->device);
 		return this->shader_uniform_parameters.alloc_element(l_diffuse_color);
@@ -3813,15 +3718,50 @@ struct RTDrawStep
 {
 	RenderAPI* renderApi = nullptr;
 	RenderHeap2* heap = nullptr;
-	GlobalUniformBuffer<CameraMatrices>* camera_matrices_globalbuffer = nullptr;
+
+	struct GlobalBuffer
+	{
+		TShaderUniformBufferParameter<CameraMatrices> camera_matrices_globalbuffer;
+		ShaderCombinedImageSamplerParameter dither_texture;
+		ShaderLayout shader_layout;
+
+		inline void allocate(RenderAPI* p_render_api, RenderHeap2* p_render_heap)
+		{
+			com::Vector<ShaderLayoutParameter::Type> l_shaderlyaout_parameters;
+			l_shaderlyaout_parameters.allocate(2);
+			l_shaderlyaout_parameters.push_back(ShaderLayoutParameter::Type::UNIFORM_BUFFER_VERTEX);
+			l_shaderlyaout_parameters.push_back(ShaderLayoutParameter::Type::TEXTURE_FRAGMENT);
+			this->shader_layout = RenderHeap2::Resource::ShaderLayoutResourceAllocator::allocate_shaderlayout_from_shaderlayoutparameters(-1, p_render_heap, l_shaderlyaout_parameters);
+			l_shaderlyaout_parameters.free();
+
+			this->camera_matrices_globalbuffer.create(*p_render_api, p_render_api->shaderparameter_layouts.uniformbuffer_vertex_layout_b0);
+			this->camera_matrices_globalbuffer.bind(0, p_render_api->device);
+
+			this->dither_texture.create(p_render_heap->allocate_texture(Hash<ConstString>::hash("textures/dither_pattern.png")), *p_render_api, p_render_api->shaderparameter_layouts.texture_fragment_layout_b0);
+			this->dither_texture.bind(0, p_render_api->device, p_render_api->image_samplers, p_render_heap->textures);
+		};
+
+		inline void free(RenderAPI* p_render_api, RenderHeap2* p_render_heap)
+		{
+			this->shader_layout.free(p_render_api->device);
+			this->camera_matrices_globalbuffer.dispose(p_render_api->device, p_render_api->descriptor_pool);
+
+			p_render_heap->free_texture(this->dither_texture.texture);
+			this->dither_texture.dispose(*p_render_api);
+
+		};
+
+	} global_buffer;
 
 	com::NMemorySlice<vk::ClearValue, 2> clear_values;
 
-	inline void allocate(RenderAPI* p_render_api, RenderHeap2* p_render_heap, GlobalUniformBuffer<CameraMatrices>* p_camera_matrices_globalbuffer)
+	inline void allocate(RenderAPI* p_render_api, RenderHeap2* p_render_heap)
 	{
 		this->renderApi = p_render_api;
 		this->heap = p_render_heap;
-		this->camera_matrices_globalbuffer = p_camera_matrices_globalbuffer;
+
+		
+		this->global_buffer.allocate(p_render_api, p_render_heap);
 
 		this->clear_values[0].color.setFloat32({ 0.0f, 0.0f, 0.2f, 1.0f });
 		this->clear_values[1].depthStencil.setDepth(1.0f);
@@ -3829,9 +3769,10 @@ struct RTDrawStep
 	};
 
 	inline void free() {
+
+		this->global_buffer.free(this->renderApi, this->heap);
 		this->renderApi = nullptr;
 		this->heap = nullptr;
-		this->camera_matrices_globalbuffer = nullptr;
 	};
 
 	inline void step(CommandBuffer& p_command_buffer)
@@ -3840,7 +3781,9 @@ struct RTDrawStep
 		p_command_buffer.beginRenderPass2(this->renderApi->swap_chain.rendertarget_draw_framebuffers, this->clear_values.to_memoryslice(), vk::Offset2D(0, 0), this->renderApi->swap_chain.rendertarget_extend);
 
 		{
-			this->camera_matrices_globalbuffer->bind_command(p_command_buffer);
+
+			this->global_buffer.camera_matrices_globalbuffer.bind_command(p_command_buffer, 0, this->global_buffer.shader_layout.layout);
+			this->global_buffer.dither_texture.bind_command(p_command_buffer, 1, this->global_buffer.shader_layout.layout);
 
 			for (size_t l_shader_index = 0; l_shader_index < this->heap->shaders_sortedBy_executionOrder.Size; l_shader_index++)
 			{
@@ -3855,13 +3798,13 @@ struct RTDrawStep
 					com::TPoolToken<Material> l_material_heap_token = l_materials[l_material_index];
 					Material& l_material = this->heap->materials[l_material_heap_token];
 
-					l_material.bind_command(p_command_buffer, 2, this->heap->shader_uniform_parameters, this->heap->shader_imagesample_parameters, l_shader.pipeline_layout.layout);
+					l_material.bind_command(p_command_buffer, 3, this->heap->shader_uniform_parameters, this->heap->shader_imagesample_parameters, l_shader.pipeline_layout.layout);
 
 					com::Vector<com::TPoolToken<RenderableObject>>& l_renderableobjects = this->heap->material_to_renderableobjects[l_material_heap_token.Index];
 					for (size_t l_renderableobject_index = 0; l_renderableobject_index < l_renderableobjects.Size; l_renderableobject_index++)
 					{
 						RenderableObject& l_renderableobject = this->heap->renderableobjects[l_renderableobjects[l_renderableobject_index]];
-						l_renderableobject.model_matrix_buffer.bind_command(p_command_buffer, 1, l_shader.pipeline_layout.layout);
+						l_renderableobject.model_matrix_buffer.bind_command(p_command_buffer, 2, l_shader.pipeline_layout.layout);
 						l_renderableobject.draw(p_command_buffer, this->heap->meshes);
 					}
 				}
@@ -3871,6 +3814,13 @@ struct RTDrawStep
 		p_command_buffer.endRenderPass();
 	};
 
+	inline void push_camera_buffer(const float p_fov, const float p_near, const float p_far, const vec3f& p_world_position, const vec3f& p_world_forward, const vec3f& p_world_up)
+	{
+		CameraMatrices l_cam_mat;
+		l_cam_mat.view = view(p_world_position, p_world_forward, p_world_up);
+		l_cam_mat.projection = perspective<float>(p_fov * DEG_TO_RAD, (float)this->renderApi->swap_chain.rendertarget_extend.width / (float)this->renderApi->swap_chain.rendertarget_extend.height, p_near, p_far);
+		this->global_buffer.camera_matrices_globalbuffer.pushbuffer(&l_cam_mat, this->renderApi->device);
+	};
 };
 
 struct KHRPresentStep
@@ -3894,7 +3844,7 @@ struct KHRPresentStep
 
 		this->khr_draw_shader = p_render_heap.allocate_shader("shader/quaddraw_shader.json", p_render_api->swap_chain.render_passes.get_renderpass<RenderPass::Type::KHR_BLIT>());
 
-		this->render_target_parameter.create(*p_render_api);
+		this->render_target_parameter.create(*p_render_api, p_render_api->shaderparameter_layouts.texture_fragment_layout_b0);
 		this->render_target_parameter.bind(0, p_render_api->device, p_render_api->image_samplers, p_render_api->swap_chain.rendertarget_image_view);
 
 		com::Vector<Vertex> l_vertices;
@@ -3951,7 +3901,6 @@ struct Render
 	RenderWindow window;
 	RenderAPI renderApi;
 
-	GlobalUniformBuffer<CameraMatrices> camera_matrices_globalbuffer;
 	RenderHeap2 heap;
 
 	RTDrawStep rt_draw_step;
@@ -3961,9 +3910,8 @@ struct Render
 	{
 		this->window.allocate(800, 600, "MyGame");
 		this->renderApi.init(window);
-		this->create_global_buffers();
 		this->heap.allocate(p_asset_server, this->renderApi);
-		this->rt_draw_step.allocate(&this->renderApi, &this->heap, &this->camera_matrices_globalbuffer);
+		this->rt_draw_step.allocate(&this->renderApi, &this->heap);
 		this->khr_present_step.allocate(&this->renderApi, this->heap, p_asset_server);
 	};
 
@@ -3972,7 +3920,6 @@ struct Render
 		this->rt_draw_step.free();
 		this->khr_present_step.free();
 		this->heap.free();
-		this->destroy_global_buffers();
 		this->renderApi.dispose();
 		this->window.dispose();
 	};
@@ -4018,26 +3965,6 @@ struct Render
 		this->renderApi.device.device.waitForFences(1, &this->renderApi.synchronization.draw_command_fences[l_render_image_index], true, UINT64_MAX);
 	}
 
-	inline void push_camera_buffer(const float p_fov, const float p_near, const float p_far, const vec3f& p_world_position, const vec3f& p_world_forward, const vec3f& p_world_up)
-	{
-		CameraMatrices l_cam_mat;
-		l_cam_mat.view = view(p_world_position, p_world_forward, p_world_up);
-		l_cam_mat.projection = perspective<float>(p_fov * DEG_TO_RAD, (float)this->renderApi.swap_chain.rendertarget_extend.width / (float)this->renderApi.swap_chain.rendertarget_extend.height, p_near, p_far);
-		this->camera_matrices_globalbuffer.pushbuffer(&l_cam_mat, this->renderApi.device);
-	};
-
-private:
-
-	inline void create_global_buffers()
-	{
-		this->camera_matrices_globalbuffer.create(vk::ShaderStageFlagBits::eVertex, 0, 0, this->renderApi.device, this->renderApi.descriptor_pool);
-		this->camera_matrices_globalbuffer.bind(this->renderApi.device);
-	}
-
-	inline void destroy_global_buffers()
-	{
-		this->camera_matrices_globalbuffer.dispose(this->renderApi.device, this->renderApi.descriptor_pool);
-	}
 
 };
 
@@ -4079,5 +4006,5 @@ void render_push_camera_buffer(const RenderHandle& p_render, const float p_fov, 
 	const Math::vec3f& p_world_position, const Math::vec3f& p_world_forward, const Math::vec3f& p_world_up)
 {
 	Render* l_render = (Render*)p_render;
-	l_render->push_camera_buffer(p_fov, p_near, p_far, p_world_position, p_world_forward, p_world_up);
+	l_render->rt_draw_step.push_camera_buffer(p_fov, p_near, p_far, p_world_position, p_world_forward, p_world_up);
 };

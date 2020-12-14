@@ -341,6 +341,7 @@ struct JSONDeserializer<MaterialAsset>
 		Deserialization::JSON::JSONObjectIterator l_parameters_iterator;
 		p_iterator.next_array("parameters", &l_parameters_iterator);
 		Deserialization::JSON::JSONObjectIterator l_parameter_iterator;
+		
 		while (l_parameters_iterator.next_array_object(&l_parameter_iterator))
 		{
 			l_parameter_iterator.next_field("type");
