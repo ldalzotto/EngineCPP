@@ -4035,3 +4035,6 @@ void render_push_camera_buffer(const RenderHandle& p_render, const float p_fov, 
 	Render* l_render = (Render*)p_render;
 	l_render->rt_draw_step.push_camera_buffer(p_fov, p_near, p_far, p_world_position, p_world_forward, p_world_up);
 };
+
+
+#include "impl/objects.cpp"

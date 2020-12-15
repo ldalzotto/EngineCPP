@@ -23,7 +23,7 @@ namespace Math
 
 		Vector() = default;
 
-		inline Vector(TYPE p_x, TYPE p_y) : x{ p_x }, y{ p_y }
+		inline constexpr Vector(TYPE p_x, TYPE p_y) : x{ p_x }, y{ p_y }
 		{
 		}
 
@@ -84,7 +84,7 @@ namespace Math
 
 		Vector() = default;
 		
-		inline Vector(TYPE p_x, TYPE p_y, TYPE p_z) : x{ p_x }, y{ p_y }, z{ p_z }
+		inline constexpr Vector(TYPE p_x, TYPE p_y, TYPE p_z) : x{ p_x }, y{ p_y }, z{ p_z }
 		{
 		}
 
@@ -146,8 +146,8 @@ namespace Math
 		};
 
 		Vector() = default;
-		inline Vector(TYPE p_x, TYPE p_y, TYPE p_z, TYPE p_w) : x{p_x}, y{p_y}, z{p_z}, w{p_w}{}
-		inline Vector(const Vector<3, TYPE>& p_vec3, const TYPE& p_w) : Vec3{ p_vec3 }, Vec3_w{ p_w }{};
+		inline constexpr Vector(TYPE p_x, TYPE p_y, TYPE p_z, TYPE p_w) : x{p_x}, y{p_y}, z{p_z}, w{p_w}{}
+		inline constexpr Vector(const Vector<3, TYPE>& p_vec3, const TYPE& p_w) : Vec3{ p_vec3 }, Vec3_w{ p_w }{};
 
 		inline Vector<4, TYPE> operator*(const Vector<4, TYPE>& p_other)
 		{
@@ -202,10 +202,10 @@ namespace Math
 	template<class TYPE>
 	struct VecConst
 	{
-		inline static const Vector<3, TYPE> ZERO = { Zero<TYPE>::zer, Zero<TYPE>::zer, Zero<TYPE>::zer };
-		inline static const Vector<3, TYPE> ONE = { One<TYPE>::one, One<TYPE>::one, One<TYPE>::one };
-		inline static const Vector<3, TYPE> RIGHT = { One<TYPE>::one, Zero<TYPE>::zer, Zero<TYPE>::zer };
-		inline static const Vector<3, TYPE> UP = { Zero<TYPE>::zer, One<TYPE>::one, Zero<TYPE>::zer };
-		inline static const Vector<3, TYPE> FORWARD = { Zero<TYPE>::zer, Zero<TYPE>::zer, One<TYPE>::one };
+		static constexpr const Vector<3, TYPE> ZERO = { Zero<TYPE>::zer, Zero<TYPE>::zer, Zero<TYPE>::zer };
+		static constexpr const Vector<3, TYPE> ONE = { One<TYPE>::one, One<TYPE>::one, One<TYPE>::one };
+		static constexpr const Vector<3, TYPE> RIGHT = { One<TYPE>::one, Zero<TYPE>::zer, Zero<TYPE>::zer };
+		static constexpr const Vector<3, TYPE> UP = { Zero<TYPE>::zer, One<TYPE>::one, Zero<TYPE>::zer };
+		static constexpr const Vector<3, TYPE> FORWARD = { Zero<TYPE>::zer, Zero<TYPE>::zer, One<TYPE>::one };
 	};
 }

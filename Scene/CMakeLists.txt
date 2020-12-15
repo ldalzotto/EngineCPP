@@ -6,15 +6,11 @@ file(GLOB_RECURSE SCENE_SOURCE "./Scene/*.cpp" "./Scene/include.cpp" "./interfac
 
 enable_language(CXX)
 
-include_directories(${CMAKE_CURRENT_SOURCE_DIR})
-
-add_library(Scene ${SCENE_HEADER} ${SCENE_SOURCE})
-
-target_include_directories(Scene PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/interface)
-
-target_link_libraries(Scene PUBLIC Math)
-target_link_libraries(Scene PUBLIC Common)
-target_link_libraries(Scene PUBLIC Optick)
+add_library(Scene INTERFACE)
+target_include_directories(Common INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/interface)
+target_link_libraries(Scene INTERFACE Math)
+target_link_libraries(Scene INTERFACE Common)
+target_link_libraries(Scene INTERFACE Optick)
 
 
 add_subdirectory(components)
@@ -29,3 +25,4 @@ target_link_libraries(SceneTest PUBLIC Math)
 target_link_libraries(SceneTest PUBLIC Common)
 target_link_libraries(SceneTest PUBLIC Optick)
 target_link_libraries(SceneTest PUBLIC SceneComponents)
+target_link_libraries(SceneTest PUBLIC Scene)

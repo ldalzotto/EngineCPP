@@ -14,7 +14,7 @@ namespace Math
         
         Quaternion() = default;
 
-		inline Quaternion(float p_x, float p_y, float p_z, float p_w) : x{p_x}, y{p_y}, z{p_z}, w{p_w}
+		inline constexpr Quaternion(float p_x, float p_y, float p_z, float p_w) : x{p_x}, y{p_y}, z{p_z}, w{p_w}
 		{
 		}
 
@@ -33,6 +33,6 @@ namespace Math
 
 	struct QuatConst
 	{
-		inline static const Quaternion IDENTITY = { 0.0f,0.0f,0.0f,1.0f };
+		static constexpr const Quaternion IDENTITY = { 0.0f,0.0f,0.0f,1.0f };
 	};
 }

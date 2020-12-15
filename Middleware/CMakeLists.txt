@@ -6,14 +6,11 @@ file(GLOB_RECURSE MIDDLEWARE_SOURCE "./Middleware/*.cpp")
 
 enable_language(CXX)
 
-include_directories(${CMAKE_CURRENT_SOURCE_DIR})
+add_library(Middleware INTERFACE)
+target_include_directories(Middleware INTERFACE ${CMAKE_CURRENT_SOURCE_DIR})
 
-add_library(Middleware ${MIDDLEWARE_HEADER} ${MIDDLEWARE_SOURCE})
-
-target_include_directories(Middleware PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
-
-target_link_libraries(Middleware PUBLIC Common)
-target_link_libraries(Middleware PUBLIC Render)
-target_link_libraries(Middleware PUBLIC Scene)
-target_link_libraries(Middleware PUBLIC SceneComponents)
-target_link_libraries(Middleware PUBLIC SceneSerialization)
+target_link_libraries(Middleware INTERFACE Common)
+target_link_libraries(Middleware INTERFACE Render)
+target_link_libraries(Middleware INTERFACE Scene)
+target_link_libraries(Middleware INTERFACE SceneComponents)
+target_link_libraries(Middleware INTERFACE SceneSerialization)
