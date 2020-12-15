@@ -36,14 +36,18 @@ struct ResourceMap
 	
 	inline void free()
 	{
+
+#if CONTAINER_MEMORY_TEST
 		for (size_t i = 0; i < this->map.Entries.Capacity; i++)
 		{
 			HashMap<Key, CountedResource<Value>>::Entry& l_entry = this->map.Entries[i];
 			if (l_entry.isOccupied)
 			{
-				this->resource_allocation.free(l_entry.value.value);
+				//Resource still allocated
+				abort();
 			}
 		}
+#endif
 
 		this->map.free();
 	};

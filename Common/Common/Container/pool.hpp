@@ -19,6 +19,18 @@ namespace com
 	}
 
 	template <class TYPE, class Allocator>
+	inline void Pool<TYPE, Allocator>::free_checked()
+	{
+#if CONTAINER_MEMORY_TEST
+		if (this->Memory.Size != this->FreeBlocks.Size)
+		{
+			abort();
+		}
+#endif
+		this->free();
+	};
+
+	template <class TYPE, class Allocator>
 	inline Pool<TYPE, Allocator> Pool<TYPE, Allocator>::clone()
 	{
 		Pool<TYPE, Allocator> l_target;

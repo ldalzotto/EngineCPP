@@ -67,6 +67,17 @@ namespace com
 		this->Size = 0;
 	}
 
+	Vector_TemplateHeader inline void Vector_ClassName::free_checked()
+	{
+#if CONTAINER_MEMORY_TEST
+		if (this->Size > 0)
+		{
+			abort();
+		}
+#endif
+		this->free();
+	};
+
 	Vector_TemplateHeader inline void Vector_ClassName::clear()
 	{
 		this->Size = 0;

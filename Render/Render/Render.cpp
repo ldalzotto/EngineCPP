@@ -3007,29 +3007,8 @@ struct Material
 		this->parameters.push_back(ShaderParameter(ShaderParameter::Type::UNIFORM, p_parameter));
 	};
 
-	inline void free(RenderAPI& p_renderapi, com::Pool<ShaderUniformBufferParameter>& p_shader_uniformparameter_heap, com::Pool<ShaderCombinedImageSamplerParameter>& p_shader_texturesample_heap)
+	inline void free()
 	{
-
-		for (size_t i = 0; i < this->parameters.Size; i++)
-		{
-			ShaderParameter& l_parameter = this->parameters[i];
-			switch (l_parameter.type)
-			{
-			case ShaderParameter::Type::UNIFORM:
-			{
-				p_shader_uniformparameter_heap[com::TPoolToken<ShaderUniformBufferParameter>(l_parameter.parameter_token.Index)].dispose(p_renderapi.device, p_renderapi.descriptor_pool);
-				p_shader_uniformparameter_heap.release_element(com::TPoolToken<ShaderUniformBufferParameter>(l_parameter.parameter_token.Index));
-			}
-			break;
-			case ShaderParameter::Type::TEXTURE:
-			{
-				p_shader_texturesample_heap[com::TPoolToken<ShaderCombinedImageSamplerParameter>(l_parameter.parameter_token.Index)].dispose(p_renderapi);
-				p_shader_texturesample_heap.release_element(com::TPoolToken<ShaderCombinedImageSamplerParameter>(l_parameter.parameter_token.Index));
-			}
-			break;
-			}
-		}
-
 		this->parameters.free();
 	};
 
@@ -3106,6 +3085,7 @@ struct RenderHeap2
 
 	com::Pool<ShaderLayout> shader_layouts;
 	com::Pool<Shader> shaders;
+	com::Pool<com::Vector<com::TPoolToken<ShaderModule>>> shaders_to_modules;
 	com::Pool<com::Vector<com::TPoolToken<Material>>> shaders_to_materials;
 
 	com::Pool<Material> materials;
@@ -3279,6 +3259,13 @@ struct RenderHeap2
 				);
 
 				this->render_heap->shaders_to_materials.alloc_element(com::Vector<com::TPoolToken<Material>>());
+
+				com::Vector<com::TPoolToken<ShaderModule>> shader_modules; shader_modules.allocate(2);
+				shader_modules.Size = shader_modules.Capacity;
+				shader_modules[0] = l_vertex_module;
+				shader_modules[1] = l_fragment_module;
+
+				this->render_heap->shaders_to_modules.alloc_element(shader_modules);
 				return this->render_heap->shaders.alloc_element(l_shader);
 			};
 		};
@@ -3300,8 +3287,18 @@ struct RenderHeap2
 				this->render_heap->free_shaderlayout(l_shader.pipeline_layout_token);
 
 				l_shader.dispose(this->render_heap->render_api->device);
+
 				this->render_heap->shaders_to_materials[p_shader.cast<com::Vector<com::TPoolToken<Material>>>()].free();
 				this->render_heap->shaders_to_materials.release_element(p_shader.cast<com::Vector<com::TPoolToken<Material>>>());
+
+				com::Vector<com::TPoolToken<ShaderModule>>& l_associated_modules = this->render_heap->shaders_to_modules[p_shader.cast<com::Vector<com::TPoolToken<ShaderModule>>>()];
+				for (short int i = 0; i < l_associated_modules.Size; i++)
+				{
+					this->render_heap->free_shadermodule(l_associated_modules[i]);
+				}
+				l_associated_modules.free();
+				this->render_heap->shaders_to_modules.release_element(p_shader.cast<com::Vector<com::TPoolToken<ShaderModule>>>());
+
 				this->render_heap->shaders.release_element(p_shader);
 			};
 
@@ -3463,6 +3460,7 @@ struct RenderHeap2
 
 		inline void free()
 		{
+			//TODO -> check if there is no resource still allocated
 			this->shader_module_resources.free();
 			this->shader_resources.free();
 			this->shader_layouts.free();
@@ -3486,6 +3484,19 @@ public:
 	inline void free()
 	{
 		this->resource.free();
+
+		this->shadermodules.free_checked();
+		this->shaders.free_checked();
+		this->shaders_to_modules.free_checked();
+		this->shaders_to_materials.free_checked();
+		this->materials.free_checked();
+		this->material_to_renderableobjects.free_checked();
+		this->renderableobjects.free_checked();
+		this->meshes.free_checked();
+		this->textures.free_checked();
+		this->shader_uniform_parameters.free_checked();
+		this->shader_imagesample_parameters.free_checked();
+		this->shaders_sortedBy_executionOrder.free_checked();
 	};
 
 	inline com::TPoolToken<ShaderModule> allocate_shadermodule(const std::string& p_path)
@@ -3623,7 +3634,32 @@ public:
 			}
 		}
 		//this->shaders_to_materials[p_shader].er
-		this->materials[p_material].free(*this->render_api, this->shader_uniform_parameters, this->shader_imagesample_parameters);
+		Material& l_material = this->materials[p_material];
+
+		for (size_t i = 0; i < l_material.parameters.Size; i++)
+		{
+			ShaderParameter& l_parameter = l_material.parameters[i];
+			switch (l_parameter.type)
+			{
+			case ShaderParameter::Type::UNIFORM:
+			{
+				this->shader_uniform_parameters[com::TPoolToken<ShaderUniformBufferParameter>(l_parameter.parameter_token.Index)].dispose(this->render_api->device, this->render_api->descriptor_pool);
+				this->shader_uniform_parameters.release_element(com::TPoolToken<ShaderUniformBufferParameter>(l_parameter.parameter_token.Index));
+			}
+			break;
+			case ShaderParameter::Type::TEXTURE:
+			{
+				ShaderCombinedImageSamplerParameter& l_texture_parameter = this->shader_imagesample_parameters[com::TPoolToken<ShaderCombinedImageSamplerParameter>(l_parameter.parameter_token.Index)];
+				this->free_texture(l_texture_parameter.texture);
+				l_texture_parameter.dispose(*this->render_api);
+				this->shader_imagesample_parameters.release_element(com::TPoolToken<ShaderCombinedImageSamplerParameter>(l_parameter.parameter_token.Index));
+			}
+			break;
+			}
+		}
+
+
+		l_material.free();
 		this->materials.release_element(p_material);
 		this->material_to_renderableobjects[p_material.cast<com::Vector<com::TPoolToken<RenderableObject>>>()].free();
 		this->material_to_renderableobjects.release_element(p_material.cast<com::Vector<com::TPoolToken<RenderableObject>>>());
@@ -3752,7 +3788,7 @@ struct RTDrawStep
 		this->renderApi = p_render_api;
 		this->heap = p_render_heap;
 
-		
+
 		this->global_buffer.allocate(p_render_api, p_render_heap);
 
 		this->clear_values[0].color.setFloat32({ 0.0f, 0.0f, 0.2f, 1.0f });

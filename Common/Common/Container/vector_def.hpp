@@ -21,6 +21,7 @@ namespace com
 		Vector();
 		void allocate(size_t p_initialSize, const Allocator& p_allocator = Allocator());
 		void free();
+		void free_checked();
 
 		Vector<TYPE, Allocator> clone() const;
 		Vector<TYPE, Allocator> move();

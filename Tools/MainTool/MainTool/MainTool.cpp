@@ -1634,7 +1634,10 @@ else if (p_input.get_state(InputKey::InputKey_##cnl, KeyState::KeyStateFlag_PRES
 
 			if (p_input.get_state(InputKey::InputKey_BACKSPACE, KeyState::KeyStateFlag_PRESSED_THIS_FRAME))
 			{
-				this->buffer.remove(this->buffer.Memory.Size - 2, this->buffer.Memory.Size - 1);
+				if (this->buffer.Memory.Size > 1)
+				{
+					this->buffer.remove(this->buffer.Memory.Size - 2, this->buffer.Memory.Size - 1);
+				}
 				printf(this->buffer.Memory.Memory);
 				printf("\n");
 			}

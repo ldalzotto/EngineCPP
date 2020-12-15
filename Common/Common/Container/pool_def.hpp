@@ -45,6 +45,7 @@ namespace com
 		Pool() = default;
 		void allocate(size_t p_initialSize, const Allocator& p_allocator = Allocator());
 		void free();
+		void free_checked();
 		Pool<TYPE, Allocator> clone();
 		Pool<TYPE, Allocator> move();
 		Vector<size_t, Allocator> clone_freeblocks();
