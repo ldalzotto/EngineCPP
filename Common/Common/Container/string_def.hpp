@@ -4,9 +4,10 @@
 
 #include <string.h>
 
+
 struct StringSlice
 {
-	const char* Memory;
+	char* Memory;
 	size_t Begin;
 	size_t End;
 
@@ -17,15 +18,28 @@ struct StringSlice
 		this->End = 0;
 	};
 
-	inline StringSlice(const char* p_memory, size_t p_begin, size_t p_end) {
+	inline StringSlice(char* p_memory, size_t p_begin, size_t p_end) {
 		this->Memory = p_memory;
 		this->Begin = p_begin;
 		this->End = p_end;
 	};
 
-	inline StringSlice(const char* p_memory)
+	inline StringSlice(const char* p_memory, size_t p_begin, size_t p_end) {
+		this->Memory = (char*)p_memory;
+		this->Begin = p_begin;
+		this->End = p_end;
+	};
+
+	inline StringSlice(char* p_memory)
 	{
 		this->Memory = p_memory;
+		this->Begin = 0;
+		this->End = strlen(p_memory);
+	};
+
+	inline StringSlice(const char* p_memory)
+	{
+		this->Memory = (char*)p_memory;
 		this->Begin = 0;
 		this->End = strlen(p_memory);
 	};

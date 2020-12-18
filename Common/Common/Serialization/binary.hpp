@@ -11,14 +11,14 @@ namespace Serialization
 		template<class FieldType>
 		inline static void serialize_field(const FieldType* p_source, com::Vector<char>& p_target_data)
 		{
-			p_target_data.insert_at(com::MemorySlice<char>((const char*)p_source, sizeof(FieldType)), p_target_data.Size);
+			p_target_data.insert_at(com::MemorySlice<char>((char*)p_source, sizeof(FieldType)), p_target_data.Size);
 		};
 
 		template<class VectorElementType>
 		inline static void serialize_vector(const com::Vector<VectorElementType>& p_source, com::Vector<char>& p_target_data)
 		{
-			p_target_data.insert_at(com::MemorySlice<char>((const char*)&p_source.Size, sizeof(size_t)), p_target_data.Size);
-			p_target_data.insert_at(com::MemorySlice<char>((const char*)p_source.Memory, p_source.size_in_bytes()), p_target_data.Size);
+			p_target_data.insert_at(com::MemorySlice<char>((char*)&p_source.Size, sizeof(size_t)), p_target_data.Size);
+			p_target_data.insert_at(com::MemorySlice<char>((char*)p_source.Memory, p_source.size_in_bytes()), p_target_data.Size);
 		};
 
 		template<class HeaderElementType>

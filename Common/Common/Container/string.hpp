@@ -33,7 +33,7 @@ inline String<Allocator> String<Allocator>::clone() const
 template<class Allocator>
 inline String<Allocator>& String<Allocator>::append(const char* p_str)
 {
-	com::MemorySlice<char> l_str = com::MemorySlice<char>(*p_str, strlen(p_str));
+	com::MemorySlice<char> l_str = com::MemorySlice<char>(*(char*)p_str, strlen(p_str));
 	if (this->Memory.Size >= 2)
 	{
 		this->Memory.insert_at(l_str, this->Memory.Size - 1);

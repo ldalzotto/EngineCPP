@@ -3503,7 +3503,6 @@ struct RenderHeap2
 
 		inline void free()
 		{
-			//TODO -> check if there is no resource still allocated
 			this->shader_module_resources.free();
 			this->shader_resources.free();
 			this->shader_layouts.free();
@@ -4013,7 +4012,6 @@ struct Render
 		l_command_buffer.begin();
 		{
 			//Main loop
-
 			this->renderApi.stagedbuffer_commands.process_all_buffers(l_command_buffer, this->renderApi.device);
 			this->rt_draw_step.step(l_command_buffer);
 			this->khr_present_step.step(l_command_buffer, l_render_image_index);

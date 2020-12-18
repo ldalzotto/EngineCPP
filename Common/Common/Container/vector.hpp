@@ -171,14 +171,14 @@ namespace com
 	Vector_TemplateHeader
 		inline char Vector_ClassName::insert_at(const TYPE& p_element, const size_t p_index)
 	{
-		return this->insert_at(MemorySlice<TYPE>(p_element), p_index);
+		return this->insert_at(MemorySlice<TYPE>((TYPE*)&p_element), p_index);
 	};
 
 	Vector_TemplateHeader
-		template<class SortFn, class ComparatorElementsProvider>
-	inline char Vector_ClassName::insert_at_v2(const TYPE& p_element, ComparatorElementsProvider& p_element_provider)
+		template<class SortFn, class SortedElementProvider>
+	inline char Vector_ClassName::insert_at_v2(const TYPE& p_element, SortedElementProvider& p_sorted_element_provider)
 	{
-		return this->insert_at(p_element, SortFn::get_insertion_index(&p_element, this->to_memoryslice(), p_element_provider));
+		return this->insert_at(p_element, SortFn::get_insertion_index(&p_element, this->to_memoryslice(), p_sorted_element_provider));
 	};
 
 	Vector_TemplateHeader

@@ -37,8 +37,8 @@ namespace com
 		char insert_at(MemorySlice<TYPE>& p_elements, const size_t p_index);
 		char insert_at(const TYPE& p_element, const size_t p_index);
 
-		template<class SortFn, class ComparatorElementsProvider>
-		char insert_at_v2(const TYPE& p_element, ComparatorElementsProvider& p_element_provider);
+		template<class SortFn, class SortedElementProvider>
+		char insert_at_v2(const TYPE& p_element, SortedElementProvider& p_sorted_element_provider);
 
 		char erase_at(const size_t p_index, const size_t p_size);
 		char swap(const size_t p_left, const size_t p_right);

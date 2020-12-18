@@ -5,6 +5,7 @@
 #include "Math/math.hpp"
 #include "Common/Container/vector.hpp"
 #include "Common/Container/pool.hpp"
+#include "Common/Functional/Sort.hpp"
 #include <vector>
 #include "Engine/engine.hpp"
 #include "SceneComponents/components.hpp"
@@ -49,6 +50,17 @@ void update(void* p_engine, float p_delta)
 			}
 		}
 		l_nodes.free();
+
+
+		/*
+		com::Vector<size_t> l_numbers;
+		for (size_t i = 0; i < 10; i++)
+		{
+			l_numbers.push_back(floorf(((float)rand() / RAND_MAX) * 10));
+		}
+
+		QuickpartitionSort<size_t, QuickCompare<size_t>>::sort_array(l_numbers.to_memoryslice());
+		*/
 	}
 
 	if (l_input.get_state(InputKey::InputKey_B, KeyState::KeyStateFlag_PRESSED_THIS_FRAME))
@@ -142,11 +154,6 @@ void update(void* p_engine, float p_delta)
 
 int main(int argc, char** argv)
 {
-	// mat3f l_look_at = lookAtRotation_viewmatrix<3, float>(vec3f(9.0f, 9.0f, 9.0f), vec3f(0.0f, 0.0f, 0.0f), VecConst<float>::UP);
-	// quat l_q = fromAxis(l_look_at);
-	// 
-	// mat3f l_axis_2 = extractAxis<float>(mul(QuatConst::IDENTITY ,l_q));
-
 	EngineHandle l_engine;
 	ExternalHooks l_external_hooks;
 	l_external_hooks.ext_update = update;
