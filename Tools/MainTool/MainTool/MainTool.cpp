@@ -185,10 +185,10 @@ struct EditorSceneEventRemoveNode
 
 	inline void _do(Scene* p_scene)
 	{
-		this->parent = SceneKernel::resolve_node(p_scene, this->erased_node).node->parent;
+		this->parent = SceneNodeToken(SceneKernel::resolve_node(p_scene, this->erased_node).node->parent.val);
 		SceneSerializer2::SceneSingleNode_to_SceneAsset(*p_scene, this->erased_node, &this->erased_node_as_sceneasset, &this->sceneassetnode_to_scenenode, MainToolConstants::sceneNodeEditorFilter);
 		//We wrap the this->erased_node to bypass the fact that token is resetted when freed
-		SceneKernel::remove_node(p_scene, SceneNodeToken(this->erased_node.Index));
+		SceneKernel::remove_node(p_scene, SceneNodeToken(this->erased_node.val));
 	};
 
 	inline void _undo(Scene* p_scene)
@@ -356,7 +356,7 @@ struct EditorSceneEventSetParent
 
 	inline void _do(Scene* p_scene)
 	{
-		this->old_parent = SceneKernel::resolve_node(p_scene, this->node).node->parent;
+		this->old_parent = SceneNodeToken(SceneKernel::resolve_node(p_scene, this->node).node->parent.val) ;
 		SceneKernel::add_child(p_scene, this->parent, this->node);
 	};
 
@@ -422,7 +422,7 @@ struct EditorScene
 	inline void set_localposition(NTreeResolve<SceneNode>& p_scene_node, Math::vec3f& p_local_position)
 	{
 		EditorSceneEvent l_event;
-		l_event.allocate(EditorSceneEventMoveNode(SceneNodeToken(p_scene_node.node->index), SceneKernel::get_localposition(p_scene_node), p_local_position));
+		l_event.allocate(EditorSceneEventMoveNode(SceneNodeToken(p_scene_node.node->index.val), SceneKernel::get_localposition(p_scene_node), p_local_position));
 		this->undo_events.push_back(l_event);
 
 		((EditorSceneEventMoveNode*)l_event.object)->_do(this->engine_scene);
@@ -431,7 +431,7 @@ struct EditorScene
 	inline void set_localrotation(NTreeResolve<SceneNode>& p_scene_node, Math::quat& p_local_rotation)
 	{
 		EditorSceneEvent l_event;
-		l_event.allocate(EditorSceneEventRotateNode(SceneNodeToken(p_scene_node.node->index), SceneKernel::get_localrotation(p_scene_node), p_local_rotation));
+		l_event.allocate(EditorSceneEventRotateNode(SceneNodeToken(p_scene_node.node->index.val), SceneKernel::get_localrotation(p_scene_node), p_local_rotation));
 		this->undo_events.push_back(l_event);
 
 		((EditorSceneEventRotateNode*)l_event.object)->_do(this->engine_scene);
@@ -737,15 +737,15 @@ struct NodeMovement2
 
 		inline void create(SceneNodeToken p_parent, EngineHandle p_engine)
 		{
-			if (this->gizmo_scene_node.Index == -1)
+			if (this->gizmo_scene_node.val == -1)
 			{
 				this->gizmo_scene_node = SceneKernel::add_node_memoryposition_constrained(engine_scene(p_engine), p_parent, Math::Transform(), gizmo_scene_node_scenememory_contraint);
 				printf("Allocated gizmo : ");
-				printf("%lld", this->gizmo_scene_node.Index);
+				printf("%lld", this->gizmo_scene_node.val);
 				printf("\n");
-				if (this->gizmo_scene_node.Index >= this->gizmo_scene_node_scenememory_contraint)
+				if (this->gizmo_scene_node.val >= this->gizmo_scene_node_scenememory_contraint)
 				{
-					this->gizmo_scene_node_scenememory_contraint = this->gizmo_scene_node.Index;
+					this->gizmo_scene_node_scenememory_contraint = this->gizmo_scene_node.val;
 				}
 
 				SceneKernel::add_tag(engine_scene(p_engine), this->gizmo_scene_node, MainToolConstants::EditorNodeTag);
@@ -780,7 +780,7 @@ struct NodeMovement2
 
 		inline void free(EngineHandle p_engine)
 		{
-			if (this->gizmo_scene_node.Index != -1)
+			if (this->gizmo_scene_node.val != -1)
 			{
 				SceneKernel::remove_node(engine_scene(p_engine), this->gizmo_scene_node);
 				this->gizmo_scene_node.reset();
@@ -1132,7 +1132,7 @@ struct SceneNodeSelection
 
 	inline SelectedNodeState set_selected_node(EngineHandle p_engine, size_t p_node)
 	{
-		if (this->root_selected_node.Index == p_node)
+		if (this->root_selected_node.val == p_node)
 		{
 			return this->calculate_selectednode_state();
 		}
@@ -1155,7 +1155,7 @@ struct SceneNodeSelection
 
 	inline bool get_selected_node(SceneNodeToken* out_selected_node)
 	{
-		if (this->root_selected_node.Index != -1)
+		if (this->root_selected_node.val != -1)
 		{
 			*out_selected_node = this->root_selected_node;
 			return true;
@@ -1165,12 +1165,12 @@ struct SceneNodeSelection
 
 	inline void print_selected_node(EngineHandle p_engine)
 	{
-		if (this->root_selected_node.Index != -1)
+		if (this->root_selected_node.val != -1)
 		{
 			Serialization::JSON::Deserializer l_deserializer;
 			l_deserializer.allocate();
 			l_deserializer.start();
-			l_deserializer.push_field("parent", SceneKernel::resolve_node(engine_scene(p_engine), this->root_selected_node).node->parent);
+			l_deserializer.push_field("parent", SceneKernel::resolve_node(engine_scene(p_engine), this->root_selected_node).node->parent.val);
 			l_deserializer.start_object("local_position");
 			JSONSerializer<Math::vec3f>::serialize(l_deserializer, SceneKernel::get_localposition(this->root_selected_node, engine_scene(p_engine)));
 			l_deserializer.end_object();
@@ -1205,7 +1205,7 @@ struct SceneNodeSelection
 
 	inline SelectedNodeState calculate_selectednode_state()
 	{
-		if (this->root_selected_node.Index == -1)
+		if (this->root_selected_node.val == -1)
 		{
 			return SelectedNodeState::NODE_NOT_SELECTED;
 		}
@@ -1223,7 +1223,7 @@ struct SceneNodeSelection
 		}
 		this->selected_nodes_renderer.clear();
 
-		if (p_new.Index != -1)
+		if (p_new.val != -1)
 		{
 			struct SceneForeach2 : public SceneKernel::SceneNodeForeach<MainToolConstants::SceneNodeEditorFilter>
 			{
@@ -1242,10 +1242,10 @@ struct SceneNodeSelection
 				inline void foreach_internal(NTreeResolve<SceneNode>& p_node)
 				{
 					MeshRenderer* l_mesh_renderer;
-					if (SceneKernel::get_component<MeshRenderer>(this->scene, p_node.node->index, &l_mesh_renderer))
+					if (SceneKernel::get_component<MeshRenderer>(this->scene, SceneNodeToken(p_node.node->index.val), &l_mesh_renderer))
 					{
 						SelectedNodeRenderer l_selected_node_renderer;
-						l_selected_node_renderer.node = p_node.node->index;
+						l_selected_node_renderer.node = SceneNodeToken(p_node.node->index.val);
 						l_selected_node_renderer.original_material = l_mesh_renderer->material.key;
 						this->render_middleware->set_material(*l_mesh_renderer, Hash<StringSlice>::hash(StringSlice("materials/editor_selected.json")));
 						this->out_selected_node_renderers->push_back(l_selected_node_renderer);
@@ -1274,7 +1274,7 @@ struct ToolState2
 		com::TPoolToken<Optional<EngineRunningModule>> token;
 
 		inline bool is_valid(EngineRunner& p_engine_runner) {
-			if (this->token.Index == -1) { return false; }
+			if (this->token.val == -1) { return false; }
 			return p_engine_runner.engines[this->token].hasValue;
 		};
 	} selected_engine;
@@ -1340,7 +1340,7 @@ struct ToolState2
 			{
 				this->set_selected_node(-1); //This is to remove all data that is attached to the node components by the editor
 				SceneNodeToken l_created_node = this->engine_runner.get_enginemodule(this->selected_engine.token).editor_scene.duplicate_node(l_selected_node);
-				this->set_selected_node(l_created_node.Index);
+				this->set_selected_node(l_created_node.val);
 				return l_created_node;
 			}
 		}
@@ -1557,7 +1557,7 @@ struct CommandHandler2
 			SceneNodeToken l_created_node = p_tool_state.create_node(0, Math::Transform());
 
 			String<> l_str; l_str.allocate(0);
-			l_str.append(l_created_node.Index);
+			l_str.append(l_created_node.val);
 			printf("Created node : ");
 			printf(l_str.c_str());
 			printf("\n");
@@ -1578,10 +1578,10 @@ struct CommandHandler2
 		{
 			l_depth++;
 			SceneNodeToken l_created_node = p_tool_state.duplicate_node();
-			if (l_created_node.Index != -1)
+			if (l_created_node.val != -1)
 			{
 				String<> l_str; l_str.allocate(0);
-				l_str.append(l_created_node.Index);
+				l_str.append(l_created_node.val);
 				printf("Created node : ");
 				printf(l_str.c_str());
 				printf("\n");

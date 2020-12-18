@@ -7,14 +7,14 @@ struct NTreeNode
 {
 	typedef com::TPoolToken<com::Vector<com::TPoolToken<NTreeNode>>> ChildsToken;
 
-	size_t index;
-	size_t parent;
+	com::TPoolToken<NTreeNode> index;
+	com::TPoolToken<NTreeNode> parent;
 	ChildsToken  childs;
 
 	inline NTreeNode(){}
 
 	void allocate_as_root(ChildsToken p_childs);
-	void allocate(const size_t p_current_index, const size_t p_parent_index, ChildsToken p_childs);
+	void allocate(const com::TPoolToken<NTreeNode> p_current_index, const com::TPoolToken<NTreeNode> p_parent_index, ChildsToken p_childs);
 	void free();
 
 	bool has_parent();
@@ -56,7 +56,9 @@ struct NTree
 
 	com::TPoolToken<NTreeNode> get_next_freenode();
 
-	NTreeResolve<ElementType> resolve(com::PoolToken p_token);
+	NTreeResolve<ElementType> resolve(com::TPoolToken<ElementType> p_token);
+	NTreeResolve<ElementType> resolve(com::TPoolToken<NTreeNode> p_token);
+
 	com::Vector<com::TPoolToken<NTreeNode>>& get_childs(const NTreeResolve<ElementType>& p_node_resolve);
 
 	com::TPoolToken<ElementType> push_root_value(const ElementType& p_value);
@@ -65,8 +67,12 @@ struct NTree
 	bool set_value_at_freenode(const com::TPoolToken<NTreeNode> p_node, const ElementType& p_value);
 
 	template<class NTreeForEach>
-	void remove(com::PoolToken p_value, NTreeForEach& p_foreach_childs);
+	void remove(com::TPoolToken<NTreeNode>& p_value, NTreeForEach& p_foreach_childs);
+	template<class NTreeForEach>
+	void remove(com::TPoolToken<ElementType>& p_value, NTreeForEach& p_foreach_childs);
 
 	template<class NTreeForEach>
-	void traverse(com::PoolToken& p_start, NTreeForEach& p_foreach);
+	void traverse(com::TPoolToken<ElementType>& p_start, NTreeForEach& p_foreach);
+	template<class NTreeForEach>
+	void traverse(com::TPoolToken<NTreeNode>& p_start, NTreeForEach& p_foreach);
 };

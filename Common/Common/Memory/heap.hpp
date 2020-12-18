@@ -138,7 +138,7 @@ struct GeneralPurposeHeap
 		*this->map<ElementType>(*out_chunk) = *p_initial_value;
 	};
 
-	inline bool allocate_element(size_t p_size, AllocationAlignementConstraint& p_alignment_constraint, com::PoolToken* out_token)
+	inline bool allocate_element(size_t p_size, AllocationAlignementConstraint& p_alignment_constraint, com::TPoolToken<GeneralPurposeHeapMemoryChunk>* out_token)
 	{
 		for (size_t i = 0; i < this->free_chunks.Size; i++)
 		{

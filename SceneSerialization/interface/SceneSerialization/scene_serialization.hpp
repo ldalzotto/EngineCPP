@@ -226,7 +226,7 @@ struct ComponentAssetSerializer
 
 private:
 	template<class ComponentAssetType>
-	inline static bool allocate_component_asset(GeneralPurposeHeap2<GeneralPurposeHeap2_Times2Allocation>& p_compoent_asset_heap, com::PoolToken* out_index)
+	inline static bool allocate_component_asset(GeneralPurposeHeap2<GeneralPurposeHeap2_Times2Allocation>& p_compoent_asset_heap, com::TPoolToken<GeneralPurposeHeapMemoryChunk>* out_index)
 	{
 		return p_compoent_asset_heap.allocate_element(sizeof(ComponentAssetType), out_index);
 	};
@@ -300,7 +300,7 @@ struct SceneSerializer2
 	{
 		com::Vector<NTreeResolve<SceneNode>> l_first_scenetree_childs;
 
-		com::Vector<com::TPoolToken<NTreeNode>>& l_first_scenetree_childs_raw = p_scene.tree.get_childs(p_scene.tree.resolve(com::PoolToken(0)));
+		com::Vector<com::TPoolToken<NTreeNode>>& l_first_scenetree_childs_raw = p_scene.tree.get_childs(p_scene.tree.resolve(com::TPoolToken<NTreeNode>(0)));
 		for (size_t i = 0; i < l_first_scenetree_childs_raw.Size; i++)
 		{
 			l_first_scenetree_childs.push_back(p_scene.tree.resolve(l_first_scenetree_childs_raw[i]));
@@ -588,7 +588,7 @@ private:
 
 			inline NodeAsset build(NTreeResolve<SceneNode>& p_scene_node, size_t p_parent_nodeasset_index)
 			{
-				this->in_out_sceneasset_to_scenenode->push_back(SceneNodeToken(p_scene_node.node->index));
+				this->in_out_sceneasset_to_scenenode->push_back(SceneNodeToken(p_scene_node.node->index.val));
 				return SceneNode_to_NodeAsset_withoutchilds(p_scene_node, p_parent_nodeasset_index, this->scene, this->scene_asset->components, this->scene_asset->component_asset_heap);
 			};
 		};

@@ -15,15 +15,20 @@
 #include "Common/Serialization/binary.hpp"
 #include "Common/Memory/heap.hpp"
 #include "Common/Functional/Sort.hpp"
+#include "Common/Memory/type_safety.hpp"
 #include <fstream>
 #include <stdlib.h>
 
-//TODO -> adding an index to this file
 /*
-	1/ GPU memory management
-	2/ Deferred command buffer
-	3/ RenderAPI
-	4/ Render object instanciation
+			- render.cpp -
+		  index of the file
+
+1/ #RENDER_GPU_MEMORY
+	Define GPU Heap structure, allocation/deallocation of GPU Memory chunks.
+2/ #RENDER_DEFERRED_COMMAND
+	Some commands can be deferred. Such as staging buffer push or texture layout transitions.
+3/ #RENDER_OBJECTS
+	Defining render objects that produces the final 3D render of a mesh
 */
 
 using namespace Math;
@@ -134,7 +139,18 @@ struct ValidationLayer
 	com::Vector<const char*> layers;
 };
 
+/*       - #RENDER_GPU_MEMORY -     
 
+GPU Memory heap is allocated in chunk pages. The number of pages increase when needed. @PageGPUMemory2. Every
+@PageGPUMemory2 is an allocated GPU buffer.
+
+When asking to allocate a GPU buffer, we instead cut a slice of the @PageGPUMemory2 and give back the index and offset of GPU Memory.
+
+This sections includes vulkan device allocations.
+
+*/
+#define RENDER_GPU_MEMORY 1
+#if RENDER_GPU_MEMORY
 
 enum WriteMethod2
 {
@@ -144,7 +160,6 @@ enum WriteMethod2
 	//              Cannot be accesses from from host.
 	GPUWrite = 1
 };
-
 
 struct GPUMemoryWithOffset
 {
@@ -520,6 +535,294 @@ struct Device
 };
 
 
+
+struct MappedMemory2
+{
+	char* mapped_data = nullptr;
+	size_t element_count = -1;
+
+	inline void map(Device& p_device, const GPUMemoryWithOffset& p_memory, const size_t p_element_count)
+	{
+		if (!this->isMapped())
+		{
+			GeneralPurposeHeapMemoryChunk* l_chunk;
+			p_device.devicememory_allocator.resolve_allocated_chunk(p_memory, &l_chunk);
+			this->mapped_data = p_memory.original_mapped_memory + l_chunk->offset;
+			this->element_count = p_element_count;
+		}
+	};
+
+	inline void unmap(const Device& p_device, vk::DeviceMemory p_memory)
+	{
+		if (this->isMapped())
+		{
+			this->mapped_data = nullptr;
+			this->element_count = -1;
+		}
+	}
+
+	inline void copyFrom(const GPUMemoryWithOffset& p_memory, const GPtr& p_from)
+	{
+		memcpy((void*)this->mapped_data, (const void*)p_from.ptr, (this->element_count * p_from.element_size));
+	};
+
+	inline bool isMapped()
+	{
+		return this->mapped_data != nullptr;
+	};
+};
+
+struct GPUBufferMemoryHost2
+{
+	GPUMemoryWithOffset memory;
+	vk::Buffer buffer;
+	MappedMemory2 mapped_memory;
+	size_t capacity;
+
+	inline void allocate(Device& p_device, size_t p_element_count, size_t p_element_size, vk::BufferUsageFlags p_usageflags)
+	{
+		this->capacity = p_element_count;
+
+		vk::BufferCreateInfo l_buffercreate_info;
+		l_buffercreate_info.setUsage(vk::BufferUsageFlags(p_usageflags | vk::BufferUsageFlagBits::eTransferSrc));
+		l_buffercreate_info.setSize(p_element_count * p_element_size);
+
+		this->buffer = p_device.device.createBuffer(l_buffercreate_info);
+
+		vk::MemoryRequirements l_requirements = p_device.device.getBufferMemoryRequirements(this->buffer);
+
+		p_device.devicememory_allocator.allocate_element(l_requirements.size, l_requirements.alignment, p_device.getMemoryTypeIndex(l_requirements.memoryTypeBits, vk::MemoryPropertyFlagBits::eHostCoherent),
+			p_device.device, &this->memory);
+
+		this->map(p_device, p_element_count);
+		this->bind(p_device);
+	};
+
+	inline void dispose(Device& p_device)
+	{
+		if (this->mapped_memory.isMapped())
+		{
+			this->unmap(p_device);
+		}
+
+		p_device.devicememory_allocator.free_element(this->memory);
+		p_device.device.destroyBuffer(this->buffer);
+		this->buffer = nullptr;
+	};
+
+
+	inline void bind(Device& p_device)
+	{
+		GeneralPurposeHeapMemoryChunk* l_chunk;
+		p_device.devicememory_allocator.resolve_allocated_chunk(this->memory, &l_chunk);
+		p_device.device.bindBufferMemory(this->buffer, this->memory.original_memory, l_chunk->offset);
+	};
+
+	inline void map(Device& p_device, size_t p_size_count)
+	{
+		this->mapped_memory.map(p_device, this->memory, p_size_count);
+	};
+
+	inline void unmap(const Device& p_device)
+	{
+		this->mapped_memory.unmap(p_device, this->memory.original_memory);
+	};
+
+	inline void push(const GPtr& p_from)
+	{
+		this->mapped_memory.copyFrom(this->memory, p_from);
+	};
+};
+
+struct GPUMemoryDeferredCommandToken
+{
+	com::TPoolToken<bool> completion_token = -1;
+	size_t execution_index = -1;
+
+	template<class DeferredCommandCompletionTokenAllocator>
+	inline void allocate_completiontoken(DeferredCommandCompletionTokenAllocator& p_deferredcommand_completiontoken_allocator)
+	{
+		this->completion_token = p_deferredcommand_completiontoken_allocator.allocate_completiontoken();
+	};
+
+	template<class StagedBufferWriteCommandAllocator>
+	inline void free(StagedBufferWriteCommandAllocator& p_stagedbuffer_allocator)
+	{
+		// The GPUWrite buffer has been disposed, but there is a staging buffer waiting to be executed.
+		// This happens if buffer is allocated and disposted at the same frame.
+		if (this->isWaitingForStaging(p_stagedbuffer_allocator))
+		{
+			// We invalidate staging command
+			p_stagedbuffer_allocator.invalidate_command(this->execution_index);
+		}
+
+		p_stagedbuffer_allocator.release_completion_token(this->completion_token);
+	};
+
+	template<class StagedBufferWriteCommandAllocator>
+	inline bool isWaitingForStaging(StagedBufferWriteCommandAllocator& p_stagedbuffer_allocator)
+	{
+		return !p_stagedbuffer_allocator.resolve_completion_token(this->completion_token);
+	};
+};
+
+template<class ElementType>
+struct GPUBufferMemoryGPU2
+{
+	GPUMemoryWithOffset memory;
+	GPUMemoryDeferredCommandToken staging_writing;
+	vk::Buffer buffer;
+	size_t capacity;
+
+	template<class DeferredCommandCompletionTokenAllocator>
+	inline void allocate(DeferredCommandCompletionTokenAllocator& p_deferredcommand_completiontoken_allocator,
+		size_t p_element_number, vk::BufferUsageFlags p_usageflags, Device& p_device)
+	{
+		this->capacity = p_element_number;
+
+		this->staging_writing.allocate_completiontoken(p_deferredcommand_completiontoken_allocator);
+
+		//Actual buffer
+		vk::BufferCreateInfo l_buffercreate_info;
+		l_buffercreate_info.setUsage(p_usageflags | vk::BufferUsageFlags(vk::BufferUsageFlagBits::eTransferDst));
+		l_buffercreate_info.setSize(p_element_number * sizeof(ElementType));
+		this->buffer = p_device.device.createBuffer(l_buffercreate_info);
+
+		vk::MemoryRequirements l_requirements = p_device.device.getBufferMemoryRequirements(this->buffer);
+
+		p_device.devicememory_allocator.allocate_element(l_requirements.size, l_requirements.alignment, p_device.getMemoryTypeIndex(l_requirements.memoryTypeBits, vk::MemoryPropertyFlags(vk::MemoryPropertyFlagBits::eDeviceLocal)),
+			p_device.device, &this->memory);
+
+		this->bind(p_device);
+	};
+
+	inline void bind(Device& p_device)
+	{
+		GeneralPurposeHeapMemoryChunk* l_chunk;
+		p_device.devicememory_allocator.resolve_allocated_chunk(this->memory, &l_chunk);
+		p_device.device.bindBufferMemory(this->buffer, this->memory.original_memory, l_chunk->offset);
+	};
+
+	template<class StagedBufferWriteCommandAllocator>
+	inline void push(const ElementType* p_source, Device& p_device, StagedBufferWriteCommandAllocator& p_stagedbuffer_allocator)
+	{
+		this->staging_writing.execution_index = p_stagedbuffer_allocator.allocate_stagincommand<ElementType>(this->buffer, this->capacity, p_source, this->staging_writing.completion_token, p_device).val;
+	};
+
+	template<class StagedBufferWriteCommandAllocator>
+	inline void dispose(Device& p_device, StagedBufferWriteCommandAllocator& p_stagedbuffer_allocator)
+	{
+		this->staging_writing.free(p_stagedbuffer_allocator);
+
+		p_device.devicememory_allocator.free_element(this->memory);
+		p_device.device.destroyBuffer(this->buffer);
+		this->buffer = nullptr;
+	};
+
+};
+
+template<class ElementType>
+struct GPUImageMemoryGPU2
+{
+	GPUMemoryWithOffset memory;
+	GPUMemoryDeferredCommandToken image_writing;
+	vk::Image buffer;
+	size_t capacity;
+
+	template<class ImageBufferWriteCommandAllocator>
+	inline void allocate(ImageBufferWriteCommandAllocator& p_imagewrite_allocator,
+		const vk::ImageCreateInfo& p_imagecreateinfo, Device& p_device)
+	{
+		this->capacity = p_imagecreateinfo.extent.width * p_imagecreateinfo.extent.height * p_imagecreateinfo.extent.depth;
+		this->buffer = p_device.device.createImage(p_imagecreateinfo);
+
+		this->image_writing.allocate_completiontoken(p_imagewrite_allocator);
+
+		//Actual buffer
+		vk::MemoryRequirements l_memory_requirements = p_device.device.getImageMemoryRequirements(this->buffer);
+		p_device.devicememory_allocator.allocate_element(l_memory_requirements.size, l_memory_requirements.alignment, p_device.getMemoryTypeIndex(l_memory_requirements.memoryTypeBits, vk::MemoryPropertyFlags(vk::MemoryPropertyFlagBits::eDeviceLocal)),
+			p_device.device, &this->memory);
+
+		this->bind(p_device);
+	};
+
+	inline void bind(Device& p_device)
+	{
+		GeneralPurposeHeapMemoryChunk* l_chunk;
+		p_device.devicememory_allocator.resolve_allocated_chunk(this->memory, &l_chunk);
+		p_device.device.bindImageMemory(this->buffer, this->memory.original_memory, l_chunk->offset);
+	};
+
+	template<class ImageBufferWriteCommandAllocator>
+	inline void push(const ElementType* p_source, vk::ImageSubresource& p_image_subresource, vk::ImageSubresourceRange& p_image_subresource_range,
+		Vector<2, int>& p_image_size, size_t p_pixel_size, Device& p_device, ImageBufferWriteCommandAllocator& p_imagewrite_allocator)
+	{
+
+		this->image_writing.execution_index = p_imagewrite_allocator.allocate_stagedimagewritecommand(this->buffer, p_image_subresource, p_image_subresource_range,
+			p_image_size, (const char*)p_source, p_pixel_size, this->image_writing.completion_token, p_device).val;
+	};
+
+	template<class ImageBufferWriteCommandAllocator>
+	inline void dispose(Device& p_device, ImageBufferWriteCommandAllocator& p_imagewrite_allocator)
+	{
+		this->image_writing.free(p_imagewrite_allocator);
+
+		p_device.devicememory_allocator.free_element(this->memory);
+		p_device.device.destroyImage(this->buffer);
+		this->buffer = nullptr;
+	};
+};
+
+
+
+template<class ElementType>
+struct VertexMemory : public GPUBufferMemoryGPU2<ElementType>
+{
+	template<class StagedBufferWriteCommandAllocator>
+	inline void allocate(size_t p_element_number, Device& p_device, StagedBufferWriteCommandAllocator& p_stagedbuffer_allocator)
+	{
+		GPUBufferMemoryGPU2<ElementType>::allocate(p_stagedbuffer_allocator, p_element_number, vk::BufferUsageFlags(vk::BufferUsageFlagBits::eVertexBuffer), p_device);
+	};
+};
+
+template<class ElementType>
+struct IndexMemory : public GPUBufferMemoryGPU2<ElementType>
+{
+	template<class StagedBufferWriteCommandAllocator>
+	inline void allocate(size_t p_element_number, Device& p_device, StagedBufferWriteCommandAllocator& p_stagedbuffer_allocator)
+	{
+		GPUBufferMemoryGPU2<ElementType>::allocate(p_stagedbuffer_allocator, p_element_number, vk::BufferUsageFlags(vk::BufferUsageFlagBits::eIndexBuffer), p_device);
+	};
+};
+
+struct UniformMemory_HostWrite : public GPUBufferMemoryHost2
+{
+	inline void allocate(size_t p_element_number, size_t p_element_size, Device& p_device)
+	{
+		GPUBufferMemoryHost2::allocate(p_device, p_element_number, p_element_size, vk::BufferUsageFlags(vk::BufferUsageFlagBits::eUniformBuffer));
+	};
+};
+
+template<class ElementType>
+struct TUniformMemory_HostWrite : public UniformMemory_HostWrite
+{
+	inline void allocate(size_t p_element_number, Device& p_device)
+	{
+		UniformMemory_HostWrite::allocate(p_element_number, sizeof(ElementType), p_device);
+	};
+
+	inline void push(const ElementType* p_from)
+	{
+		UniformMemory_HostWrite::push(GPtr::fromType(p_from));
+	};
+};
+
+struct GPUOnlyImageMemory : public GPUImageMemoryGPU2<char> {};
+
+
+
+#endif
+
 struct RenderPass
 {
 	vk::RenderPass render_pass;
@@ -811,379 +1114,19 @@ struct CommandBuffer
 	}
 };
 
-struct Image
-{
-	vk::Image ImageMemory;
-	vk::ImageSubresource ImageSubresource;
-	vk::ImageSubresourceRange ImageSubresourceRange;
-	Vector<2, int> ImageSize;
 
-	inline Image() {};
-	inline Image(vk::Image& p_image_memory, vk::ImageSubresource& p_image_subresource, vk::ImageSubresourceRange& p_image_subresource_range, Vector<2, int>& p_image_size,
-		size_t p_pxixel_component_size, short int p_channel_nb) : ImageMemory{ p_image_memory }, ImageSubresource{ p_image_subresource }, ImageSubresourceRange{ p_image_subresource_range }, ImageSize{ p_image_size }
-	{
+/*
+		- #RENDER_DEFERRED_COMMAND -
 
-	};
-};
+Some command can be deferred to be executed at the beginnnig of the render loop.
+This section defines structure that store commands and execute them in the right order.
+Commands can be aborted and a completion token is allocated to check if command is completed.
 
-struct TextureSamplers
-{
-	vk::Sampler Default;
+*/
 
-	inline void allocate(Device& p_device)
-	{
-		vk::SamplerCreateInfo l_sampler_create_info;
-		l_sampler_create_info.setMagFilter(vk::Filter::eNearest);
-		l_sampler_create_info.setMinFilter(vk::Filter::eNearest);
-		l_sampler_create_info.setAddressModeU(vk::SamplerAddressMode::eRepeat);
-		l_sampler_create_info.setAddressModeV(vk::SamplerAddressMode::eRepeat);
-		l_sampler_create_info.setAddressModeW(vk::SamplerAddressMode::eRepeat);
-		l_sampler_create_info.setBorderColor(vk::BorderColor::eIntOpaqueBlack);
-		l_sampler_create_info.setUnnormalizedCoordinates(false);
-		l_sampler_create_info.setCompareEnable(false);
-		l_sampler_create_info.setCompareOp(vk::CompareOp::eAlways);
-		l_sampler_create_info.setMipmapMode(vk::SamplerMipmapMode::eLinear);
-		l_sampler_create_info.setMipLodBias(0.0f);
-		l_sampler_create_info.setMaxLod(0.0f);
-		l_sampler_create_info.setMinLod(0.0f);
-		this->Default = p_device.device.createSampler(l_sampler_create_info);
-	};
+#define RENDER_DEFERRED_COMMAND 1
+#if RENDER_DEFERRED_COMMAND
 
-	inline void free(Device& p_device)
-	{
-		p_device.device.destroySampler(this->Default);
-	};
-};
-
-struct MappedMemory2
-{
-	char* mapped_data = nullptr;
-	size_t element_count = -1;
-
-	inline void map(Device& p_device, const GPUMemoryWithOffset& p_memory, const size_t p_element_count)
-	{
-		if (!this->isMapped())
-		{
-			GeneralPurposeHeapMemoryChunk* l_chunk;
-			p_device.devicememory_allocator.resolve_allocated_chunk(p_memory, &l_chunk);
-			this->mapped_data = p_memory.original_mapped_memory + l_chunk->offset;
-			this->element_count = p_element_count;
-		}
-	};
-
-	inline void unmap(const Device& p_device, vk::DeviceMemory p_memory)
-	{
-		if (this->isMapped())
-		{
-			this->mapped_data = nullptr;
-			this->element_count = -1;
-		}
-	}
-
-	inline void copyFrom(const GPUMemoryWithOffset& p_memory, const GPtr& p_from)
-	{
-		memcpy((void*)this->mapped_data, (const void*)p_from.ptr, (this->element_count * p_from.element_size));
-	};
-
-	inline bool isMapped()
-	{
-		return this->mapped_data != nullptr;
-	};
-};
-
-struct GPUBufferMemoryHost2
-{
-	GPUMemoryWithOffset memory;
-	vk::Buffer buffer;
-	MappedMemory2 mapped_memory;
-	size_t capacity;
-
-	inline void allocate(Device& p_device, size_t p_element_count, size_t p_element_size, vk::BufferUsageFlags p_usageflags)
-	{
-		this->capacity = p_element_count;
-
-		vk::BufferCreateInfo l_buffercreate_info;
-		l_buffercreate_info.setUsage(vk::BufferUsageFlags(p_usageflags | vk::BufferUsageFlagBits::eTransferSrc));
-		l_buffercreate_info.setSize(p_element_count * p_element_size);
-
-		this->buffer = p_device.device.createBuffer(l_buffercreate_info);
-
-		vk::MemoryRequirements l_requirements = p_device.device.getBufferMemoryRequirements(this->buffer);
-
-		p_device.devicememory_allocator.allocate_element(l_requirements.size, l_requirements.alignment, p_device.getMemoryTypeIndex(l_requirements.memoryTypeBits, vk::MemoryPropertyFlagBits::eHostCoherent),
-			p_device.device, &this->memory);
-
-		this->map(p_device, p_element_count);
-		this->bind(p_device);
-	};
-
-	inline void dispose(Device& p_device)
-	{
-		if (this->mapped_memory.isMapped())
-		{
-			this->unmap(p_device);
-		}
-
-		p_device.devicememory_allocator.free_element(this->memory);
-		p_device.device.destroyBuffer(this->buffer);
-		this->buffer = nullptr;
-	};
-
-
-	inline void bind(Device& p_device)
-	{
-		GeneralPurposeHeapMemoryChunk* l_chunk;
-		p_device.devicememory_allocator.resolve_allocated_chunk(this->memory, &l_chunk);
-		p_device.device.bindBufferMemory(this->buffer, this->memory.original_memory, l_chunk->offset);
-	};
-
-	inline void map(Device& p_device, size_t p_size_count)
-	{
-		this->mapped_memory.map(p_device, this->memory, p_size_count);
-	};
-
-	inline void unmap(const Device& p_device)
-	{
-		this->mapped_memory.unmap(p_device, this->memory.original_memory);
-	};
-
-	inline void push(const GPtr& p_from)
-	{
-		this->mapped_memory.copyFrom(this->memory, p_from);
-	};
-};
-
-struct GPUMemoryDeferredCommandToken
-{
-	com::TPoolToken<bool> completion_token = -1;
-	size_t execution_index = -1;
-
-	template<class StagedBufferWriteCommandAllocator>
-	inline void allocate_completiontoken(StagedBufferWriteCommandAllocator& p_stagedbuffer_allocator)
-	{
-		this->completion_token = p_stagedbuffer_allocator.allocate_completiontoken();
-	};
-
-	template<class StagedBufferWriteCommandAllocator>
-	inline void free(StagedBufferWriteCommandAllocator& p_stagedbuffer_allocator)
-	{
-		// The GPUWrite buffer has been disposed, but there is a staging buffer waiting to be executed.
-		// This happens if buffer is allocated and disposted at the same frame.
-		if (this->isWaitingForStaging(p_stagedbuffer_allocator))
-		{
-			// We invalidate staging command
-			p_stagedbuffer_allocator.invalidate_command(this->execution_index);
-		}
-
-		p_stagedbuffer_allocator.release_completion_token(this->completion_token);
-	};
-
-	template<class StagedBufferWriteCommandAllocator>
-	inline bool isWaitingForStaging(StagedBufferWriteCommandAllocator& p_stagedbuffer_allocator)
-	{
-		return !p_stagedbuffer_allocator.resolve_completion_token(this->completion_token);
-	};
-};
-
-template<class ElementType>
-struct GPUBufferMemoryGPU2
-{
-	GPUMemoryWithOffset memory;
-	GPUMemoryDeferredCommandToken staging_writing;
-	vk::Buffer buffer;
-	size_t capacity;
-
-	template<class StagedBufferWriteCommandAllocator>
-	inline void allocate(StagedBufferWriteCommandAllocator& p_stagedbuffer_allocator,
-		size_t p_element_number, vk::BufferUsageFlags p_usageflags, Device& p_device)
-	{
-		this->capacity = p_element_number;
-
-		this->staging_writing.allocate_completiontoken(p_stagedbuffer_allocator);
-
-		//Actual buffer
-		vk::BufferCreateInfo l_buffercreate_info;
-		l_buffercreate_info.setUsage(p_usageflags | vk::BufferUsageFlags(vk::BufferUsageFlagBits::eTransferDst));
-		l_buffercreate_info.setSize(p_element_number * sizeof(ElementType));
-		this->buffer = p_device.device.createBuffer(l_buffercreate_info);
-
-		vk::MemoryRequirements l_requirements = p_device.device.getBufferMemoryRequirements(this->buffer);
-
-		p_device.devicememory_allocator.allocate_element(l_requirements.size, l_requirements.alignment, p_device.getMemoryTypeIndex(l_requirements.memoryTypeBits, vk::MemoryPropertyFlags(vk::MemoryPropertyFlagBits::eDeviceLocal)),
-			p_device.device, &this->memory);
-
-		this->bind(p_device);
-	};
-
-	inline void bind(Device& p_device)
-	{
-		GeneralPurposeHeapMemoryChunk* l_chunk;
-		p_device.devicememory_allocator.resolve_allocated_chunk(this->memory, &l_chunk);
-		p_device.device.bindBufferMemory(this->buffer, this->memory.original_memory, l_chunk->offset);
-	};
-
-	template<class StagedBufferWriteCommandAllocator>
-	inline void push(const ElementType* p_source, Device& p_device, StagedBufferWriteCommandAllocator& p_stagedbuffer_allocator)
-	{
-		this->staging_writing.execution_index = p_stagedbuffer_allocator.allocate_stagincommand<ElementType>(this->buffer, this->capacity, p_source, this->staging_writing.completion_token, p_device);
-	};
-
-	template<class StagedBufferWriteCommandAllocator>
-	inline void dispose(Device& p_device, StagedBufferWriteCommandAllocator& p_stagedbuffer_allocator)
-	{
-		this->staging_writing.free(p_stagedbuffer_allocator);
-
-		p_device.devicememory_allocator.free_element(this->memory);
-		p_device.device.destroyBuffer(this->buffer);
-		this->buffer = nullptr;
-	};
-
-};
-
-template<class ElementType>
-struct GPUImageMemoryGPU2
-{
-	GPUMemoryWithOffset memory;
-	GPUMemoryDeferredCommandToken image_writing;
-	vk::Image buffer;
-	size_t capacity;
-
-	template<class ImageBufferWriteCommandAllocator>
-	inline void allocate(ImageBufferWriteCommandAllocator& p_imagewrite_allocator,
-		const vk::ImageCreateInfo& p_imagecreateinfo, Device& p_device)
-	{
-		this->capacity = p_imagecreateinfo.extent.width * p_imagecreateinfo.extent.height * p_imagecreateinfo.extent.depth;
-		this->buffer = p_device.device.createImage(p_imagecreateinfo);
-
-		this->image_writing.allocate_completiontoken(p_imagewrite_allocator);
-
-		//Actual buffer
-		vk::MemoryRequirements l_memory_requirements = p_device.device.getImageMemoryRequirements(this->buffer);
-		p_device.devicememory_allocator.allocate_element(l_memory_requirements.size, l_memory_requirements.alignment, p_device.getMemoryTypeIndex(l_memory_requirements.memoryTypeBits, vk::MemoryPropertyFlags(vk::MemoryPropertyFlagBits::eDeviceLocal)),
-			p_device.device, &this->memory);
-
-		this->bind(p_device);
-	};
-
-	inline void bind(Device& p_device)
-	{
-		GeneralPurposeHeapMemoryChunk* l_chunk;
-		p_device.devicememory_allocator.resolve_allocated_chunk(this->memory, &l_chunk);
-		p_device.device.bindImageMemory(this->buffer, this->memory.original_memory, l_chunk->offset);
-	};
-
-	template<class ImageBufferWriteCommandAllocator>
-	inline void push(const ElementType* p_source, vk::ImageSubresource& p_image_subresource, vk::ImageSubresourceRange& p_image_subresource_range,
-		Vector<2, int>& p_image_size, size_t p_pixel_size, Device& p_device, ImageBufferWriteCommandAllocator& p_imagewrite_allocator)
-	{
-
-		this->image_writing.execution_index = p_imagewrite_allocator.allocate_stagedimagewritecommand(this->buffer, p_image_subresource, p_image_subresource_range,
-			p_image_size, (const char*)p_source, p_pixel_size, this->image_writing.completion_token, p_device);
-	};
-
-	template<class ImageBufferWriteCommandAllocator>
-	inline void dispose(Device& p_device, ImageBufferWriteCommandAllocator& p_imagewrite_allocator)
-	{
-		this->image_writing.free(p_imagewrite_allocator);
-
-		p_device.devicememory_allocator.free_element(this->memory);
-		p_device.device.destroyImage(this->buffer);
-		this->buffer = nullptr;
-	};
-};
-
-
-
-template<class ElementType>
-struct VertexMemory : public GPUBufferMemoryGPU2<ElementType>
-{
-	template<class StagedBufferWriteCommandAllocator>
-	inline void allocate(size_t p_element_number, Device& p_device, StagedBufferWriteCommandAllocator& p_stagedbuffer_allocator)
-	{
-		GPUBufferMemoryGPU2<ElementType>::allocate(p_stagedbuffer_allocator, p_element_number, vk::BufferUsageFlags(vk::BufferUsageFlagBits::eVertexBuffer), p_device);
-	};
-};
-
-template<class ElementType>
-struct IndexMemory : public GPUBufferMemoryGPU2<ElementType>
-{
-	template<class StagedBufferWriteCommandAllocator>
-	inline void allocate(size_t p_element_number, Device& p_device, StagedBufferWriteCommandAllocator& p_stagedbuffer_allocator)
-	{
-		GPUBufferMemoryGPU2<ElementType>::allocate(p_stagedbuffer_allocator, p_element_number, vk::BufferUsageFlags(vk::BufferUsageFlagBits::eIndexBuffer), p_device);
-	};
-};
-
-struct UniformMemory_HostWrite : public GPUBufferMemoryHost2
-{
-	inline void allocate(size_t p_element_number, size_t p_element_size, Device& p_device)
-	{
-		GPUBufferMemoryHost2::allocate(p_device, p_element_number, p_element_size, vk::BufferUsageFlags(vk::BufferUsageFlagBits::eUniformBuffer));
-	};
-};
-
-template<class ElementType>
-struct TUniformMemory_HostWrite : public UniformMemory_HostWrite
-{
-	inline void allocate(size_t p_element_number, Device& p_device)
-	{
-		UniformMemory_HostWrite::allocate(p_element_number, sizeof(ElementType), p_device);
-	};
-
-	inline void push(const ElementType* p_from)
-	{
-		UniformMemory_HostWrite::push(GPtr::fromType(p_from));
-	};
-};
-
-struct GPUOnlyImageMemory : public GPUImageMemoryGPU2<char> {};
-
-
-namespace RenderEnums
-{
-	enum DeferredCommandBufferExecutionType
-	{
-		UNDEFINED = 0,
-		STAGING_BUFFER = 1,
-		STAGING_IMAGE = 2,
-		IMAGE_TRANSITION = 3
-	};
-}
-
-
-struct StagedBufferWriteCommand
-{
-	inline static const RenderEnums::DeferredCommandBufferExecutionType Type = RenderEnums::DeferredCommandBufferExecutionType::STAGING_BUFFER;
-
-	vk::Buffer buffer;
-	size_t buffer_size;
-	bool isAborted = false;
-	GPUBufferMemoryHost2 staging_memory;
-
-	com::TPoolToken<bool> completion_token;
-
-	inline void process_buffered(CommandBuffer& p_commandbuffer, com::Pool<bool>& p_stagin_completions, const Device& p_device)
-	{
-		if (!this->isAborted)
-		{
-			vk::BufferCopy l_buffer_copy_regions;
-			l_buffer_copy_regions.setSize(buffer_size);
-			p_commandbuffer.command_buffer.copyBuffer(this->staging_memory.buffer, this->buffer, 1, &l_buffer_copy_regions);
-			p_stagin_completions.resolve(this->completion_token) = true;
-		}
-	};
-
-	inline void dispose(Device& p_device)
-	{
-		this->staging_memory.dispose(p_device);
-	};
-
-	inline void invalidate()
-	{
-		// this->original_buffer_mappedmemory = nullptr;
-		this->isAborted = true;
-	};
-};
 
 template<class DeferredCommandType>
 struct DeferredBufferCommands
@@ -1221,11 +1164,59 @@ struct DeferredBufferCommands
 	};
 };
 
+
+struct StagedBufferWriteCommand
+{
+	inline static const size_t Type = Hash<ConstString>::hash("StagedBufferWriteCommand");
+
+	vk::Buffer buffer;
+	size_t buffer_size;
+	bool isAborted = false;
+	GPUBufferMemoryHost2 staging_memory;
+
+	com::TPoolToken<bool> completion_token;
+
+	inline void process_buffered(CommandBuffer& p_commandbuffer, com::Pool<bool>& p_stagin_completions, const Device& p_device)
+	{
+		if (!this->isAborted)
+		{
+			vk::BufferCopy l_buffer_copy_regions;
+			l_buffer_copy_regions.setSize(buffer_size);
+			p_commandbuffer.command_buffer.copyBuffer(this->staging_memory.buffer, this->buffer, 1, &l_buffer_copy_regions);
+			p_stagin_completions.resolve(this->completion_token) = true;
+		}
+	};
+
+	inline void dispose(Device& p_device)
+	{
+		this->staging_memory.dispose(p_device);
+	};
+
+	inline void invalidate()
+	{
+		this->isAborted = true;
+	};
+};
+
+
 struct StagedImageWriteCommand
 {
-	inline static const RenderEnums::DeferredCommandBufferExecutionType Type = RenderEnums::DeferredCommandBufferExecutionType::STAGING_IMAGE;
+	inline static const size_t Type = Hash<ConstString>::hash("StagedImageWriteCommand");
 
-	Image image;
+	struct Image
+	{
+		vk::Image ImageMemory;
+		vk::ImageSubresource ImageSubresource;
+		vk::ImageSubresourceRange ImageSubresourceRange;
+		Vector<2, int> ImageSize;
+
+		inline Image() {};
+		inline Image(vk::Image& p_image_memory, vk::ImageSubresource& p_image_subresource, vk::ImageSubresourceRange& p_image_subresource_range, Vector<2, int>& p_image_size,
+			size_t p_pxixel_component_size, short int p_channel_nb) : ImageMemory{ p_image_memory }, ImageSubresource{ p_image_subresource }, ImageSubresourceRange{ p_image_subresource_range }, ImageSize{ p_image_size }
+		{
+
+		};
+	} image;
 
 	bool isAborted = false;
 	GPUBufferMemoryHost2 staging_memory;
@@ -1271,6 +1262,16 @@ struct TextureLayoutTransitionBarrierConfiguration {
 
 	vk::PipelineStageFlags src_stage;
 	vk::PipelineStageFlags dst_stage;
+
+	inline TextureLayoutTransitionBarrierConfiguration() {};
+	inline TextureLayoutTransitionBarrierConfiguration(const vk::AccessFlags& p_src_access_mask, const vk::AccessFlags& p_dst_access_mask, 
+			const vk::PipelineStageFlags& p_src_stage, const vk::PipelineStageFlags& p_dst_stage)
+	{
+		this->src_access_mask = p_src_access_mask;
+		this->dst_access_mask = p_dst_access_mask;
+		this->src_stage = p_src_stage;
+		this->dst_stage = p_dst_stage;
+	};
 };
 
 template<vk::ImageLayout SourceLayout, vk::ImageLayout TargetLayout>
@@ -1284,13 +1285,9 @@ struct TransitionBarrierConfigurationBuilder<vk::ImageLayout::eUndefined, vk::Im
 
 	inline static TextureLayoutTransitionBarrierConfiguration build()
 	{
-		TextureLayoutTransitionBarrierConfiguration l_transition;
-		l_transition.src_access_mask = vk::AccessFlags(0);
-		l_transition.dst_access_mask = vk::AccessFlags(vk::AccessFlagBits::eTransferWrite);
-
-		l_transition.src_stage = vk::PipelineStageFlags(vk::PipelineStageFlagBits::eTopOfPipe);
-		l_transition.dst_stage = vk::PipelineStageFlags(vk::PipelineStageFlagBits::eTransfer);
-		return l_transition;
+		return TextureLayoutTransitionBarrierConfiguration(
+			vk::AccessFlags(0), vk::AccessFlags(vk::AccessFlagBits::eTransferWrite), 
+			vk::PipelineStageFlags(vk::PipelineStageFlagBits::eTopOfPipe), vk::PipelineStageFlags(vk::PipelineStageFlagBits::eTransfer));
 	};
 };
 
@@ -1299,13 +1296,10 @@ struct TransitionBarrierConfigurationBuilder<vk::ImageLayout::eTransferDstOptima
 
 	inline static TextureLayoutTransitionBarrierConfiguration build()
 	{
-		TextureLayoutTransitionBarrierConfiguration l_transition;
-		l_transition.src_access_mask = vk::AccessFlags(vk::AccessFlagBits::eTransferWrite);
-		l_transition.dst_access_mask = vk::AccessFlags(vk::AccessFlagBits::eShaderRead);
-
-		l_transition.src_stage = vk::PipelineStageFlags(vk::PipelineStageFlagBits::eTransfer);
-		l_transition.dst_stage = vk::PipelineStageFlags(vk::PipelineStageFlagBits::eFragmentShader);
-		return l_transition;
+		return TextureLayoutTransitionBarrierConfiguration(
+			vk::AccessFlags(vk::AccessFlagBits::eTransferWrite), vk::AccessFlags(vk::AccessFlagBits::eShaderRead),
+			vk::PipelineStageFlags(vk::PipelineStageFlagBits::eTransfer), vk::PipelineStageFlags(vk::PipelineStageFlagBits::eFragmentShader)
+		);
 	};
 };
 
@@ -1314,13 +1308,10 @@ struct TransitionBarrierConfigurationBuilder<vk::ImageLayout::eUndefined, vk::Im
 
 	inline static TextureLayoutTransitionBarrierConfiguration build()
 	{
-		TextureLayoutTransitionBarrierConfiguration l_transition;
-		l_transition.src_access_mask = vk::AccessFlags(vk::AccessFlagBits::eTransferWrite);
-		l_transition.dst_access_mask = vk::AccessFlags(vk::AccessFlagBits::eTransferRead);
-
-		l_transition.src_stage = vk::PipelineStageFlags(vk::PipelineStageFlagBits::eTransfer);
-		l_transition.dst_stage = vk::PipelineStageFlags(vk::PipelineStageFlagBits::eTransfer);
-		return l_transition;
+		return TextureLayoutTransitionBarrierConfiguration(
+			vk::AccessFlags(vk::AccessFlagBits::eTransferWrite), vk::AccessFlags(vk::AccessFlagBits::eTransferRead),
+			vk::PipelineStageFlags(vk::PipelineStageFlagBits::eTransfer), vk::PipelineStageFlags(vk::PipelineStageFlagBits::eTransfer)
+		);
 	};
 };
 
@@ -1329,19 +1320,16 @@ struct TransitionBarrierConfigurationBuilder<vk::ImageLayout::eColorAttachmentOp
 
 	inline static TextureLayoutTransitionBarrierConfiguration build()
 	{
-		TextureLayoutTransitionBarrierConfiguration l_transition;
-		l_transition.src_access_mask = vk::AccessFlags(vk::AccessFlagBits::eColorAttachmentWrite);
-		l_transition.dst_access_mask = vk::AccessFlags(vk::AccessFlagBits::eShaderRead);
-
-		l_transition.src_stage = vk::PipelineStageFlags(vk::PipelineStageFlagBits::eColorAttachmentOutput);
-		l_transition.dst_stage = vk::PipelineStageFlags(vk::PipelineStageFlagBits::eFragmentShader);
-		return l_transition;
+		return TextureLayoutTransitionBarrierConfiguration(
+			vk::AccessFlags(vk::AccessFlagBits::eColorAttachmentWrite), vk::AccessFlags(vk::AccessFlagBits::eShaderRead),
+			vk::PipelineStageFlags(vk::PipelineStageFlagBits::eColorAttachmentOutput), vk::PipelineStageFlags(vk::PipelineStageFlagBits::eFragmentShader)
+		);
 	};
 };
 
 struct TextureLayoutTransitionCommand
 {
-	inline static const RenderEnums::DeferredCommandBufferExecutionType Type = RenderEnums::DeferredCommandBufferExecutionType::IMAGE_TRANSITION;
+	inline static const size_t Type = Hash<ConstString>::hash("TextureLayoutTransitionCommand");
 
 	vk::ImageLayout source_layout;
 	vk::ImageLayout target_layout;
@@ -1395,10 +1383,10 @@ struct DeferredCommandBufferExecution
 {
 	struct DeferredCommandBufferExecutionEntry
 	{
-		RenderEnums::DeferredCommandBufferExecutionType Type = RenderEnums::DeferredCommandBufferExecutionType::UNDEFINED;
+		size_t Type = 0;
 		size_t CommandIndex = -1;
 
-		inline DeferredCommandBufferExecutionEntry(const RenderEnums::DeferredCommandBufferExecutionType type,
+		inline DeferredCommandBufferExecutionEntry(const size_t type,
 			const size_t p_index) {
 			this->Type = type;
 			this->CommandIndex = p_index;
@@ -1406,9 +1394,10 @@ struct DeferredCommandBufferExecution
 
 	};
 
-	//TODO -> using a struct type to ensure that the right index is passed
-	//        
-	typedef size_t DeferredCommandBufferExecutionIndex;
+	struct ExecutionOrderToken : public SizetType
+	{
+		using SizetType::SizetType;
+	} DeferredCommandBufferExecutionIndex;
 
 	com::Vector<DeferredCommandBufferExecutionEntry> command_execution_order;
 	com::Pool<bool> commands_completion;
@@ -1443,17 +1432,17 @@ struct DeferredCommandBufferExecution
 	};
 
 	template<class DefferedCommandType, class DeferredBufferCommandsType>
-	inline DeferredCommandBufferExecutionIndex push_command(DefferedCommandType& p_command, DeferredBufferCommandsType& p_commands)
+	inline ExecutionOrderToken push_command(DefferedCommandType& p_command, DeferredBufferCommandsType& p_commands)
 	{
 		p_commands.commands.push_back(p_command);
 		size_t l_command_index = p_commands.commands.Size - 1;
 		DeferredCommandBufferExecutionEntry l_entry = DeferredCommandBufferExecutionEntry(DefferedCommandType::Type, l_command_index);
 		this->command_execution_order.push_back(l_entry);
-		return this->command_execution_order.Size - 1;
+		return ExecutionOrderToken(this->command_execution_order.Size - 1);
 	};
 
 	template<class ElementType>
-	inline DeferredCommandBufferExecution::DeferredCommandBufferExecutionIndex allocate_stagincommand(
+	inline ExecutionOrderToken allocate_stagincommand(
 		vk::Buffer p_buffer, size_t p_buffer_element_count, const ElementType* p_source, com::TPoolToken<bool>& p_completion_token, Device& p_device)
 	{
 		StagedBufferWriteCommand l_command;
@@ -1468,7 +1457,7 @@ struct DeferredCommandBufferExecution
 		return this->push_command(l_command, this->stagingbuffers);
 	};
 
-	inline DeferredCommandBufferExecution::DeferredCommandBufferExecutionIndex allocate_stagedimagewritecommand(
+	inline ExecutionOrderToken allocate_stagedimagewritecommand(
 		vk::Image& p_image, vk::ImageSubresource& p_image_subresource,
 		vk::ImageSubresourceRange& p_image_subresource_range, Vector<2, int>& p_image_size,
 		const char* p_source, size_t p_pixel_size, com::TPoolToken<bool>& p_completion_token, Device& p_device)
@@ -1488,7 +1477,7 @@ struct DeferredCommandBufferExecution
 		return this->push_command(l_command, this->stagingimages);
 	};
 
-	inline DeferredCommandBufferExecution::DeferredCommandBufferExecutionIndex allocate_texturelayouttransitioncommand(vk::Image p_image,
+	inline ExecutionOrderToken allocate_texturelayouttransitioncommand(vk::Image p_image,
 		vk::ImageSubresourceRange p_image_subresource,
 		vk::ImageLayout p_source_layout, vk::ImageLayout p_target_layout,
 		TextureLayoutTransitionBarrierConfiguration& p_transition_barrier,
@@ -1507,9 +1496,9 @@ struct DeferredCommandBufferExecution
 	};
 
 	
-	inline void invalidate_command(DeferredCommandBufferExecutionIndex p_command_index)
+	inline void invalidate_command(ExecutionOrderToken p_command_index)
 	{
-		DeferredCommandBufferExecutionEntry& l_current_command_order = this->command_execution_order[p_command_index];
+		DeferredCommandBufferExecutionEntry& l_current_command_order = this->command_execution_order[p_command_index.val];
 		switch (l_current_command_order.Type)
 		{
 		case StagedBufferWriteCommand::Type:
@@ -1587,11 +1576,9 @@ private:
 	};
 };
 
-
 struct DeferredCommandbufferExecutionToken
 {
-	//TODO -> replace by the deferred execution index
-	size_t QueueIndex = -1;
+	DeferredCommandBufferExecution::ExecutionOrderToken QueueIndex = -1;
 	com::TPoolToken<bool> CompletionToken = -1;
 
 	inline DeferredCommandbufferExecutionToken() {}
@@ -1622,6 +1609,8 @@ struct DeferredCommandbufferExecutionToken
 		this->CompletionToken = -1;
 	};
 };
+
+#endif
 
 struct SwapChain
 {
@@ -2080,6 +2069,37 @@ struct ShaderParameterLayouts
 	};
 };
 
+
+struct TextureSamplers
+{
+	vk::Sampler Default;
+
+	inline void allocate(Device& p_device)
+	{
+		vk::SamplerCreateInfo l_sampler_create_info;
+		l_sampler_create_info.setMagFilter(vk::Filter::eNearest);
+		l_sampler_create_info.setMinFilter(vk::Filter::eNearest);
+		l_sampler_create_info.setAddressModeU(vk::SamplerAddressMode::eRepeat);
+		l_sampler_create_info.setAddressModeV(vk::SamplerAddressMode::eRepeat);
+		l_sampler_create_info.setAddressModeW(vk::SamplerAddressMode::eRepeat);
+		l_sampler_create_info.setBorderColor(vk::BorderColor::eIntOpaqueBlack);
+		l_sampler_create_info.setUnnormalizedCoordinates(false);
+		l_sampler_create_info.setCompareEnable(false);
+		l_sampler_create_info.setCompareOp(vk::CompareOp::eAlways);
+		l_sampler_create_info.setMipmapMode(vk::SamplerMipmapMode::eLinear);
+		l_sampler_create_info.setMipLodBias(0.0f);
+		l_sampler_create_info.setMaxLod(0.0f);
+		l_sampler_create_info.setMinLod(0.0f);
+		this->Default = p_device.device.createSampler(l_sampler_create_info);
+	};
+
+	inline void free(Device& p_device)
+	{
+		p_device.device.destroySampler(this->Default);
+	};
+};
+
+
 struct RenderAPI
 {
 	vk::Instance instance;
@@ -2440,6 +2460,15 @@ private:
 		this->image_samplers.free(this->device);
 	}
 };
+
+/*
+		- RENDER_OBJECTS -
+
+All instanciable object that defines the render hierarchy
+
+*/
+#define RENDER_OBJECTS 1
+#if RENDER_OBJECTS
 
 struct ShaderLayout
 {
@@ -3008,14 +3037,14 @@ struct Material
 
 	inline Material() {};
 
-	inline void add_image_parameter(const com::PoolToken& p_parameter)
+	inline void add_image_parameter(const com::TPoolToken<ShaderCombinedImageSamplerParameter>& p_parameter)
 	{
-		this->parameters.push_back(ShaderParameter(ShaderParameter::Type::TEXTURE, p_parameter));
+		this->parameters.push_back(ShaderParameter(ShaderParameter::Type::TEXTURE, p_parameter.to_pooltoken()));
 	};
 
-	inline void add_uniform_parameter(const com::PoolToken& p_parameter)
+	inline void add_uniform_parameter(const com::TPoolToken<ShaderUniformBufferParameter>& p_parameter)
 	{
-		this->parameters.push_back(ShaderParameter(ShaderParameter::Type::UNIFORM, p_parameter));
+		this->parameters.push_back(ShaderParameter(ShaderParameter::Type::UNIFORM, p_parameter.to_pooltoken()));
 	};
 
 	inline void free()
@@ -3033,12 +3062,12 @@ struct Material
 			{
 			case ShaderParameter::Type::UNIFORM:
 			{
-				p_shader_uniformparameter_heap.resolve(com::TPoolToken<ShaderUniformBufferParameter>(l_parameter.parameter_token.Index)).bind_command(p_command_buffer, (uint32_t)(p_set_index + i), p_pipeline_layout);
+				p_shader_uniformparameter_heap.resolve(com::TPoolToken<ShaderUniformBufferParameter>(l_parameter.parameter_token.val)).bind_command(p_command_buffer, (uint32_t)(p_set_index + i), p_pipeline_layout);
 			}
 			break;
 			case ShaderParameter::Type::TEXTURE:
 			{
-				p_shader_texturesample_heap.resolve(com::TPoolToken<ShaderCombinedImageSamplerParameter>(l_parameter.parameter_token.Index)).bind_command(p_command_buffer, (uint32_t)(p_set_index + i), p_pipeline_layout);
+				p_shader_texturesample_heap.resolve(com::TPoolToken<ShaderCombinedImageSamplerParameter>(l_parameter.parameter_token.val)).bind_command(p_command_buffer, (uint32_t)(p_set_index + i), p_pipeline_layout);
 			}
 			break;
 			}
@@ -3086,6 +3115,9 @@ struct RenderableObject
 		p_commandbuffer.command_buffer.drawIndexed((uint32_t)p_mesh_heap[this->mesh].indices_length, (uint32_t)1, (uint32_t)0, (uint32_t)0, (uint32_t)1);
 	}
 };
+
+
+#endif
 
 struct RenderHeap2
 {
@@ -3568,7 +3600,7 @@ public:
 		{
 			for (size_t i = 0; i < this->shaders_sortedBy_executionOrder.Size; i++)
 			{
-				if (this->shaders_sortedBy_executionOrder[i].Index == p_shader.Index)
+				if (this->shaders_sortedBy_executionOrder[i].val == p_shader.val)
 				{
 					this->shaders_sortedBy_executionOrder.erase_at(i, 1);
 					break;
@@ -3577,7 +3609,7 @@ public:
 		};
 	};
 
-	inline com::PoolToken allocate_material(const size_t p_material, com::PoolToken* out_shader)
+	inline com::TPoolToken<Material> allocate_material(const size_t p_material, com::TPoolToken<Shader>* out_shader)
 	{
 		Material l_material = Material();
 		com::Vector<char> l_material_binary = this->asset_server.get_resource(p_material);
@@ -3616,20 +3648,20 @@ public:
 
 		com::TPoolToken<Material> l_material_handle = this->materials.alloc_element(l_material);
 		this->material_to_renderableobjects.alloc_element(com::Vector<com::TPoolToken<RenderableObject>>());
-		this->shaders_to_materials[out_shader->Index].push_back(l_material_handle);
+		this->shaders_to_materials[out_shader->val].push_back(l_material_handle);
 
 		return l_material_handle;
 	};
 
 	inline void material_set_uniform_paramter(const com::TPoolToken<Material>& p_material, size_t p_parameter_index, const GPtr& p_value)
 	{
-		this->shader_uniform_parameters[com::TPoolToken<ShaderUniformBufferParameter>(this->materials[p_material].parameters[p_parameter_index].parameter_token.Index)]
+		this->shader_uniform_parameters[com::TPoolToken<ShaderUniformBufferParameter>(this->materials[p_material].parameters[p_parameter_index].parameter_token.val)]
 			.pushbuffer(p_value, this->render_api->device);
 	};
 
 	inline void material_get_uniform_paramter(const com::TPoolToken<Material>& p_material, size_t p_parameter_index, GPtr& out_value)
 	{
-		this->shader_uniform_parameters[com::TPoolToken<ShaderUniformBufferParameter>(this->materials[p_material].parameters[p_parameter_index].parameter_token.Index)]
+		this->shader_uniform_parameters[com::TPoolToken<ShaderUniformBufferParameter>(this->materials[p_material].parameters[p_parameter_index].parameter_token.val)]
 			.copy_to(out_value);
 	};
 
@@ -3638,7 +3670,7 @@ public:
 		com::Vector<com::TPoolToken<Material>>& l_shaders_to_materials = this->shaders_to_materials[p_shader.cast<com::Vector<com::TPoolToken<Material>>>()];
 		for (size_t i = 0; i < l_shaders_to_materials.Size; i++)
 		{
-			if (l_shaders_to_materials[i].Index == p_material.Index)
+			if (l_shaders_to_materials[i].val == p_material.val)
 			{
 				l_shaders_to_materials.erase_at(i, 1);
 				break;
@@ -3654,16 +3686,16 @@ public:
 			{
 			case ShaderParameter::Type::UNIFORM:
 			{
-				this->shader_uniform_parameters[com::TPoolToken<ShaderUniformBufferParameter>(l_parameter.parameter_token.Index)].dispose(this->render_api->device, this->render_api->descriptor_pool);
-				this->shader_uniform_parameters.release_element(com::TPoolToken<ShaderUniformBufferParameter>(l_parameter.parameter_token.Index));
+				this->shader_uniform_parameters[com::TPoolToken<ShaderUniformBufferParameter>(l_parameter.parameter_token.val)].dispose(this->render_api->device, this->render_api->descriptor_pool);
+				this->shader_uniform_parameters.release_element(com::TPoolToken<ShaderUniformBufferParameter>(l_parameter.parameter_token.val));
 			}
 			break;
 			case ShaderParameter::Type::TEXTURE:
 			{
-				ShaderCombinedImageSamplerParameter& l_texture_parameter = this->shader_imagesample_parameters[com::TPoolToken<ShaderCombinedImageSamplerParameter>(l_parameter.parameter_token.Index)];
+				ShaderCombinedImageSamplerParameter& l_texture_parameter = this->shader_imagesample_parameters[com::TPoolToken<ShaderCombinedImageSamplerParameter>(l_parameter.parameter_token.val)];
 				this->free_texture(l_texture_parameter.texture);
 				l_texture_parameter.dispose(*this->render_api);
-				this->shader_imagesample_parameters.release_element(com::TPoolToken<ShaderCombinedImageSamplerParameter>(l_parameter.parameter_token.Index));
+				this->shader_imagesample_parameters.release_element(com::TPoolToken<ShaderCombinedImageSamplerParameter>(l_parameter.parameter_token.val));
 			}
 			break;
 			}
@@ -3712,7 +3744,7 @@ public:
 		RenderableObject l_renderable_object;
 		l_renderable_object.allocate(p_mesh, *this->render_api);
 		com::TPoolToken<RenderableObject> l_renderableobjet_handle = this->renderableobjects.alloc_element(l_renderable_object);
-		this->material_to_renderableobjects[p_material.Index].push_back(l_renderableobjet_handle);
+		this->material_to_renderableobjects[p_material.val].push_back(l_renderableobjet_handle);
 		return l_renderableobjet_handle;
 	};
 
@@ -3727,7 +3759,7 @@ public:
 		com::TPoolToken<Shader> p_old_shader, com::TPoolToken<Material> p_material)
 	{
 		//Create new link
-		this->material_to_renderableobjects[p_material.Index].push_back(p_renderable_object);
+		this->material_to_renderableobjects[p_material.val].push_back(p_renderable_object);
 	};
 
 	inline void set_mesh(com::TPoolToken<RenderableObject> p_renderable_object, com::TPoolToken<Mesh> p_mesh)
@@ -3830,7 +3862,7 @@ struct RTDrawStep
 
 				p_command_buffer.command_buffer.bindPipeline(vk::PipelineBindPoint::eGraphics, l_shader.pipeline);
 
-				com::Vector<com::TPoolToken<Material>>& l_materials = this->heap->shaders_to_materials[l_shader_heap.Index];
+				com::Vector<com::TPoolToken<Material>>& l_materials = this->heap->shaders_to_materials[l_shader_heap.val];
 				for (size_t l_material_index = 0; l_material_index < l_materials.Size; l_material_index++)
 				{
 					com::TPoolToken<Material> l_material_heap_token = l_materials[l_material_index];
@@ -3838,7 +3870,7 @@ struct RTDrawStep
 
 					l_material.bind_command(p_command_buffer, 2, this->heap->shader_uniform_parameters, this->heap->shader_imagesample_parameters, l_shader.pipeline_layout.layout);
 
-					com::Vector<com::TPoolToken<RenderableObject>>& l_renderableobjects = this->heap->material_to_renderableobjects[l_material_heap_token.Index];
+					com::Vector<com::TPoolToken<RenderableObject>>& l_renderableobjects = this->heap->material_to_renderableobjects[l_material_heap_token.val];
 					for (size_t l_renderableobject_index = 0; l_renderableobject_index < l_renderableobjects.Size; l_renderableobject_index++)
 					{
 						RenderableObject& l_renderableobject = this->heap->renderableobjects[l_renderableobjects[l_renderableobject_index]];
@@ -3980,6 +4012,8 @@ struct Render
 		CommandBuffer& l_command_buffer = this->renderApi.draw_commandbuffers[l_render_image_index];
 		l_command_buffer.begin();
 		{
+			//Main loop
+
 			this->renderApi.stagedbuffer_commands.process_all_buffers(l_command_buffer, this->renderApi.device);
 			this->rt_draw_step.step(l_command_buffer);
 			this->khr_present_step.step(l_command_buffer, l_render_image_index);

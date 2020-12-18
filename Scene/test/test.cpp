@@ -147,7 +147,7 @@ struct EditorScene
 	inline void set_localposition(NTreeResolve<SceneNode>& p_scene_node, Math::vec3f& p_local_position)
 	{
 		EditorSceneEvent l_event;
-		l_event.allocate(EditorSceneEventMoveNode(SceneNodeToken(p_scene_node.node->index), SceneKernel::get_localposition(p_scene_node.element), p_local_position));
+		l_event.allocate(EditorSceneEventMoveNode(SceneNodeToken(p_scene_node.node->index.val), SceneKernel::get_localposition(p_scene_node.element), p_local_position));
 
 		((EditorSceneEventMoveNode*)l_event.object)->_do(this->engine_scene);
 		((EditorSceneEventMoveNode*)l_event.object)->_do(&this->proxy_scene);
@@ -156,7 +156,7 @@ struct EditorScene
 	inline void set_localrotation(NTreeResolve<SceneNode>& p_scene_node, Math::quat& p_local_rotation)
 	{
 		EditorSceneEvent l_event;
-		l_event.allocate(EditorSceneEventRotateNode(SceneNodeToken(p_scene_node.node->index), SceneKernel::get_localrotation(p_scene_node.element), p_local_rotation));
+		l_event.allocate(EditorSceneEventRotateNode(SceneNodeToken(p_scene_node.node->index.val), SceneKernel::get_localrotation(p_scene_node.element), p_local_rotation));
 
 		((EditorSceneEventRotateNode*)l_event.object)->_do(this->engine_scene);
 		((EditorSceneEventRotateNode*)l_event.object)->_do(&this->proxy_scene);
@@ -215,7 +215,7 @@ int main()
 	l_scene_asset.component_asset_heap.allocate_element(sizeof(ComponentTest), &l_allocated_component);
 	ComponentAsset l_component_asset;
 	l_component_asset.id = ComponentTest::Id;
-	l_component_asset.componentasset_heap_index = l_allocated_component.Index;
+	l_component_asset.componentasset_heap_index = l_allocated_component;
 
 	l_scene_asset.components.push_back(l_component_asset);
 

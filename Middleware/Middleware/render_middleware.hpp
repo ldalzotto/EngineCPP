@@ -92,7 +92,7 @@ struct RenderMiddleware
 
 	inline RenderableObjectEntry& get_renderable_object(const MeshRenderer& p_mesh_renderer)
 	{
-		return this->get_renderable_object(com::TPoolToken<RenderableObjectEntry>(p_mesh_renderer.rendererable_object.Index));
+		return this->get_renderable_object(com::TPoolToken<RenderableObjectEntry>(p_mesh_renderer.rendererable_object.val));
 	};
 
 	inline void on_elligible(const SceneNodeToken p_node_token, const NTreeResolve<SceneNode>& p_node, MeshRenderer& p_mesh_renderer)
@@ -112,9 +112,9 @@ struct RenderMiddleware
 		l_entry.material = l_material;
 		l_entry.force_update = true;
 
-		com::PoolToken l_allocated_entry = this->allocated_renderableobjects.alloc_element(l_entry);
-		this->allocated_renderableobjects_vector.push_back(com::TPoolToken<RenderableObjectEntry>(l_allocated_entry.Index));
-		p_mesh_renderer.rendererable_object = l_allocated_entry;
+		com::TPoolToken<RenderableObjectEntry> l_allocated_entry = this->allocated_renderableobjects.alloc_element(l_entry);
+		this->allocated_renderableobjects_vector.push_back(com::TPoolToken<RenderableObjectEntry>(l_allocated_entry.val));
+		p_mesh_renderer.rendererable_object = l_allocated_entry.to_pooltoken();
 	};
 
 	inline void on_not_elligible(const com::PoolToken p_node_token)
@@ -123,7 +123,7 @@ struct RenderMiddleware
 		{
 			com::TPoolToken<RenderableObjectEntry>& l_entry_token = this->allocated_renderableobjects_vector[i];
 			RenderableObjectEntry& l_entry = this->allocated_renderableobjects[l_entry_token];
-			if (l_entry.node.Index == p_node_token.Index)
+			if (l_entry.node.val == p_node_token.val)
 			{
 				l_entry.renderableobject.free(this->render);
 				this->allocated_renderableobjects.release_element(l_entry_token);
@@ -138,7 +138,7 @@ struct RenderMiddleware
 		OPTICK_EVENT();
 
 		{
-			if (this->allocated_camera.node.Index != -1)
+			if (this->allocated_camera.node.val != -1)
 			{
 				NTreeResolve<SceneNode> l_camera_scene_node = SceneKernel::resolve_node(p_scene, this->allocated_camera.node);
 				if (l_camera_scene_node.element->state.haschanged_thisframe)
@@ -165,12 +165,12 @@ struct RenderMiddleware
 
 	inline void set_material(MeshRenderer& p_mesh_renderer, size_t p_new_material)
 	{
-		this->get_renderable_object(com::TPoolToken<RenderableObjectEntry>(p_mesh_renderer.rendererable_object.Index)).set_material(p_mesh_renderer, p_new_material, this->asset_server, this->render);
+		this->get_renderable_object(com::TPoolToken<RenderableObjectEntry>(p_mesh_renderer.rendererable_object.val)).set_material(p_mesh_renderer, p_new_material, this->asset_server, this->render);
 	};
 
 	inline void set_mesh(MeshRenderer& p_mesh_renderer, size_t p_new_mesh)
 	{
-		this->get_renderable_object(com::TPoolToken<RenderableObjectEntry>(p_mesh_renderer.rendererable_object.Index)).set_mesh(p_mesh_renderer, p_new_mesh, this->asset_server, this->render);
+		this->get_renderable_object(com::TPoolToken<RenderableObjectEntry>(p_mesh_renderer.rendererable_object.val)).set_mesh(p_mesh_renderer, p_new_mesh, this->asset_server, this->render);
 	};
 
 };

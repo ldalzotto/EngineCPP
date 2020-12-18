@@ -154,14 +154,14 @@ struct SceneKernel
 		com::Vector<SceneNodeComponentToken>& l_components = thiz->node_to_components[*p_node.element->scenetree_entry.cast_to_componentstoken()];
 		for (size_t i = 0; i < l_components.Size; i++)
 		{
-			if (l_components[i].Index == p_component_token.Index)
+			if (l_components[i].val == p_component_token.val)
 			{
 				l_components.erase_at(i, 1);
 				break;
 			}
 		}
 
-		ComponentRemovedParameter l_component_removed = ComponentRemovedParameter(SceneNodeToken(p_node.node->index), p_node, resolve_component(thiz, p_component_token));
+		ComponentRemovedParameter l_component_removed = ComponentRemovedParameter(SceneNodeToken(p_node.node->index.val), p_node, resolve_component(thiz, p_component_token));
 		thiz->component_removed_callback.call(&l_component_removed);
 		free_component(thiz, p_component_token);
 	};
@@ -253,7 +253,7 @@ struct SceneKernel
 		};
 
 		GetNodesWithComponentForeach l_foreach = GetNodesWithComponentForeach(thiz, &p_component_type_info);
-		thiz->tree.traverse(com::PoolToken(0), l_foreach);
+		thiz->tree.traverse(com::TPoolToken<NTreeNode>(0), l_foreach);
 		return l_foreach.nodes;
 	};
 
@@ -268,16 +268,16 @@ struct SceneKernel
 #if SCENE_BOUND_TEST
 		if (!check_scenetoken_validity(thiz, p_node)) { abort(); }
 #endif
-		return thiz->tree.resolve(p_node);
+		return thiz->tree.resolve(com::TPoolToken<NTreeNode>(p_node.val));
 	};
 
 
 	inline static SceneNodeToken add_node(Scene* thiz, const Math::Transform& p_initial_local_transform)
 	{
-		SceneNodeToken l_node = SceneNodeToken(thiz->tree.push_value(SceneNode()).Index);
+		SceneNodeToken l_node = SceneNodeToken(thiz->tree.push_value(SceneNode()).val);
 		thiz->node_to_components.alloc_element(com::Vector<SceneNodeComponentToken>());
-		SceneNode* l_allocated_node = thiz->tree.resolve(l_node).element;
-		l_allocated_node->allocate(p_initial_local_transform, l_node.Index, com::MemorySlice<SceneNodeTag>());
+		SceneNode* l_allocated_node = thiz->tree.resolve(com::TPoolToken<NTreeNode>(l_node.val)).element;
+		l_allocated_node->allocate(p_initial_local_transform, l_node.val, com::MemorySlice<SceneNodeTag>());
 		mark_for_recalculation(l_allocated_node, thiz);
 		return l_node;
 	};
@@ -293,11 +293,11 @@ struct SceneKernel
 	inline static bool add_node_at_freenode(Scene* thiz, const SceneNodeToken& p_node, const Math::Transform& p_initial_local_transform)
 	{
 		const com::TPoolToken<com::Vector<SceneNodeComponentToken>>* p_node_to_component_token = p_node.cast_to_componentstoken();
-		if (thiz->tree.set_value_at_freenode(com::TPoolToken<NTreeNode>(p_node.Index), SceneNode()))
+		if (thiz->tree.set_value_at_freenode(com::TPoolToken<NTreeNode>(p_node.val), SceneNode()))
 		{
 			for (size_t i = 0; i < thiz->node_to_components.FreeBlocks.Size; i++)
 			{
-				if (thiz->node_to_components.FreeBlocks[i] == p_node.Index)
+				if (thiz->node_to_components.FreeBlocks[i] == p_node.val)
 				{
 					thiz->node_to_components.FreeBlocks.erase_at(i, 1);
 					thiz->node_to_components[*p_node_to_component_token].free();
@@ -305,8 +305,8 @@ struct SceneKernel
 				}
 			}
 
-			SceneNode* l_free_node = thiz->tree.resolve(p_node).element;
-			l_free_node->allocate(p_initial_local_transform, p_node.Index, com::MemorySlice<SceneNodeTag>());
+			SceneNode* l_free_node = thiz->tree.resolve(com::TPoolToken<NTreeNode>(p_node.val)).element;
+			l_free_node->allocate(p_initial_local_transform, p_node.val, com::MemorySlice<SceneNodeTag>());
 			mark_for_recalculation(l_free_node, thiz);
 
 			return true;
@@ -352,7 +352,7 @@ struct SceneKernel
 	{
 		NTreeResolve<SceneNode> l_node_to_duplicate = SceneKernel::resolve_node(thiz, p_node);
 		SceneNodeToken l_node = SceneKernel::add_node(thiz,
-			l_node_to_duplicate.node->parent,
+			SceneNodeToken(l_node_to_duplicate.node->parent.val),
 			Math::Transform(SceneKernel::get_localposition(l_node_to_duplicate), SceneKernel::get_localrotation(l_node_to_duplicate), SceneKernel::get_localscale(l_node_to_duplicate))
 		);
 
@@ -389,7 +389,7 @@ struct SceneKernel
 			};
 		};
 
-		thiz->tree.remove(p_node, RemoveAllComponents(thiz));
+		thiz->tree.remove(com::TPoolToken<NTreeNode>(p_node.val), RemoveAllComponents(thiz));
 		p_node.reset();
 	};
 
@@ -398,15 +398,15 @@ struct SceneKernel
 		NTreeResolve<SceneNode> l_current = SceneKernel::resolve_node(p_scene, thiz->scenetree_entry);
 		NTreeResolve<SceneNode> l_newchild = SceneKernel::resolve_node(p_scene, p_newchild);
 
-		if (l_newchild.node->parent != thiz->scenetree_entry.Index)
+		if (l_newchild.node->parent.val != thiz->scenetree_entry.val)
 		{
 			if (l_newchild.node->has_parent())
 			{
-				NTreeResolve<SceneNode> l_newchild_parent = SceneKernel::resolve_node(p_scene, l_newchild.node->parent);
+				NTreeResolve<SceneNode> l_newchild_parent = SceneKernel::resolve_node(p_scene, l_newchild.node->parent.val);
 				com::Vector<com::TPoolToken<NTreeNode>>& l_newchild_parent_childs = p_scene->tree.get_childs(l_newchild_parent);
 				for (size_t i = 0; i < l_newchild_parent_childs.Size; i++)
 				{
-					if (l_newchild_parent_childs[i].Index == l_newchild.node->parent)
+					if (l_newchild_parent_childs[i].val == l_newchild.node->parent.val)
 					{
 						l_newchild_parent_childs.erase_at(i, 1);
 						break;
@@ -414,7 +414,7 @@ struct SceneKernel
 				}
 			}
 
-			l_newchild.node->parent = thiz->scenetree_entry.Index;
+			l_newchild.node->parent = thiz->scenetree_entry.val;
 			p_scene->tree.get_childs(l_current).push_back(*l_newchild.element->scenetree_entry.cast_to_treenode());
 
 			mark_for_recalculation(l_newchild.element, p_scene);
@@ -451,19 +451,19 @@ struct SceneKernel
 	template<class SceneNodeForeach>
 	inline static void traverse(Scene* thiz, const SceneNodeToken& p_start_node, SceneNodeForeach& p_foreach)
 	{
-		thiz->tree.traverse(com::PoolToken(p_start_node.Index), p_foreach);
+		thiz->tree.traverse(com::TPoolToken<NTreeNode>(p_start_node.val), p_foreach);
 	};
 
 	inline static bool check_scenetoken_validity(Scene* thiz, const SceneNodeToken& p_node)
 	{
-		if (p_node.Index >= thiz->tree.Memory.size())
+		if (p_node.val >= thiz->tree.Memory.size())
 		{
 			return false;
 		};
 
 		for (size_t i = 0; i < thiz->tree.Memory.FreeBlocks.Size; i++)
 		{
-			if (thiz->tree.Memory.FreeBlocks[i] == p_node.Index)
+			if (thiz->tree.Memory.FreeBlocks[i] == p_node.val)
 			{
 				return false;
 			}
@@ -610,7 +610,7 @@ struct SceneKernel
 		}
 		else
 		{
-			NTreeResolve<SceneNode> l_parent = SceneKernel::resolve_node(p_scene, l_current.node->parent);
+			NTreeResolve<SceneNode> l_parent = SceneKernel::resolve_node(p_scene, l_current.node->parent.val);
 			set_localrotation(NodeKernel_InputValues, Math::mul(Math::inv(get_worldrotation(l_parent.element, p_scene)), p_worldrotation));
 		}
 	};
@@ -629,7 +629,7 @@ struct SceneKernel
 		}
 		else
 		{
-			NTreeResolve<SceneNode> l_parent = SceneKernel::resolve_node(p_scene, l_current.node->parent);
+			NTreeResolve<SceneNode> l_parent = SceneKernel::resolve_node(p_scene, l_current.node->parent.val);
 			set_localscale(NodeKernel_InputValues, Math::mul(p_worldscale, Math::inv(get_worldscalefactor(l_parent.element, p_scene))));
 		}
 	};
@@ -653,7 +653,7 @@ struct SceneKernel
 		}
 		else
 		{
-			NTreeResolve<SceneNode> l_parent = SceneKernel::resolve_node(p_scene, l_current.node->parent);
+			NTreeResolve<SceneNode> l_parent = SceneKernel::resolve_node(p_scene, l_current.node->parent.val);
 			return mul(get_worldrotation(l_parent.element, p_scene), thiz->transform.local_rotation);
 		}
 	};
@@ -672,7 +672,7 @@ struct SceneKernel
 		}
 		else
 		{
-			NTreeResolve<SceneNode> l_parent = SceneKernel::resolve_node(p_scene, l_current.node->parent);
+			NTreeResolve<SceneNode> l_parent = SceneKernel::resolve_node(p_scene, l_current.node->parent.val);
 			return mul(get_worldscalefactor(l_parent.element, p_scene), thiz->transform.local_scale);
 		}
 	};
@@ -697,7 +697,7 @@ private:
 			NTreeResolve<SceneNode> l_current = SceneKernel::resolve_node(p_scene, thiz->scenetree_entry);
 			if (l_current.node->has_parent())
 			{
-				NTreeResolve<SceneNode> l_parent = SceneKernel::resolve_node(p_scene, l_current.node->parent);
+				NTreeResolve<SceneNode> l_parent = SceneKernel::resolve_node(p_scene, l_current.node->parent.val);
 				thiz->localtoworld = mul(get_localtoworld(l_parent.element, p_scene), thiz->localtoworld);
 			}
 			thiz->state.matrices_mustBe_recalculated = false;
@@ -715,7 +715,7 @@ private:
 			};
 		};
 
-		p_scene->tree.traverse(thiz->scenetree_entry, MarkRecalculationForeach());
+		p_scene->tree.traverse(com::TPoolToken<NTreeNode>(thiz->scenetree_entry.val), MarkRecalculationForeach());
 	}
 
 };

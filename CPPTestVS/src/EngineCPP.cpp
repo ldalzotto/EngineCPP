@@ -45,7 +45,7 @@ void update(void* p_engine, float p_delta)
 		{
 			for (size_t i = 0; i < l_nodes.Size; i++)
 			{
-				testContext.moving_nodes.push_back(SceneNodeToken(l_nodes[i].node->index));
+				testContext.moving_nodes.push_back(SceneNodeToken(l_nodes[i].node->index.val));
 			}
 		}
 		l_nodes.free();
@@ -54,20 +54,20 @@ void update(void* p_engine, float p_delta)
 	if (l_input.get_state(InputKey::InputKey_B, KeyState::KeyStateFlag_PRESSED_THIS_FRAME))
 	{
 		com::Vector<NTreeResolve<SceneNode>> l_nodes = SceneKernel::get_nodes_with_component<MeshRenderer>(l_scenehandle);
-		MeshRenderer& l_mesh_renderer = SceneKernel::get_component<MeshRenderer>(l_scenehandle, l_nodes[0].node->index);
+		MeshRenderer& l_mesh_renderer = SceneKernel::get_component<MeshRenderer>(l_scenehandle, SceneNodeToken(l_nodes[0].node->index.val));
 		engine_render_middleware(*l_engine)->set_material(l_mesh_renderer, Hash<StringSlice>::hash(StringSlice("materials/editor_selected.json")));
 	}
 	else if (l_input.get_state(InputKey::InputKey_V, KeyState::KeyStateFlag_PRESSED_THIS_FRAME))
 	{
 		com::Vector<NTreeResolve<SceneNode>> l_nodes = SceneKernel::get_nodes_with_component<MeshRenderer>(l_scenehandle);
-		MeshRenderer& l_mesh_renderer = SceneKernel::get_component<MeshRenderer>(l_scenehandle, l_nodes[0].node->index);
+		MeshRenderer& l_mesh_renderer = SceneKernel::get_component<MeshRenderer>(l_scenehandle, SceneNodeToken(l_nodes[0].node->index.val));
 		engine_render_middleware(*l_engine)->set_material(l_mesh_renderer, Hash<StringSlice>::hash(StringSlice("materials/test.json")));
 		engine_render_middleware(*l_engine)->set_mesh(l_mesh_renderer, Hash<StringSlice>::hash(StringSlice("models/16.09.obj")));
 	}
 	else if (l_input.get_state(InputKey::InputKey_C, KeyState::KeyStateFlag_PRESSED_THIS_FRAME))
 	{
 		com::Vector<NTreeResolve<SceneNode>> l_nodes = SceneKernel::get_nodes_with_component<MeshRenderer>(l_scenehandle);
-		SceneKernel::remove_node(l_scenehandle, com::PoolToken(l_nodes[0].node->index));
+		SceneKernel::remove_node(l_scenehandle, l_nodes[0].node->index.to_pooltoken());
 	}
 
 	for (size_t i = 0; i < testContext.moving_nodes.Size; i++)

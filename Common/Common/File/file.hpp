@@ -435,7 +435,7 @@ struct FileTree : public NTree<File<FilePathMemoryLayout::STRING>>
 					}
 
 					auto l_token = this->tree->push_value(this->node_levels[p_depth - 1], p_file.clone());
-					this->last_pushed_token = l_token.Index;
+					this->last_pushed_token = l_token.val;
 					// this->node_levels.push_back(com::PoolToken<NTreeNode>(l_token.Index));
 
 				}
@@ -462,7 +462,7 @@ struct FileTree : public NTree<File<FilePathMemoryLayout::STRING>>
 				};
 			};
 
-			this->traverse(com::PoolToken(0), FreeForeach());
+			this->traverse(com::TPoolToken<NTreeNode>(0), FreeForeach());
 		}
 
 		NTree<File<FilePathMemoryLayout::STRING>>::free();

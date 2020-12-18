@@ -7,7 +7,7 @@ void RenderableObjectHandle::allocate(const RenderHandle& p_render, const Materi
 	Render* l_render = (Render*)p_render;
 	this->material = p_material;
 	this->mesh = p_meshhandle;
-	this->handle = l_render->heap.allocate_rendereableObject(this->material.handle, this->mesh.handle).Index;
+	this->handle = l_render->heap.allocate_rendereableObject(this->material.handle, this->mesh.handle).val;
 };
 
 void RenderableObjectHandle::push_trs(const RenderHandle& p_render, const Math::mat4f& p_trs)
@@ -45,13 +45,13 @@ void RenderableObjectHandle::free(const RenderHandle& p_render)
 void ShaderHandle::allocate(const RenderHandle& p_render, const std::string& p_sahder_path)
 {
 	Render* l_render = (Render*)p_render;
-	this->handle = l_render->heap.allocate_shader(p_sahder_path, l_render->renderApi.swap_chain.render_passes.get_renderpass<RenderPass::Type::RT_COLOR_DEPTH>()).Index;
+	this->handle = l_render->heap.allocate_shader(p_sahder_path, l_render->renderApi.swap_chain.render_passes.get_renderpass<RenderPass::Type::RT_COLOR_DEPTH>()).val;
 };
 
 void ShaderHandle::allocate(const RenderHandle& p_render, const size_t p_shader_path)
 {
 	Render* l_render = (Render*)p_render;
-	this->handle = l_render->heap.allocate_shader(p_shader_path, l_render->renderApi.swap_chain.render_passes.get_renderpass<RenderPass::Type::RT_COLOR_DEPTH>()).Index;
+	this->handle = l_render->heap.allocate_shader(p_shader_path, l_render->renderApi.swap_chain.render_passes.get_renderpass<RenderPass::Type::RT_COLOR_DEPTH>()).val;
 };
 
 void ShaderHandle::free(const RenderHandle& p_render)
@@ -64,7 +64,7 @@ void ShaderHandle::free(const RenderHandle& p_render)
 void MaterialHandle::allocate(const RenderHandle& p_render, const size_t p_material)
 {
 	Render* l_render = (Render*)p_render;
-	this->handle = l_render->heap.allocate_material(p_material, (com::PoolToken*)&this->shader.handle).Index;
+	this->handle = l_render->heap.allocate_material(p_material, (com::TPoolToken<Shader>*)&this->shader.handle).val;
 };
 
 void MaterialHandle::set_uniform_parameter(const RenderHandle& p_render, const size_t p_parameter_index, const GPtr& p_value)
@@ -91,13 +91,13 @@ void MaterialHandle::free(const RenderHandle& p_render)
 void MeshHandle::allocate(const RenderHandle& p_render, const std::string& p_mesh)
 {
 	Render* l_render = (Render*)p_render;
-	this->handle = l_render->heap.allocate_mesh(p_mesh).Index;
+	this->handle = l_render->heap.allocate_mesh(p_mesh).val;
 };
 
 void MeshHandle::allocate(const RenderHandle& p_render, const size_t p_mesh)
 {
 	Render* l_render = (Render*)p_render;
-	this->handle = l_render->heap.allocate_mesh(p_mesh).Index;
+	this->handle = l_render->heap.allocate_mesh(p_mesh).val;
 };
 
 void MeshHandle::free(const RenderHandle& p_render)
@@ -110,13 +110,13 @@ void MeshHandle::free(const RenderHandle& p_render)
 void TextureHandle::allocate(const RenderHandle& p_render, const std::string& p_texture)
 {
 	Render* l_render = (Render*)p_render;
-	this->handle = l_render->heap.allocate_texture(p_texture).Index;
+	this->handle = l_render->heap.allocate_texture(p_texture).val;
 };
 
 void TextureHandle::allocate(const RenderHandle& p_render, const size_t p_texture)
 {
 	Render* l_render = (Render*)p_render;
-	this->handle = l_render->heap.allocate_texture(p_texture).Index;
+	this->handle = l_render->heap.allocate_texture(p_texture).val;
 };
 
 void TextureHandle::free(const RenderHandle& p_render)

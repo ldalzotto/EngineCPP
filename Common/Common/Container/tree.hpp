@@ -14,7 +14,7 @@ inline void NTreeNode::allocate_as_root(ChildsToken p_childs)
 };
 
 
-inline void NTreeNode::allocate(const size_t p_current_index, const size_t p_parent_index, ChildsToken p_childs)
+inline void NTreeNode::allocate(const com::TPoolToken<NTreeNode> p_current_index, const com::TPoolToken<NTreeNode> p_parent_index, ChildsToken p_childs)
 {
 	this->parent = p_parent_index;
 	this->index = p_current_index;
@@ -28,7 +28,7 @@ inline void NTreeNode::free()
 
 inline bool NTreeNode::has_parent()
 {
-	return this->parent != -1;
+	return this->parent.val != -1;
 };
 
 template<class ElementType, class Allocator>
@@ -40,7 +40,7 @@ inline void tree_detach_from_tree(NTree<ElementType, Allocator>& p_tree, NTreeRe
 		com::Vector<com::TPoolToken<NTreeNode>>& l_parent_childs = p_tree.get_childs(l_parent);
 		for (size_t i = 0; i < l_parent_childs.Size; i++)
 		{
-			if (l_parent_childs[i].Index == p_node.node->index)
+			if (l_parent_childs[i].val == p_node.node->index.val)
 			{
 				l_parent_childs.erase_at(i, 1);
 				break;
@@ -102,13 +102,21 @@ inline com::TPoolToken<NTreeNode> NTree<ElementType, Allocator>::get_next_freeno
 	return this->Memory.get_next_freentry();
 };
 
-
 template<class ElementType, class Allocator>
-inline NTreeResolve<ElementType> NTree<ElementType, Allocator>::resolve(com::PoolToken p_token)
+inline NTreeResolve<ElementType> NTree<ElementType, Allocator>::resolve(com::TPoolToken<ElementType> p_token)
 {
 	return NTreeResolve<ElementType>(
-		this->Memory.resolve(com::TPoolToken<ElementType>(p_token.Index)),
-		this->Indices.resolve(com::TPoolToken<NTreeNode>(p_token.Index))
+		this->Memory.resolve(p_token),
+		this->Indices.resolve(p_token.cast<NTreeNode>())
+	);
+};
+
+template<class ElementType, class Allocator>
+inline NTreeResolve<ElementType> NTree<ElementType, Allocator>::resolve(com::TPoolToken<NTreeNode> p_token)
+{
+	return NTreeResolve<ElementType>(
+		this->Memory.resolve(p_token.cast<ElementType>()),
+		this->Indices.resolve(p_token)
 	);
 };
 
@@ -125,7 +133,7 @@ inline void tree_allocate_node(NTree<ElementType, Allocator>* p_tree, com::TPool
 	*out_created_element = p_tree->Memory.alloc_element(p_value);
 	*out_created_childs = p_tree->Indices_childs.alloc_element(com::Vector<com::TPoolToken<NTreeNode>>());
 	NTreeNode l_node;
-	l_node.allocate(out_created_element->Index, p_parent.Index, *out_created_childs);
+	l_node.allocate(out_created_element->val, p_parent.val, *out_created_childs);
 	*out_created_index = p_tree->Indices.alloc_element(l_node);
 };
 
@@ -185,9 +193,9 @@ inline bool NTree<ElementType, Allocator>::set_value_at_freenode(const com::TPoo
 {
 	for (size_t i = 0; i < this->Memory.FreeBlocks.Size; i++)
 	{
-		if (this->Memory.FreeBlocks[i] == p_node.Index
-			&& this->Indices.FreeBlocks[i] == p_node.Index
-			&& this->Indices_childs.FreeBlocks[i] == p_node.Index)
+		if (this->Memory.FreeBlocks[i] == p_node.val
+			&& this->Indices.FreeBlocks[i] == p_node.val
+			&& this->Indices_childs.FreeBlocks[i] == p_node.val)
 		{
 			this->Memory.FreeBlocks.erase_at(i, 1);
 			this->Indices.FreeBlocks.erase_at(i, 1);
@@ -195,10 +203,10 @@ inline bool NTree<ElementType, Allocator>::set_value_at_freenode(const com::TPoo
 			
 
 			// this->Indices_childs.resolve(p_node.Index).hasValue = true;
-			this->Memory[p_node.Index] = p_value;
+			this->Memory[p_node.val] = p_value;
 			NTreeNode l_node;
-			l_node.allocate(p_node.Index, -1, p_node.Index);
-			this->Indices[p_node.Index] = l_node;
+			l_node.allocate(p_node.val, -1, p_node.val);
+			this->Indices[p_node.val] = l_node;
 
 			return true;
 		}
@@ -209,7 +217,7 @@ inline bool NTree<ElementType, Allocator>::set_value_at_freenode(const com::TPoo
 
 template<class ElementType, class Allocator>
 template<class NTreeForEach>
-inline void NTree<ElementType, Allocator>::remove(com::PoolToken p_value, NTreeForEach& p_foreach_childs)
+inline void NTree<ElementType, Allocator>::remove(com::TPoolToken<NTreeNode>& p_value, NTreeForEach& p_foreach_childs)
 {
 	struct RemoveFoearch
 	{
@@ -250,12 +258,19 @@ inline void NTree<ElementType, Allocator>::remove(com::PoolToken p_value, NTreeF
 			NTreeResolve<ElementType>& l_resolve = l_removetree_foreach.involved_nodes[i];
 			l_resolve.node->free();
 			this->Indices.release_element(l_resolve.node->index);
-			this->Indices_childs.resolve(l_resolve.node->index).free();
-			this->Indices_childs.release_element(l_resolve.node->index);
-			this->Memory.release_element(l_resolve.node->index);
+			this->Indices_childs.resolve(l_resolve.node->index.cast<com::Vector<com::TPoolToken<NTreeNode>>>()).free();
+			this->Indices_childs.release_element(l_resolve.node->index.cast<com::Vector<com::TPoolToken<NTreeNode>>>());
+			this->Memory.release_element(l_resolve.node->index.cast<ElementType>());
 		}
 	}
 	l_removetree_foreach.free();
+};
+
+template<class ElementType, class Allocator>
+template<class NTreeForEach>
+inline void NTree<ElementType, Allocator>::remove(com::TPoolToken<ElementType>& p_value, NTreeForEach& p_foreach_childs)
+{
+	return this->remove(p_value.cast<NTreeNode>(), p_foreach_childs);
 };
 
 template<class ElementType, class Allocator, class NTreeForEach>
@@ -264,8 +279,7 @@ inline void traverse_resolved_exclusive(NTree<ElementType, Allocator>* p_tree, N
 	com::Vector<com::TPoolToken<NTreeNode>>& l_start_childs = p_tree->get_childs(p_start);
 	for (size_t l_child_index = 0; l_child_index < l_start_childs.Size; l_child_index++)
 	{
-		com::PoolToken l_treenode_token = l_start_childs[l_child_index];
-		NTreeResolve<ElementType> l_child = p_tree->resolve(l_treenode_token);
+		NTreeResolve<ElementType> l_child = p_tree->resolve(l_start_childs[l_child_index]);
 		com::Vector<com::TPoolToken<NTreeNode>>& l_child_childs = p_tree->get_childs(l_child);
 		if (l_child_childs.Size > 0)
 		{
@@ -278,10 +292,8 @@ inline void traverse_resolved_exclusive(NTree<ElementType, Allocator>* p_tree, N
 
 template<class ElementType, class Allocator>
 template<class NTreeForEach>
-inline void NTree<ElementType, Allocator>::traverse(com::PoolToken& p_start, NTreeForEach& p_foreach)
+inline void NTree<ElementType, Allocator>::traverse(com::TPoolToken<NTreeNode>& p_start, NTreeForEach& p_foreach)
 {
-	// static_assert(std::is_base_of<INTreeForEach<ElementType>, NTreeForEach>::value, "NTreeForEach must implements INTreeForEach.");
-
 	NTreeResolve<ElementType> l_start = this->resolve(p_start);
 	com::Vector<com::TPoolToken<NTreeNode>>& l_start_childs = this->get_childs(l_start);
 	for (size_t l_child_index = 0; l_child_index < l_start_childs.Size; l_child_index++)
@@ -291,4 +303,11 @@ inline void NTree<ElementType, Allocator>::traverse(com::PoolToken& p_start, NTr
 		p_foreach.foreach(l_child);
 	}
 	p_foreach.foreach(l_start);
+};
+
+template<class ElementType, class Allocator>
+template<class NTreeForEach>
+inline void NTree<ElementType, Allocator>::traverse(com::TPoolToken<ElementType>& p_start, NTreeForEach& p_foreach)
+{
+	this->traverse(p_start.cast<NTreeNode>(), p_foreach);
 };

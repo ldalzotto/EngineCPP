@@ -161,7 +161,7 @@ struct AssetDatabaseUpdate
 			};
 		};
 
-		l_assetfile_tree.traverse(com::PoolToken(0), ForeachFile(this, l_execution_time));
+		l_assetfile_tree.traverse(com::TPoolToken<NTreeNode>(0), ForeachFile(this, l_execution_time));
 		// l_asset_database_update.asset_tool_database.set_last_executiontime(l_execution_time);
 		l_assetfile_tree.free();
 	}

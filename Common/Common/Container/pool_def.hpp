@@ -3,34 +3,39 @@
 #include <type_traits>
 #include "vector_def.hpp"
 #include "Common/Functional/Optional.hpp"
+#include "Common/Memory/type_safety.hpp"
 
 namespace com
 {
-	struct PoolToken
+	struct PoolToken : public SizetType
 	{
-		size_t Index;
-
-		inline PoolToken() : Index{(size_t)-1} {};
-		inline PoolToken(size_t p_index) : Index{p_index} {};
-
-		inline void reset() { this->Index = -1; };
+		using SizetType::SizetType;
 	};
-
+	
 	template<class TYPE>
-	struct TPoolToken : PoolToken {
-		inline TPoolToken() : PoolToken() { };
-		inline TPoolToken(size_t p_index) : PoolToken(p_index) {};
+	struct TPoolToken : public SizetType {
+		using SizetType::SizetType;
 
 		template<class CastedType>
 		inline TPoolToken<CastedType> cast()
 		{
-			return TPoolToken<CastedType>(this->Index);
+			return TPoolToken<CastedType>(this->val);
 		};
 
 		template<class CastedType>
 		inline const TPoolToken<CastedType> cast() const
 		{
-			return TPoolToken<CastedType>(this->Index);
+			return TPoolToken<CastedType>(this->val);
+		};
+
+		inline PoolToken to_pooltoken()
+		{
+			return PoolToken(this->val);
+		};
+
+		inline const PoolToken to_pooltoken() const
+		{
+			return PoolToken(this->val);
 		};
 	};
 

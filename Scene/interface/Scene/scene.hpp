@@ -182,7 +182,7 @@ struct SceneHeap
 	inline void free_component(SceneNodeComponentToken& p_component)
 	{
 		this->component_heap.release_element(p_component);
-		p_component.Index = -1;
+		p_component.val = -1;
 	}
 
 private:
