@@ -18,6 +18,14 @@
 #include <fstream>
 #include <stdlib.h>
 
+//TODO -> adding an index to this file
+/*
+	1/ GPU memory management
+	2/ Deferred command buffer
+	3/ RenderAPI
+	4/ Render object instanciation
+*/
+
 using namespace Math;
 
 struct CameraMatrices
@@ -1380,7 +1388,7 @@ struct TextureLayoutTransitionCommand
 	inline static void execute_transition(CommandBuffer& p_commandbuffer, vk::Image& p_image, vk::ImageSubresourceRange& p_image_subresource_range)
 	{
 		execute_transition(p_commandbuffer, SourceLayout, TargetLayout, TransitionBarrierConfigurationBuilder<SourceLayout, TargetLayout>::build(), p_image, p_image_subresource_range);
-	}
+	};
 };
 
 struct DeferredCommandBufferExecution
@@ -1398,6 +1406,8 @@ struct DeferredCommandBufferExecution
 
 	};
 
+	//TODO -> using a struct type to ensure that the right index is passed
+	//        
 	typedef size_t DeferredCommandBufferExecutionIndex;
 
 	com::Vector<DeferredCommandBufferExecutionEntry> command_execution_order;
@@ -1415,6 +1425,7 @@ struct DeferredCommandBufferExecution
 	inline void dispose(Device& p_device)
 	{
 		this->command_execution_order.free();
+		this->dispose_lastframe_commands(p_device);
 		this->stagingbuffers.free();
 		this->stagingimages.free();
 		this->texturelayouttransitions.free();
@@ -1424,6 +1435,11 @@ struct DeferredCommandBufferExecution
 	inline com::TPoolToken<bool> allocate_completiontoken()
 	{
 		return this->commands_completion.alloc_element(true);
+	};
+
+	inline void release_completion_token(const com::TPoolToken<bool>& p_completion_token)
+	{
+		this->commands_completion.release_element(p_completion_token);
 	};
 
 	template<class DefferedCommandType, class DeferredBufferCommandsType>
@@ -1490,7 +1506,7 @@ struct DeferredCommandBufferExecution
 		return this->push_command(l_command, this->texturelayouttransitions);
 	};
 
-
+	
 	inline void invalidate_command(DeferredCommandBufferExecutionIndex p_command_index)
 	{
 		DeferredCommandBufferExecutionEntry& l_current_command_order = this->command_execution_order[p_command_index];
@@ -1522,8 +1538,6 @@ struct DeferredCommandBufferExecution
 
 		if (this->command_execution_order.Size > 0)
 		{
-			// this->command_buffer.begin();
-
 			for (size_t i = 0; i < this->command_execution_order.Size; i++)
 			{
 				DeferredCommandBufferExecutionEntry& l_current_command_order = this->command_execution_order[i];
@@ -1565,11 +1579,6 @@ struct DeferredCommandBufferExecution
 		return this->commands_completion.resolve(p_completion_token);
 	};
 
-	inline void release_completion_token(const com::TPoolToken<bool>& p_completion_token)
-	{
-		this->commands_completion.release_element(p_completion_token);
-	};
-
 private:
 	inline void dispose_lastframe_commands(Device& p_device)
 	{
@@ -1581,6 +1590,7 @@ private:
 
 struct DeferredCommandbufferExecutionToken
 {
+	//TODO -> replace by the deferred execution index
 	size_t QueueIndex = -1;
 	com::TPoolToken<bool> CompletionToken = -1;
 
@@ -1591,9 +1601,10 @@ struct DeferredCommandbufferExecutionToken
 		this->CompletionToken = p_completiontoken;
 	};
 
+	// /!\ Invalidation is only possible during the same frame where the deferred command buffer execution have been pushed
 	inline void invalidate(DeferredCommandBufferExecution& p_execution)
 	{
-		p_execution.invalidate_command(this->CompletionToken.Index);
+		p_execution.invalidate_command(this->QueueIndex);
 		this->QueueIndex = -1;
 	};
 
@@ -2382,7 +2393,7 @@ private:
 	{
 		vk::DescriptorPoolSize l_types[1];
 		l_types[0] = vk::DescriptorPoolSize();
-		l_types[0].setDescriptorCount(1);
+		l_types[0].setDescriptorCount(4);
 
 		vk::DescriptorPoolCreateInfo l_descriptor_pool_create_info;
 		l_descriptor_pool_create_info.setPNext(nullptr);
@@ -2390,7 +2401,7 @@ private:
 		l_descriptor_pool_create_info.setPPoolSizes(l_types);
 		l_descriptor_pool_create_info.setFlags(vk::DescriptorPoolCreateFlags(vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet));
 		l_descriptor_pool_create_info.setMaxSets(1000);
-
+		
 		this->descriptor_pool = this->device.device.createDescriptorPool(l_descriptor_pool_create_info);
 	}
 

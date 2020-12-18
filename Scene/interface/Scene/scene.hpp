@@ -22,7 +22,7 @@ struct SceneNodeComponentToken : public com::TPoolToken<GeneralPurposeHeapMemory
 
 struct SceneNodeComponentHeader
 {
-	size_t id = -1;
+	const SceneNodeComponent_TypeInfo* type = nullptr;
 
 	template<class ComponentType>
 	inline ComponentType* cast()
@@ -173,7 +173,7 @@ struct SceneHeap
 	{
 		SceneNodeComponentToken l_memory_allocated = allocate_component_internal(p_type);
 		SceneNodeComponentHeader* l_header = this->component_heap.map<SceneNodeComponentHeader>(l_memory_allocated);
-		l_header->id = p_type.id;
+		l_header->type = &p_type;
 		memcpy((char*)l_header + sizeof(SceneNodeComponentHeader), p_initial_value, p_type.size);
 
 		return l_memory_allocated;

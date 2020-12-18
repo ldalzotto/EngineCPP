@@ -6,7 +6,7 @@ set(CMAKE_CXX_STANDARD 17)
 
 add_compile_definitions(ASSETPATH_DEV=1)
 
-if("${CMAKE_BUILD_TYPE}" STREQUAL "Debug")
+if("${CMAKE_CONFIGURATION_TYPES}" STREQUAL "Debug")
 	add_compile_definitions(CONTAINER_BOUND_TEST=1)
 	add_compile_definitions(CONTAINER_MEMORY_TEST=1)
 	add_compile_definitions(SCENE_BOUND_TEST=1)

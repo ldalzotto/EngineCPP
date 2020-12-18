@@ -215,6 +215,30 @@ struct EditorSceneEventRemoveNode
 	};
 };
 
+struct EditorSceneEventDuplicateNode
+{
+	inline static const size_t Type = Hash<ConstString>::hash("EditorSceneEventDuplicateNode");
+
+	SceneNodeToken created_node;
+	SceneNodeToken duplicated_node;
+
+	inline EditorSceneEventDuplicateNode(const SceneNodeToken& p_duplicated_node)
+	{
+		this->duplicated_node = p_duplicated_node;
+	};
+
+	inline void _do(Scene* p_scene)
+	{
+		this->created_node = SceneKernel::duplicate_node(p_scene, this->duplicated_node);
+	};
+
+	inline void _undo(Scene* p_scene)
+	{
+		SceneKernel::remove_node(p_scene, this->created_node);
+	};
+
+};
+
 struct EditorSceneEventAddComponent
 {
 	inline static const size_t Type = Hash<ConstString>::hash("EditorSceneEventAddComponent");
@@ -441,6 +465,16 @@ struct EditorScene
 		((EditorSceneEventRemoveNode*)l_event.object)->_do(this->engine_scene);
 	};
 
+	inline SceneNodeToken duplicate_node(const SceneNodeToken& p_duplicated_node)
+	{
+		EditorSceneEvent l_event;
+		l_event.allocate(EditorSceneEventDuplicateNode(p_duplicated_node));
+		this->undo_events.push_back(l_event);
+
+		((EditorSceneEventDuplicateNode*)l_event.object)->_do(this->engine_scene);
+		return ((EditorSceneEventDuplicateNode*)l_event.object)->created_node;
+	};
+
 	inline SceneNodeComponentToken add_component(const SceneNodeComponent_TypeInfo* p_component_type, const SceneNodeToken& p_node)
 	{
 		EditorSceneEvent l_event;
@@ -485,6 +519,11 @@ struct EditorScene
 			case EditorSceneEventRemoveNode::Type:
 			{
 				((EditorSceneEventRemoveNode*)l_event.object)->_undo(this->engine_scene);
+			}
+			break;
+			case EditorSceneEventDuplicateNode::Type:
+			{
+				((EditorSceneEventDuplicateNode*)l_event.object)->_undo(this->engine_scene);
 			}
 			break;
 			case EditorSceneEventAddComponent::Type:
@@ -1154,7 +1193,7 @@ struct SceneNodeSelection
 			{
 				SceneNodeComponentHeader* l_header = SceneKernel::resolve_component(engine_scene(p_engine), l_components[i]);
 				const char* l_component_name;
-				if (SceneComponentUtils::get_name_from_id(l_header->id, &l_component_name))
+				if (SceneComponentUtils::get_name_from_id(l_header->type->id, &l_component_name))
 				{
 					printf(l_component_name);
 					printf(",");
@@ -1290,6 +1329,22 @@ struct ToolState2
 				this->engine_runner.get_enginemodule(this->selected_engine.token).editor_scene.remove_node(l_selected_node);
 			}
 		}
+	};
+
+	inline SceneNodeToken duplicate_node()
+	{
+		if (this->selected_engine.is_valid(this->engine_runner))
+		{
+			SceneNodeToken l_selected_node = this->selected_node.root_selected_node;
+			if (SceneKernel::check_scenetoken_validity(this->engine_runner.get_enginemodule(this->selected_engine.token).editor_scene.engine_scene, l_selected_node))
+			{
+				this->set_selected_node(-1); //This is to remove all data that is attached to the node components by the editor
+				SceneNodeToken l_created_node = this->engine_runner.get_enginemodule(this->selected_engine.token).editor_scene.duplicate_node(l_selected_node);
+				this->set_selected_node(l_created_node.Index);
+				return l_created_node;
+			}
+		}
+		return SceneNodeToken();
 	};
 
 	inline void set_selected_node(const size_t p_node_index)
@@ -1518,6 +1573,20 @@ struct CommandHandler2
 		{
 			l_depth++;
 			p_tool_state.remove_node();
+		}
+		else if (l_commands[l_depth].equals(StringSlice("duplicate")))
+		{
+			l_depth++;
+			SceneNodeToken l_created_node = p_tool_state.duplicate_node();
+			if (l_created_node.Index != -1)
+			{
+				String<> l_str; l_str.allocate(0);
+				l_str.append(l_created_node.Index);
+				printf("Created node : ");
+				printf(l_str.c_str());
+				printf("\n");
+				l_str.free();
+			}
 		}
 		else if (l_commands[l_depth].equals("addc"))
 		{

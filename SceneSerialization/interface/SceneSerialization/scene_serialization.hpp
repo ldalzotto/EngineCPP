@@ -201,7 +201,7 @@ struct ComponentAssetSerializer
 	template<class ComponentAssetAllocator>
 	inline static bool Component_to_ComponentAsset2(SceneNodeComponentHeader* p_component_header, ComponentAssetAllocator& p_component_asset_allocator)
 	{
-		switch (p_component_header->id)
+		switch (p_component_header->type->id)
 		{
 		case MeshRenderer::Id:
 		{
@@ -652,7 +652,7 @@ private:
 			ComponentAssetAllocator l_componentasset_allocator = ComponentAssetAllocator(&p_compoent_asset_heap);
 			if (ComponentAssetSerializer::Component_to_ComponentAsset2(l_scene_node_component_header, l_componentasset_allocator))
 			{
-				l_component_asset.id = l_scene_node_component_header->id;
+				l_component_asset.id = l_scene_node_component_header->type->id;
 				l_component_asset.componentasset_heap_index = l_componentasset_allocator.allocated_chunk;
 				p_component_assets.push_back(l_component_asset);
 			}

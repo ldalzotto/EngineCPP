@@ -20,7 +20,7 @@ struct SceneComponentCallbacks
 	inline static void on_component_added(ComponentMiddlewares* p_component_middlewares, ComponentAddedParameter* p_parameter)
 	{
 		// if MeshRenderer, the push to render middleware
-		switch (p_parameter->component->id)
+		switch (p_parameter->component->type->id)
 		{
 		case MeshRenderer::Id:
 		{
@@ -37,7 +37,7 @@ struct SceneComponentCallbacks
 
 	inline static void on_component_removed(ComponentMiddlewares* p_component_middlewares, ComponentRemovedParameter* p_paramter)
 	{
-		switch (p_paramter->component->id)
+		switch (p_paramter->component->type->id)
 		{
 		case MeshRenderer::Id:
 		{
