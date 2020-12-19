@@ -187,7 +187,12 @@ struct SceneKernel
 
 	inline static com::Vector<SceneNodeComponentToken>& get_components(Scene* thiz, const SceneNodeToken p_node)
 	{
-		return thiz->node_to_components[*resolve_node(thiz, p_node).element->scenetree_entry.cast_to_componentstoken()];
+		return get_components(thiz, resolve_node(thiz, p_node));
+	};
+
+	inline static com::Vector<SceneNodeComponentToken>& get_components(Scene* thiz, const NTreeResolve<SceneNode>& p_node)
+	{
+		return thiz->node_to_components[*p_node.element->scenetree_entry.cast_to_componentstoken()];
 	};
 
 	inline static bool get_component(Scene* thiz, const SceneNodeToken p_node, const SceneNodeComponent_TypeInfo& p_component_type_info, SceneNodeComponentHeader** out_component_header)
@@ -347,24 +352,92 @@ struct SceneKernel
 		return l_node;
 	};
 
-	//TODO -> it's the whole tree with "p_node" as root that must be duplciated.
-	inline static SceneNodeToken duplicate_node(Scene* thiz, const SceneNodeToken& p_node)
+	inline static SceneNodeToken duplicate_single_node(Scene* thiz, SceneNodeToken& p_node)
 	{
-		NTreeResolve<SceneNode> l_node_to_duplicate = SceneKernel::resolve_node(thiz, p_node);
+		NTreeResolve<SceneNode> l_node_resolved = resolve_node(thiz, p_node);
+		return duplicate_single_node_internal(thiz, l_node_resolved.element->scenetree_entry, SceneNodeToken(l_node_resolved.node->parent.val));
+	};
+
+	inline static SceneNodeToken duplicate_tree_node(Scene* thiz, SceneNodeToken& p_node)
+	{
+		struct DuplicateNodeForeach
+		{
+			com::Vector<SceneNodeToken> nodes_to_duplicate;
+			com::Vector<size_t> nodes_to_duplicate_parent;
+
+			inline void free()
+			{
+				this->nodes_to_duplicate.free();
+				this->nodes_to_duplicate_parent.free();
+			}
+
+			inline void foreach(NTreeResolve<SceneNode>& p_node)
+			{
+				this->nodes_to_duplicate.push_back(SceneNodeToken(p_node.node->index.val));
+
+				//If this is the root
+				if (this->nodes_to_duplicate_parent.Size == 0)
+				{
+					this->nodes_to_duplicate_parent.push_back(-1);
+				}
+				else
+				{
+					bool l_found = false;
+					for (size_t i = 0; i < this->nodes_to_duplicate.Size; i++)
+					{
+						if (this->nodes_to_duplicate.operator[](i).val == p_node.node->parent.val)
+						{
+							this->nodes_to_duplicate_parent.push_back(i);
+							l_found = true;
+							break;
+						}
+					}
+
+					if (!l_found)
+					{
+						//The parent has not been found.
+						abort();
+					}
+				}
+
+				// SceneNodeToken l_duplicated_node = SceneKernel::duplicate_single_node_internal(this->scene, p_node, SceneNodeToken(p_node.node->parent.val));
+			}
+		};
+		DuplicateNodeForeach l_duplicate_foreach = DuplicateNodeForeach();
+		SceneKernel::traverse(thiz, p_node, l_duplicate_foreach);
+
+		com::Vector<SceneNodeToken> l_duplicated_nodes;
+		l_duplicated_nodes.push_back(SceneKernel::duplicate_single_node(thiz, l_duplicate_foreach.nodes_to_duplicate[0]));
+		
+
+		for (size_t i = 1; i < l_duplicate_foreach.nodes_to_duplicate.Size; i++)
+		{
+			SceneKernel::duplicate_single_node_internal(thiz, l_duplicate_foreach.nodes_to_duplicate[i], l_duplicated_nodes[l_duplicate_foreach.nodes_to_duplicate_parent[i]]);
+		}
+
+		l_duplicate_foreach.free();
+		SceneNodeToken l_duplicated_tree_root_node = l_duplicated_nodes[0];
+		l_duplicated_nodes.free();
+
+		return l_duplicated_tree_root_node;
+	};
+
+	inline static SceneNodeToken duplicate_single_node_internal(Scene* thiz, SceneNodeToken& p_node, const SceneNodeToken& p_parent)
+	{
 		SceneNodeToken l_node = SceneKernel::add_node(thiz,
-			SceneNodeToken(l_node_to_duplicate.node->parent.val),
-			Math::Transform(SceneKernel::get_localposition(l_node_to_duplicate), SceneKernel::get_localrotation(l_node_to_duplicate), SceneKernel::get_localscale(l_node_to_duplicate))
+			SceneNodeToken(p_parent.val),
+			Math::Transform(SceneKernel::get_localposition(p_node, thiz), SceneKernel::get_localrotation(p_node, thiz), SceneKernel::get_localscale(p_node, thiz))
 		);
 
 		com::Vector<SceneNodeComponentToken>& l_components_to_duplicate = SceneKernel::get_components(thiz, p_node);
 		for (size_t i = 0; i < l_components_to_duplicate.Size; i++)
 		{
 			SceneNodeComponentHeader* l_component_header = SceneKernel::resolve_component(thiz, l_components_to_duplicate[i]);
-			
+
 			SceneKernel::add_component(thiz, l_node, *l_component_header->type, l_component_header->get_component_object());
 		}
 		return l_node;
-	}
+	};
 
 	inline static void remove_node(Scene* thiz, com::PoolToken& p_node)
 	{
@@ -515,7 +588,7 @@ struct SceneKernel
 		return get_localposition(thiz.element);
 	};
 
-	inline static Math::vec3f& get_localposition(SceneNodeToken p_node, Scene* p_scene)
+	inline static Math::vec3f& get_localposition(const SceneNodeToken p_node, Scene* p_scene)
 	{
 		return get_localposition(resolve_node(p_scene, p_node));
 	};

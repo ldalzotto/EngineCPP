@@ -229,7 +229,8 @@ struct EditorSceneEventDuplicateNode
 
 	inline void _do(Scene* p_scene)
 	{
-		this->created_node = SceneKernel::duplicate_node(p_scene, this->duplicated_node);
+		// this->created_node = SceneKernel::duplicate_single_node(p_scene, this->duplicated_node);
+		this->created_node = SceneKernel::duplicate_tree_node(p_scene, this->duplicated_node);
 	};
 
 	inline void _undo(Scene* p_scene)
@@ -847,131 +848,137 @@ struct NodeMovement2
 			this->state != State::UNDEFINED)
 		{
 			Scene* p_scene = p_engine_running_module.editor_scene.engine_scene;
-			NTreeResolve<SceneNode> l_node = SceneKernel::resolve_node(p_scene, p_node);
 
-			switch (this->state)
-			{
-			case State::POSITION_LOCAL:
-			{
+			if (SceneKernel::check_scenetoken_validity(p_scene, p_node)) 
+			{ 
+			
 
-				float l_value = 0.0f;
+				NTreeResolve<SceneNode> l_node = SceneKernel::resolve_node(p_scene, p_node);
 
-				if (l_input.get_state(InputKey::InputKey_LEFT_CONTROL, KeyState::KeyStateFlag_PRESSED))
+				switch (this->state)
 				{
-					if (l_input.get_state(InputKey::InputKey_UP, KeyState::KeyStateFlag_PRESSED))
-					{
-						l_value = this->movement_step;
-					}
-					else if (l_input.get_state(InputKey::InputKey_DOWN, KeyState::KeyStateFlag_PRESSED))
-					{
-						l_value = -this->movement_step;
-					}
-				}
-				else
+				case State::POSITION_LOCAL:
 				{
-					if (l_input.get_state(InputKey::InputKey_UP, KeyState::KeyStateFlag_PRESSED_THIS_FRAME))
+
+					float l_value = 0.0f;
+
+					if (l_input.get_state(InputKey::InputKey_LEFT_CONTROL, KeyState::KeyStateFlag_PRESSED))
 					{
-						l_value = this->movement_step;
+						if (l_input.get_state(InputKey::InputKey_UP, KeyState::KeyStateFlag_PRESSED))
+						{
+							l_value = this->movement_step;
+						}
+						else if (l_input.get_state(InputKey::InputKey_DOWN, KeyState::KeyStateFlag_PRESSED))
+						{
+							l_value = -this->movement_step;
+						}
 					}
-					else if (l_input.get_state(InputKey::InputKey_DOWN, KeyState::KeyStateFlag_PRESSED_THIS_FRAME))
+					else
 					{
-						l_value = -this->movement_step;
+						if (l_input.get_state(InputKey::InputKey_UP, KeyState::KeyStateFlag_PRESSED_THIS_FRAME))
+						{
+							l_value = this->movement_step;
+						}
+						else if (l_input.get_state(InputKey::InputKey_DOWN, KeyState::KeyStateFlag_PRESSED_THIS_FRAME))
+						{
+							l_value = -this->movement_step;
+						}
+
 					}
 
-				}
 
+					Math::vec4f l_delta = Math::vec4f(0.0f, 0.0f, 0.0f, 0.0f);
 
-				Math::vec4f l_delta = Math::vec4f(0.0f, 0.0f, 0.0f, 0.0f);
+					switch (this->direction)
+					{
+					case Direction::X:
+					{
+						l_delta.x = l_value;
+					}
+					break;
+					case Direction::Y:
+					{
+						l_delta.y = l_value;
+					}
+					break;
+					case Direction::Z:
+					{
+						l_delta.z = l_value;
+					}
+					break;
+					}
 
-				switch (this->direction)
-				{
-				case Direction::X:
-				{
-					l_delta.x = l_value;
+					if (!Math::EqualsVec(l_delta, Math::vec4f(0.0f, 0.0f, 0.0f, 0.0f)))
+					{
+						l_delta.Vec3 = Math::rotate(l_delta.Vec3, SceneKernel::get_localrotation(l_node));
+						p_engine_running_module.editor_scene.set_localposition(l_node, SceneKernel::get_localposition(l_node) + l_delta.Vec3);
+					}
 				}
 				break;
-				case Direction::Y:
+				case State::ROTATION_LOCAL:
 				{
-					l_delta.y = l_value;
-				}
-				break;
-				case Direction::Z:
-				{
-					l_delta.z = l_value;
-				}
-				break;
-				}
 
-				if (!Math::EqualsVec(l_delta, Math::vec4f(0.0f, 0.0f, 0.0f, 0.0f)))
-				{
-					l_delta.Vec3 = Math::rotate(l_delta.Vec3, SceneKernel::get_localrotation(l_node));
-					p_engine_running_module.editor_scene.set_localposition(l_node, SceneKernel::get_localposition(l_node) + l_delta.Vec3);
-				}
-			}
-			break;
-			case State::ROTATION_LOCAL:
-			{
+					float l_value = 0.0f;
 
-				float l_value = 0.0f;
-
-				if (l_input.get_state(InputKey::InputKey_LEFT_CONTROL, KeyState::KeyStateFlag_PRESSED))
-				{
-					if (l_input.get_state(InputKey::InputKey_UP, KeyState::KeyStateFlag_PRESSED))
+					if (l_input.get_state(InputKey::InputKey_LEFT_CONTROL, KeyState::KeyStateFlag_PRESSED))
 					{
-						l_value = this->rotation_step_deg * DEG_TO_RAD;
+						if (l_input.get_state(InputKey::InputKey_UP, KeyState::KeyStateFlag_PRESSED))
+						{
+							l_value = this->rotation_step_deg * DEG_TO_RAD;
+						}
+						else if (l_input.get_state(InputKey::InputKey_DOWN, KeyState::KeyStateFlag_PRESSED))
+						{
+							l_value = -this->rotation_step_deg * DEG_TO_RAD;
+						}
 					}
-					else if (l_input.get_state(InputKey::InputKey_DOWN, KeyState::KeyStateFlag_PRESSED))
+					else
 					{
-						l_value = -this->rotation_step_deg * DEG_TO_RAD;
+						if (l_input.get_state(InputKey::InputKey_UP, KeyState::KeyStateFlag_PRESSED_THIS_FRAME))
+						{
+							l_value = this->rotation_step_deg * DEG_TO_RAD;
+						}
+						else if (l_input.get_state(InputKey::InputKey_DOWN, KeyState::KeyStateFlag_PRESSED_THIS_FRAME))
+						{
+							l_value = -this->rotation_step_deg * DEG_TO_RAD;
+						}
 					}
-				}
-				else
-				{
-					if (l_input.get_state(InputKey::InputKey_UP, KeyState::KeyStateFlag_PRESSED_THIS_FRAME))
-					{
-						l_value = this->rotation_step_deg * DEG_TO_RAD;
-					}
-					else if (l_input.get_state(InputKey::InputKey_DOWN, KeyState::KeyStateFlag_PRESSED_THIS_FRAME))
-					{
-						l_value = -this->rotation_step_deg * DEG_TO_RAD;
-					}
-				}
 
 
 
-				Math::vec3f l_axis = Math::vec3f(0.0f, 0.0f, 0.0f);
-				switch (this->direction)
-				{
-				case Direction::X:
-				{
-					l_axis.x = 1.0f;
+					Math::vec3f l_axis = Math::vec3f(0.0f, 0.0f, 0.0f);
+					switch (this->direction)
+					{
+					case Direction::X:
+					{
+						l_axis.x = 1.0f;
+					}
+					break;
+					case Direction::Y:
+					{
+						l_axis.y = 1.0f;
+					}
+					break;
+					case Direction::Z:
+					{
+						l_axis.z = 1.0f;
+					}
+					break;
+					}
+
+					Math::quat l_delta = Math::rotateAround(l_axis, l_value);
+
+					if (!Math::Equals(l_delta, Math::QuatConst::IDENTITY))
+					{
+						p_engine_running_module.editor_scene.set_localrotation(l_node, mul(SceneKernel::get_localrotation(l_node), Math::rotateAround(l_axis, l_value)));
+					}
 				}
 				break;
-				case Direction::Y:
-				{
-					l_axis.y = 1.0f;
-				}
-				break;
-				case Direction::Z:
-				{
-					l_axis.z = 1.0f;
-				}
-				break;
 				}
 
-				Math::quat l_delta = Math::rotateAround(l_axis, l_value);
 
-				if (!Math::Equals(l_delta, Math::QuatConst::IDENTITY))
-				{
-					p_engine_running_module.editor_scene.set_localrotation(l_node, mul(SceneKernel::get_localrotation(l_node), Math::rotateAround(l_axis, l_value)));
-				}
-			}
-			break;
-			}
+				this->set_gizmo_position(l_node, p_scene);
 
-
-			this->set_gizmo_position(l_node, p_scene);
-
+			}	
 		}
 	};
 
@@ -1231,7 +1238,11 @@ struct SceneNodeSelection
 	{
 		for (size_t i = 0; i < this->selected_nodes_renderer.Size; i++)
 		{
-			this->selected_nodes_renderer[i].set_original_meshrenderer(engine_scene(p_old_engine), engine_render_middleware(p_old_engine));
+			Scene* l_scene = engine_scene(p_old_engine);
+			if (SceneKernel::check_scenetoken_validity(l_scene, this->selected_nodes_renderer[i].node))
+			{
+				this->selected_nodes_renderer[i].set_original_meshrenderer(l_scene, engine_render_middleware(p_old_engine));
+			}
 		}
 		this->selected_nodes_renderer.clear();
 

@@ -41,12 +41,10 @@ struct EngineLoop
 
 			this->update_internal(this->timebetweenupdates_mics * 0.000001f);
 		}
-		/*
 		else
 		{
 			WaitForSingleObject(GetCurrentThread(), (this->timebetweenupdates_mics - this->accumulatedelapsedtime_mics) * 0.0009999);
 		}
-		*/
 	};
 
 	inline void update_forced_delta(float p_delta)

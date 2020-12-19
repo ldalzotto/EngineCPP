@@ -71,6 +71,7 @@ struct NTree
 	template<class NTreeForEach>
 	void remove(com::TPoolToken<ElementType>& p_value, NTreeForEach& p_foreach_childs);
 
+	/* /!\ Traverse order is called from top to bottom. As soon as a node have a child, the iterator goes one level deeper. */
 	template<class NTreeForEach>
 	void traverse(com::TPoolToken<ElementType>& p_start, NTreeForEach& p_foreach);
 	template<class NTreeForEach>

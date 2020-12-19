@@ -2419,7 +2419,7 @@ private:
 		l_descriptor_pool_create_info.setPoolSizeCount(1);
 		l_descriptor_pool_create_info.setPPoolSizes(l_types);
 		l_descriptor_pool_create_info.setFlags(vk::DescriptorPoolCreateFlags(vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet));
-		l_descriptor_pool_create_info.setMaxSets(1000);
+		l_descriptor_pool_create_info.setMaxSets(10000);
 		
 		this->descriptor_pool = this->device.device.createDescriptorPool(l_descriptor_pool_create_info);
 	}
