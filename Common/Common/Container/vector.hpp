@@ -135,17 +135,26 @@ namespace com
 
 	Vector_TemplateHeader inline char Vector_ClassName::push_back(MemorySlice<TYPE>& p_elements)
 	{
-		return this->insert_at(p_elements, this->Size - 1);
+		if (this->Size == 0)
+		{
+			return this->insert_at(p_elements, 0);
+		}
+		else
+		{
+			return this->insert_at(p_elements, this->Size - 1);
+		}
 	};
 
 	Vector_TemplateHeader
 		inline char Vector_ClassName::insert_at(MemorySlice<TYPE>& p_elements, const size_t p_index)
 	{
-		//TODO -> this must be a bounding test
+
+#if CONTAINER_BOUND_TEST
 		if (p_index > this->Size)
 		{
-			return 0;
+			abort();
 		}
+#endif
 
 		if (this->Size + p_elements.count() > this->Capacity)
 		{

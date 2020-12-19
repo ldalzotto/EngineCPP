@@ -50,13 +50,23 @@ namespace com
 
 		inline const TYPE& operator[](size_t p_index) const
 		{
-			//TODO -> Bound check
+#if CONTAINER_BOUND_TEST
+			if ((this->Begin + p_index) >= this->End)
+			{
+				abort();
+			}
+#endif
 			return (this->Memory + Begin)[p_index];
 		};
 
 		inline TYPE& operator[](size_t p_index)
 		{
-			//TODO -> Bound check
+#if CONTAINER_BOUND_TEST
+			if ((this->Begin + p_index) >= this->End)
+			{
+				abort();
+			}
+#endif
 			return (this->Memory + Begin)[p_index];
 		};
 	};
@@ -68,7 +78,6 @@ namespace com
 
 		inline TYPE& operator[](size_t p_index)
 		{
-			//TODO -> Bound check
 			return this->Memory[p_index];
 		};
 
