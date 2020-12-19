@@ -390,3 +390,71 @@ struct JSONDeserializer<MaterialAsset>
 		return l_asset;
 	}
 };
+
+
+struct TextureFormat
+{
+	enum class Type
+	{
+		fRGBA = 0
+	};
+
+};
+
+struct TextureAsset
+{
+	Math::Vector<2, int> size;
+	int channel_number;
+	TextureFormat::Type format;
+	com::Vector<char> pixels;
+
+	inline void free()
+	{
+		this->pixels.free();
+	}
+
+	inline void clear()
+	{
+		this->pixels.clear();
+	}
+
+	inline static TextureAsset build(Math::Vector<2, int>& p_size, const int& p_channel_number, char* p_pixels)
+	{
+		TextureAsset l_asset;
+		l_asset.size = p_size;
+		l_asset.channel_number = p_channel_number;
+		if (l_asset.channel_number == 4)
+		{
+			l_asset.format = TextureFormat::Type::fRGBA;
+		}
+		else
+		{
+			abort();
+		}
+		l_asset.pixels.Memory = p_pixels;
+		l_asset.pixels.Size = l_asset.size.x * l_asset.size.y * l_asset.channel_number;
+		l_asset.pixels.Capacity = l_asset.pixels.Size;
+
+		return l_asset;
+	};
+
+	inline static TextureAsset cast_from(const char* p_data)
+	{
+		TextureAsset l_resource;
+
+		size_t l_current_pointer = 0;
+		l_resource.size = *Serialization::Binary::deserialize_field<Math::Vector<2, int>>(l_current_pointer, p_data);
+		l_resource.channel_number = *Serialization::Binary::deserialize_field<int>(l_current_pointer, p_data);
+		l_resource.format = *Serialization::Binary::deserialize_field<TextureFormat::Type>(l_current_pointer, p_data);
+		l_resource.pixels = Serialization::Binary::deserialize_vector<char>(l_current_pointer, p_data);
+		return l_resource;
+	};
+
+	inline void sertialize_to(com::Vector<char>& out_target)
+	{
+		Serialization::Binary::serialize_field<Math::Vector<2, int>>(&this->size, out_target);
+		Serialization::Binary::serialize_field<int>(&this->channel_number, out_target);
+		Serialization::Binary::serialize_field<TextureFormat::Type>(&this->format, out_target);
+		Serialization::Binary::serialize_vector<char>(this->pixels, out_target);
+	};
+};

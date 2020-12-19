@@ -1935,7 +1935,6 @@ private:
 
 	inline void create_depth_image(DeferredCommandBufferExecution& p_staging_commands)
 	{
-		//TODO -> format check
 		this->depth_format = vk::Format::eD16Unorm;
 
 		vk::ImageCreateInfo l_depth_image_create_info;
@@ -2770,6 +2769,7 @@ struct Texture
 	com::Vector<DeferredCommandbufferExecutionToken> layout_transitions;
 
 	inline void allocate(const size_t p_key,
+		const TextureFormat::Type p_format,
 		const size_t p_chanel_size, const size_t p_channel_nb,
 		const int p_width, const int p_height, const char* p_pixels, DeferredCommandBufferExecution& p_commandbuffer_execution, Device& p_device)
 	{
@@ -2793,8 +2793,7 @@ struct Texture
 		l_image_create.setMipLevels(this->image_subresource_range.levelCount);
 		l_image_create.setArrayLayers(this->image_subresource_range.layerCount);
 
-		//TODO -> this must be calculated from PixelChanelType and ChannelNb
-		l_image_create.setFormat(vk::Format::eR8G8B8A8Srgb);
+		l_image_create.setFormat(format_to_vk(p_format));
 
 		l_image_create.setTiling(vk::ImageTiling::eOptimal);
 		l_image_create.setInitialLayout(vk::ImageLayout::eUndefined);
@@ -2851,6 +2850,19 @@ private:
 			p_commandbuffer_execution.allocate_texturelayouttransitioncommand(this->image_buffer.buffer, this->image_subresource_range, SourceLayout, TargetLayout,
 				TransitionBarrierConfigurationBuilder<SourceLayout, TargetLayout>::build(), l_token.CompletionToken);
 		return l_token;
+	};
+
+
+	inline static vk::Format format_to_vk(const TextureFormat::Type& p_format)
+	{
+		switch (p_format)
+		{
+		case TextureFormat::Type::fRGBA:
+			return vk::Format::eR8G8B8A8Srgb;
+			break;
+		}
+
+		return vk::Format::eUndefined;
 	};
 };
 
@@ -3428,41 +3440,6 @@ struct RenderHeap2
 				this->render_heap = &p_render_heap;
 			};
 
-			struct TextureAsset
-			{
-				Vector<2, int> size;
-				int channel_number;
-				com::Vector<char> pixels;
-
-				inline void free()
-				{
-					this->pixels.free();
-				}
-
-				inline void clear()
-				{
-					this->pixels.clear();
-				}
-
-				inline static TextureAsset cast_from(const char* p_data)
-				{
-					TextureAsset l_resource;
-
-					size_t l_current_pointer = 0;
-					l_resource.size = *Serialization::Binary::deserialize_field<Vector<2, int>>(l_current_pointer, p_data);
-					l_resource.channel_number = *Serialization::Binary::deserialize_field<int>(l_current_pointer, p_data);
-					l_resource.pixels = Serialization::Binary::deserialize_vector<char>(l_current_pointer, p_data);
-					return l_resource;
-				};
-
-				inline void sertialize_to(com::Vector<char>& out_target)
-				{
-					Serialization::Binary::serialize_field<Vector<2, int>>(&this->size, out_target);
-					Serialization::Binary::serialize_field<int>(&this->channel_number, out_target);
-					Serialization::Binary::serialize_vector<char>(this->pixels, out_target);
-				};
-			};
-
 			inline com::TPoolToken<Texture> allocate(const size_t& p_key)
 			{
 				com::TPoolToken<Texture> l_texture;
@@ -3470,7 +3447,7 @@ struct RenderHeap2
 				{
 					TextureAsset l_texture_asset = TextureAsset::cast_from(l_texture_asset_binary.Memory);
 					Texture l_texture_resource;
-					l_texture_resource.allocate(p_key, sizeof(char), l_texture_asset.channel_number, l_texture_asset.size.x, l_texture_asset.size.y, l_texture_asset.pixels.Memory,
+					l_texture_resource.allocate(p_key, l_texture_asset.format, sizeof(char), l_texture_asset.channel_number, l_texture_asset.size.x, l_texture_asset.size.y, l_texture_asset.pixels.Memory,
 						this->render_heap->render_api->stagedbuffer_commands, this->render_heap->render_api->device);
 					l_texture = this->render_heap->textures.alloc_element(l_texture_resource);
 				}

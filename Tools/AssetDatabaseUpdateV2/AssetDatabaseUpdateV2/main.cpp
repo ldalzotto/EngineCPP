@@ -253,12 +253,13 @@ private:
 			}
 			else if (p_file.extension.find(StringSlice("png"), &tmp) || p_file.extension.find(StringSlice("jpg"), &tmp))
 			{
-				RenderHeap2::Resource::TextureResourceAllocator::TextureAsset l_texture_resource;
+				
+				Vector<2, int> l_size;
+				int l_channel_number;
+				char* l_pixels = (char*)stbi_load(p_file.path.path.c_str(), &l_size.x, &l_size.y, &l_channel_number, STBI_rgb_alpha);
+				l_channel_number = 4;
 
-				l_texture_resource.pixels.Memory = (char*)stbi_load(p_file.path.path.c_str(), &l_texture_resource.size.x, &l_texture_resource.size.y, &l_texture_resource.channel_number, STBI_rgb_alpha);
-				l_texture_resource.channel_number = 4;
-				l_texture_resource.pixels.Size = l_texture_resource.size.x * l_texture_resource.size.y * l_texture_resource.channel_number;
-				l_texture_resource.pixels.Capacity = l_texture_resource.pixels.Size;
+				TextureAsset l_texture_resource = TextureAsset::build(l_size, l_channel_number, l_pixels);
 
 				com::Vector<char> l_texture_resource_bytes;
 				l_texture_resource.sertialize_to(l_texture_resource_bytes);

@@ -356,7 +356,7 @@ struct EditorSceneEventSetParent
 
 	inline void _do(Scene* p_scene)
 	{
-		this->old_parent = SceneNodeToken(SceneKernel::resolve_node(p_scene, this->node).node->parent.val) ;
+		this->old_parent = SceneNodeToken(SceneKernel::resolve_node(p_scene, this->node).node->parent.val);
 		SceneKernel::add_child(p_scene, this->parent, this->node);
 	};
 
@@ -394,6 +394,29 @@ struct EditorScene
 	Scene* engine_scene;
 	com::Vector<EditorSceneEvent> undo_events;
 	String<> engine_scene_asset_path;
+
+
+	// /!\ editor scene nodes are always allocated at the end of the scene node tree memory.
+	//     this is to avoid weird behavior when we undo scene node deletion or creationg. To avoid that the newly placed editor node takes the slot of a potential undoable
+	//     node.
+	struct EditorSceneNodeAllocator
+	{
+		size_t scenenode_memory_constraint = 0;
+
+		inline SceneNodeToken allocate_node(Scene* p_scene, SceneNodeToken p_parent)
+		{
+			SceneNodeToken l_node = SceneKernel::add_node_memoryposition_constrained(p_scene, p_parent, Math::Transform(), this->scenenode_memory_constraint);
+
+			if (l_node.val >= this->scenenode_memory_constraint)
+			{
+				this->scenenode_memory_constraint = l_node.val;
+			}
+
+			SceneKernel::add_tag(p_scene, l_node, MainToolConstants::EditorNodeTag);
+			return l_node;
+		}
+
+	} editor_scenenode_allocator;
 
 	inline void allocate(Scene* p_engine_scene, StringSlice& p_engine_asset_path)
 	{
@@ -729,29 +752,18 @@ struct NodeMovement2
 	{
 		SceneNodeToken gizmo_scene_node;
 
-		// /!\ editor scene nodes are always allocated at the end of the scene node tree memory.
-		//     this is to avoid weird behavior when we undo scene node deletion or creationg. To avoid that the newly placed editor node takes the slot of a potential undoable
-		//     node.
-		//TODO -> Move allocation of scene node to it's asscoaited utils class.
-		size_t gizmo_scene_node_scenememory_contraint = 0;
-
-		inline void create(SceneNodeToken p_parent, EngineHandle p_engine)
+		inline void create(SceneNodeToken p_parent, EditorScene& p_editor_scene)
 		{
 			if (this->gizmo_scene_node.val == -1)
 			{
-				this->gizmo_scene_node = SceneKernel::add_node_memoryposition_constrained(engine_scene(p_engine), p_parent, Math::Transform(), gizmo_scene_node_scenememory_contraint);
+				this->gizmo_scene_node = p_editor_scene.editor_scenenode_allocator.allocate_node(p_editor_scene.engine_scene, p_parent);
 				printf("Allocated gizmo : ");
 				printf("%lld", this->gizmo_scene_node.val);
 				printf("\n");
-				if (this->gizmo_scene_node.val >= this->gizmo_scene_node_scenememory_contraint)
-				{
-					this->gizmo_scene_node_scenememory_contraint = this->gizmo_scene_node.val;
-				}
 
-				SceneKernel::add_tag(engine_scene(p_engine), this->gizmo_scene_node, MainToolConstants::EditorNodeTag);
 				MeshRenderer l_ms;
 				l_ms.initialize(StringSlice("materials/editor_gizmo.json"), StringSlice("models/arrow.obj"));
-				SceneKernel::add_component<MeshRenderer>(engine_scene(p_engine), this->gizmo_scene_node, l_ms);
+				SceneKernel::add_component<MeshRenderer>(p_editor_scene.engine_scene, this->gizmo_scene_node, l_ms);
 			}
 
 		}
@@ -1101,7 +1113,7 @@ private:
 	{
 		if (p_new_direction != Direction::UNDEFINED)
 		{
-			this->gizmo.create(SceneNodeToken(0), p_engine_running_module.running_engine);
+			this->gizmo.create(SceneNodeToken(0), p_engine_running_module.editor_scene);
 			this->gizmo.set(p_new_direction, p_engine_running_module.running_engine);
 		}
 	};
@@ -1824,7 +1836,7 @@ int main()
 		String<> l_scene_path;
 		l_scene_path.allocate(255);
 		l_scene_path.Memory.Size = l_scene_path.Memory.Capacity;
-		fgets(l_scene_path.Memory.Memory, l_scene_path.Memory.capacity_in_bytes() - 1, stdin);
+		fgets(l_scene_path.Memory.Memory, (int)l_scene_path.Memory.capacity_in_bytes() - 1, stdin);
 		l_scene_path.Memory.Size = strlen(l_scene_path.Memory.Memory) + 1;
 		l_scene_path.remove_chars('\n');
 
