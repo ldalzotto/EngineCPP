@@ -174,7 +174,7 @@ struct SceneKernel
 	};
 
 	template<class ComponentType>
-	inline static void remove_component(Scene* thiz, const com::PoolToken p_node)
+	inline static void remove_component(Scene* thiz, const SceneNodeToken p_node)
 	{
 		remove_component(thiz, p_node, ComponentType::Type);
 	};

@@ -5,8 +5,6 @@
 #include "Math/math.hpp"
 #include "Common/Container/vector.hpp"
 #include "Common/Container/pool.hpp"
-#include "Common/Functional/Sort.hpp"
-#include <vector>
 #include "Engine/engine.hpp"
 #include "SceneComponents/components.hpp"
 #include "Math/serialization.hpp"
@@ -14,6 +12,8 @@
 #include "Middleware/render_middleware.hpp"
 #include "Scene/kernel/scene.hpp"
 #include "SceneSerialization/scene_serialization.hpp"
+
+const SceneNodeComponent_TypeInfo test_component_info = SceneNodeComponent_TypeInfo(3, 28);
 
 using namespace Math;
 
@@ -50,18 +50,20 @@ void update(void* p_engine, float p_delta)
 			}
 		}
 		l_nodes.free();
-
-
-		/*
-		com::Vector<size_t> l_numbers;
-		for (size_t i = 0; i < 10; i++)
-		{
-			l_numbers.push_back(floorf(((float)rand() / RAND_MAX) * 10));
-		}
-
-		QuickpartitionSort<size_t, QuickCompare<size_t>>::sort_array(l_numbers.to_memoryslice());
-		*/
 	}
+	/*
+	else if ((testContext.framecount % 2) == 0)
+	{
+		testContext.center_node = com::PoolToken(9);
+		SceneKernel::remove_component(l_scenehandle, SceneNodeToken(testContext.center_node.val), test_component_info);
+	}
+	else
+	{
+
+		testContext.center_node = com::PoolToken(9);
+		SceneKernel::add_component(l_scenehandle, SceneNodeToken(testContext.center_node.val), test_component_info, (void*)&test_component_info);
+	}
+	*/
 
 	if (l_input.get_state(InputKey::InputKey_B, KeyState::KeyStateFlag_PRESSED_THIS_FRAME))
 	{
@@ -88,8 +90,11 @@ void update(void* p_engine, float p_delta)
 		SceneKernel::set_localrotation(l_node, l_scenehandle, mul(SceneKernel::get_localrotation(l_node), rotateAround(vec3f(0.0f, 1.0f, 0.0f), p_delta)));
 	}
 
+	
+
+
 	/*
-	else if ((testContext.framecount % 101) == 0)
+	if ((testContext.framecount % 101) == 0)
 	{
 		com::Vector<NTreeResolve<SceneNode>> l_nodes = l_scenehandle.get_nodes_with_component<MeshRenderer>();
 		if (l_nodes.Size > 0)
@@ -99,6 +104,7 @@ void update(void* p_engine, float p_delta)
 		l_nodes.free();
 	}
 	*/
+	
 #endif
 
 #if 0

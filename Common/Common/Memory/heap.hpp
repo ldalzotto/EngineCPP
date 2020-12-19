@@ -3,6 +3,7 @@
 #include <type_traits>
 #include "allocators.hpp"
 #include "Common/Container/pool.hpp"
+#include "Common/Functional/Sort.hpp"
 
 struct GeneralPurposeHeapMemoryChunk
 {
@@ -28,7 +29,6 @@ struct DefaultMemoryChunkMapper : public IMemoryChunkMapper<com::TPoolToken<Gene
 	inline com::TPoolToken<GeneralPurposeHeapMemoryChunk>& map(const GeneralPurposeHeapMemoryChunk& p_chunk, com::TPoolToken<GeneralPurposeHeapMemoryChunk>& p_chunktoken) { return p_chunktoken; }
 };
 
-//TODO - defragmentation (sorting free_chunks by offset and merging if neghbors)
 template<class Allocator = HeapAllocator>
 struct GeneralPurposeHeap
 {
@@ -204,6 +204,41 @@ struct GeneralPurposeHeap
 		this->allocated_chunks.release_element(p_buffer);
 	};
 
+	inline void defragment()
+	{
+		if (this->free_chunks.Size > 0)
+		{
+			struct FreeChunksComparisonElementProvider
+			{
+				inline FreeChunksComparisonElementProvider() {};
+				inline static size_t& get(GeneralPurposeHeapMemoryChunk& p_chunk)
+				{
+					return p_chunk.offset;
+				};
+			};
+
+			QuickpartitionSort<size_t, QuickCompare<size_t>>::sort_array(this->free_chunks.to_memoryslice(), FreeChunksComparisonElementProvider());
+
+			GeneralPurposeHeapMemoryChunk* l_compared_chunk = &this->free_chunks[0];
+
+			for (size_t i = 1; i < this->free_chunks.Size; i++)
+			{
+				GeneralPurposeHeapMemoryChunk& l_chunk = this->free_chunks[i];
+				if ((l_compared_chunk->offset + l_compared_chunk->chunk_size) == l_chunk.offset)
+				{
+					l_compared_chunk->chunk_size += l_chunk.chunk_size;
+					this->free_chunks.erase_at(i, 1);
+					i -= 1;
+				}
+				else
+				{
+					l_compared_chunk = &l_chunk;
+				}
+			}
+
+		}
+	};
+
 private:
 	void slice_memorychunk(const GeneralPurposeHeapMemoryChunk& p_source_chunk, size_t p_slice_offset, GeneralPurposeHeapMemoryChunk& out_left, GeneralPurposeHeapMemoryChunk& out_right)
 	{
@@ -257,13 +292,17 @@ struct GeneralPurposeHeap2
 	{
 		if (!this->heap.allocate_element(p_size, out_chunk, p_memorychunk_mapper))
 		{
-			size_t l_new_size;
-			if (ReallocStrategyFn::calculate_realloc_size(this->heap.memory.Size, p_size, &l_new_size))
+			this->heap.defragment();
+			if (!this->heap.allocate_element(p_size, out_chunk, p_memorychunk_mapper))
 			{
-				this->heap.realloc(l_new_size);
-				return this->heap.allocate_element(p_size, out_chunk, p_memorychunk_mapper);
+				size_t l_new_size;
+				if (ReallocStrategyFn::calculate_realloc_size(this->heap.memory.Size, p_size, &l_new_size))
+				{
+					this->heap.realloc(l_new_size);
+					return this->heap.allocate_element(p_size, out_chunk, p_memorychunk_mapper);
+				}
 			}
-
+			
 			return false;
 		}
 
@@ -279,4 +318,9 @@ struct GeneralPurposeHeap2
 	};
 
 	inline void release_element(const com::TPoolToken<GeneralPurposeHeapMemoryChunk> p_buffer) { this->heap.release_element(p_buffer); };
+
+	inline void defragment()
+	{
+		this->heap.defragment();
+	}
 };
