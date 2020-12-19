@@ -172,10 +172,18 @@ struct SceneHeap
 	inline SceneNodeComponentToken allocate_component(const SceneNodeComponent_TypeInfo& p_type, void* p_initial_value)
 	{
 		SceneNodeComponentToken l_memory_allocated = allocate_component_internal(p_type);
+		
 		SceneNodeComponentHeader* l_header = this->component_heap.map<SceneNodeComponentHeader>(l_memory_allocated);
 		l_header->type = &p_type;
-		memcpy((char*)l_header + sizeof(SceneNodeComponentHeader), p_initial_value, p_type.size);
 
+#if SCENE_BOUND_TEST
+		size_t l_memove_offset = sizeof(SceneNodeComponentHeader);
+		Mem::memcpy_safe((char*)l_header + l_memove_offset,
+			this->component_heap.resolve_allocated_chunk(*l_memory_allocated.cast_to_parent()).chunk_size - l_memove_offset
+			,p_initial_value, p_type.size);
+#else
+		memcpy((char*)l_header + sizeof(SceneNodeComponentHeader), p_initial_value, p_type.size);
+#endif
 		return l_memory_allocated;
 	}
 

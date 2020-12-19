@@ -1,10 +1,8 @@
 #pragma once
 
 #include "vector_def.hpp"
-#include <stdlib.h>
+#include "Common/Memory/standard.hpp"
 #include <string.h>
-
-//TODO -> adding memmove, memcopy safe versions
 
 namespace com
 {
@@ -19,17 +17,36 @@ namespace com
 	};
 
 	Vector_TemplateHeader
+	inline void* vector_memcpy(Vector_ClassName* p_target, size_t p_target_offset, const void* p_dst, size_t p_size)
+	{
+#if CONTAINER_BOUND_TEST
+		return Mem::memcpy_safe(((char*)p_target->Memory) + p_target_offset, p_target->capacity_in_bytes() - p_target_offset, p_dst, p_size);
+#else
+		return Mem::memcpy(((char*)p_target->Memory) + p_target_offset, p_dst, p_size);
+#endif
+	};
+
+	Vector_TemplateHeader
+		inline void* vector_memmove(Vector_ClassName* p_target, size_t p_target_offset, const void* p_dst, size_t p_size)
+	{
+#if CONTAINER_BOUND_TEST
+		return Mem::memmove_safe(((char*)p_target->Memory) + p_target_offset, p_target->capacity_in_bytes() - p_target_offset, p_dst, p_size);
+#else
+		return Mem::memmove(((char*)p_target->Memory) + p_target_offset, p_dst, p_size);
+#endif
+	};
+
+	Vector_TemplateHeader
 		inline void copy(Vector_ClassName* thiz, const Vector_ClassName& p_other)
 	{
 		if (thiz != &p_other)
 		{
 			thiz->allocator = p_other.allocator;
 			thiz->Memory = (TYPE*)thiz->allocator.malloc(p_other.Capacity * sizeof(TYPE));
-			memcpy(thiz->Memory, p_other.Memory, p_other.Capacity * sizeof(TYPE));
-
-
 			thiz->Capacity = p_other.Capacity;
 			thiz->Size = p_other.Size;
+
+			vector_memcpy(thiz, 0, p_other.Memory, p_other.Capacity * sizeof(TYPE));
 		}
 	};
 
@@ -127,8 +144,7 @@ namespace com
 		}
 		else
 		{
-			void* p_targetMemory = (char*)this->Memory + getElementOffset<TYPE>(this->Size);
-			memcpy(p_targetMemory, &p_element, sizeof(TYPE));
+			vector_memcpy(this, getElementOffset<TYPE>(this->Size), &p_element, sizeof(TYPE));
 			this->Size += 1;
 		}
 
@@ -158,14 +174,14 @@ namespace com
 		}
 		else
 		{
-			void* l_initialElement = (char*)this->Memory + getElementOffset<TYPE>(p_index);
+			size_t l_initialElement_offset = getElementOffset<TYPE>(p_index);
+			void* l_initialElement = (char*)this->Memory + l_initialElement_offset;
 			// If we insert between existing elements, we move down memory to give space for new elements
 			if (this->Size > p_index)
 			{
-				void* l_targetElement = (char*)this->Memory + getElementOffset<TYPE>(p_index + p_elements.count());
-				memmove(l_targetElement, l_initialElement, sizeof(TYPE) * (this->Size - p_index));
+				vector_memmove(this, getElementOffset<TYPE>(p_index + p_elements.count()), l_initialElement, sizeof(TYPE) * (this->Size - p_index));
 			}
-			memcpy(l_initialElement, p_elements.Memory + p_elements.Begin, p_elements.byte_count());
+			vector_memcpy(this, l_initialElement_offset, p_elements.Memory + p_elements.Begin, p_elements.byte_count());
 			this->Size += p_elements.count();
 		}
 
@@ -198,8 +214,10 @@ namespace com
 		// If we are not erasing the last element, then we move memory. Else, we have nothing to do.
 		if (p_index + p_size != this->Size)
 		{
-			void* p_targetMemory = (char*)this->Memory + getElementOffset<TYPE>(p_index);
-			memmove(p_targetMemory, (char*)p_targetMemory + (p_size * sizeof(TYPE)), (this->Size - p_index - p_size) * sizeof(TYPE));
+			size_t l_index_offset = getElementOffset<TYPE>(p_index);
+			void* p_targetMemory = (char*)this->Memory + l_index_offset;
+
+			vector_memmove(this, l_index_offset, (char*)p_targetMemory + (p_size * sizeof(TYPE)), (this->Size - p_index - p_size) * sizeof(TYPE));
 		}
 
 		this->Size -= p_size;

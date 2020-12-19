@@ -4,6 +4,7 @@
 #include "Common/Functional/Hash.hpp"
 #include "Common/Container/vector.hpp"
 #include "Common/File/file.hpp"
+#include "Common/Memory/standard.hpp"
 
 
 struct AssetPath
@@ -169,7 +170,7 @@ struct GenericAssetQuery
 				size_t l_size = sqlite3_column_bytes(p_statement, 0);
 				this->output->resize(l_size);
 				this->output->Size = l_size;
-				memcpy(this->output->Memory, sqlite3_column_blob(p_statement, 0), l_size);
+				Mem::memcpy_safe(this->output->Memory, this->output->capacity_in_bytes(), sqlite3_column_blob(p_statement, 0), l_size);
 			};
 		};
 
