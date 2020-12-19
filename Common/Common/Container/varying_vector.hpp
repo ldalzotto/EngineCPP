@@ -39,8 +39,13 @@ struct VaryingVector
 	template<class ElementType>
 	inline void push_back(const ElementHeaderType& p_header, const  ElementType& p_element)
 	{
+		this->push_back(p_header, (const char*)&p_element, sizeof(ElementType));
+	};
+
+	inline void push_back(const ElementHeaderType& p_header, const char* p_element, const size_t p_element_size)
+	{
 		VaryingVectorHeader<ElementHeaderType> l_header;
-		this->heap.allocate_element(&l_header.chunk, &p_element);
+		this->heap.allocate_element(p_element_size, &l_header.chunk, p_element);
 		l_header.header = p_header;
 		this->memory.push_back(l_header);
 	};

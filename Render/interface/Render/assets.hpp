@@ -298,7 +298,8 @@ enum class MaterialAssetParameterType
 {
 	UNKNOWN = 0,
 	TEXTURE = 1,
-	VEC4F = 2
+	UNIFORM_VARYING = 2,
+	UNIFORM_VARYING_VALUE = 3
 };
 
 struct MaterialAsset
@@ -351,15 +352,35 @@ struct JSONDeserializer<MaterialAsset>
 				size_t l_texture = Hash<StringSlice>::hash(l_parameter_iterator.get_currentfield().value);
 				l_asset.parameters.push_back(MaterialAssetParameterType::TEXTURE, l_texture);
 			}
-			else if (l_parameter_iterator.get_currentfield().value.equals(StringSlice("VEC4F")))
+			else if (l_parameter_iterator.get_currentfield().value.equals(StringSlice("UNIFORM")))
 			{
-				Deserialization::JSON::JSONObjectIterator l_value_iterator;
-				l_parameter_iterator.next_object("object", &l_value_iterator);
-				Math::vec4f l_param = JSONDeserializer<Math::vec4f>::deserialize(l_value_iterator);
-				l_asset.parameters.push_back(MaterialAssetParameterType::VEC4F, l_param);
-			}
-			//TODO -> implementing object as parameter that are a nested list of non obejct material parameter
+				Deserialization::JSON::JSONObjectIterator l_value_array_iterator;
+				l_parameter_iterator.next_array("object", &l_value_array_iterator);
 
+				com::Vector<char> l_uniform;
+
+				Deserialization::JSON::JSONObjectIterator l_value_iterator;
+				while (l_value_array_iterator.next_array_object(&l_value_iterator))
+				{
+					l_value_iterator.next_field("type");
+					if (l_value_iterator.get_currentfield().value.equals(StringSlice("VEC4F")))
+					{
+						Deserialization::JSON::JSONObjectIterator l_vec4f_it;
+						l_value_iterator.next_object("object", &l_vec4f_it);
+
+						Math::vec4f l_param = JSONDeserializer<Math::vec4f>::deserialize(l_vec4f_it);
+						l_uniform.push_back(com::MemorySlice<char>((char*)&l_param, sizeof(Math::vec4f)));
+
+						l_vec4f_it.free();
+					}
+				};
+
+				if (l_uniform.Size > 0)
+				{
+					l_asset.parameters.push_back<size_t>(MaterialAssetParameterType::UNIFORM_VARYING, l_uniform.Size);
+					l_asset.parameters.push_back(MaterialAssetParameterType::UNIFORM_VARYING_VALUE, l_uniform.Memory, l_uniform.Size);
+				}
+			}
 		}
 
 		l_parameters_iterator.free();

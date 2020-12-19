@@ -4,6 +4,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+//TODO -> adding memmove, memcopy safe versions
+
 namespace com
 {
 
@@ -135,14 +137,7 @@ namespace com
 
 	Vector_TemplateHeader inline char Vector_ClassName::push_back(MemorySlice<TYPE>& p_elements)
 	{
-		if (this->Size == 0)
-		{
-			return this->insert_at(p_elements, 0);
-		}
-		else
-		{
-			return this->insert_at(p_elements, this->Size - 1);
-		}
+		return this->insert_at(p_elements, this->Size);
 	};
 
 	Vector_TemplateHeader

@@ -7,6 +7,7 @@
 
 namespace com
 {
+
 	template<class TYPE, class Allocator = HeapAllocator>
 	struct Vector
 	{

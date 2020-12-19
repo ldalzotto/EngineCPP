@@ -3628,13 +3628,13 @@ public:
 					l_material.add_image_parameter(this->allocate_material_image_parameter(this->allocate_texture(*l_texture)));
 				}
 				break;
-				//TODO -> complex object imply the creation of a uniform buffer for every field.
-				//        having a more generic approach by giving the size of the uniform buffer instead of type ?
-				case MaterialAssetParameterType::VEC4F:
+				case MaterialAssetParameterType::UNIFORM_VARYING:
 				{
-					vec4f* l_value = l_material_asset.parameters.get_element<vec4f>(l_parameter_header.chunk);
+					size_t* l_uniform_size = l_material_asset.parameters.get_element<size_t>(l_parameter_header.chunk);
+					char* l_uniform_buffer = l_material_asset.parameters.get_element<char>(i + 1);
+
 					l_material.add_uniform_parameter(
-						this->allocate_material_uniform_parameter(GPtr::fromType(l_value))
+						this->allocate_material_uniform_parameter(GPtr(l_uniform_buffer, *l_uniform_size))
 					);
 				}
 				break;

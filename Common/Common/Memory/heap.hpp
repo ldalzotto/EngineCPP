@@ -309,6 +309,17 @@ struct GeneralPurposeHeap2
 		return true;
 	};
 
+	template<class ReturnType = com::TPoolToken<GeneralPurposeHeapMemoryChunk>&, class MemoryChunkMapper = DefaultMemoryChunkMapper >
+	inline bool allocate_element(size_t p_size, ReturnType* out_chunk, const char* p_initial_value, MemoryChunkMapper& p_memorychunk_mapper = DefaultMemoryChunkMapper())
+	{
+		bool l_return = this->allocate_element(p_size, out_chunk);
+		char* l_element = this->heap.map<char>(*out_chunk);
+		com::Vector<char> l_ement_array;
+		l_ement_array.Memory = l_element; l_ement_array.Size = 0; l_ement_array.Capacity = p_size;
+		l_ement_array.push_back(com::MemorySlice<char>((char*)p_initial_value, p_size));
+		return l_return;
+	};
+
 	template<class ElementType>
 	inline bool allocate_element(com::TPoolToken<GeneralPurposeHeapMemoryChunk>* out_chunk, const ElementType* p_initial_value)
 	{
