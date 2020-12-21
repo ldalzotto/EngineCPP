@@ -766,6 +766,12 @@ namespace Math
 			);
 	}
 
+	template<class TYPE>
+	inline Matrix<4, TYPE> TRS_getlocal_from(const Matrix<4, TYPE>& p_from, const Matrix<4, TYPE>& p_to)
+	{
+		return mul(p_from, inv(p_to));
+	};
+
 	template <class TYPE>
 	inline Matrix<4, TYPE> perspective(const float p_fov, const float p_aspect, const float p_near, const float p_far)
 	{

@@ -65,8 +65,8 @@ struct RenderMiddleware
 
 	inline void free()
 	{
-		this->allocated_renderableobjects.free();
-		this->allocated_renderableobjects_vector.free();
+		this->allocated_renderableobjects.free_checked();
+		this->allocated_renderableobjects_vector.free_checked();
 	};
 
 	inline void push_camera(const SceneNodeToken p_node_token, const NTreeResolve<SceneNode>& p_node, const Camera& p_camera)

@@ -7,6 +7,7 @@
 #include <AssetServer/asset_server.hpp>
 #include "engine_loop.hpp"
 #include "Input/input.hpp"
+#include "Collision/collision.hpp"
 
 #include "SceneComponents/components.hpp"
 #include "Middleware/render_middleware.hpp"
@@ -44,9 +45,11 @@ struct Engine
 	EngineLoop<EngineCallbacks> loop;
 	Scene scene;
 	RenderHandle render;
+	CollisionHandle collision;
 	InputHandle input;
 
 	RenderMiddleware render_middleware;
+	CollisionMiddleware collision_middleware;
 	ComponentMiddlewares all_middlewares;
 
 	Engine(const std::string& p_executeable_path, const ExternalHooks& p_hooks);
@@ -66,16 +69,20 @@ inline Engine::Engine(const std::string& p_executeable_path, const ExternalHooks
 		*(Callback<void, ComponentRemovedParameter>*) & Callback<ComponentMiddlewares, ComponentRemovedParameter>(&this->all_middlewares, SceneComponentCallbacks::on_component_removed),
 		*(Callback<void, ComponentAssetPushParameter>*) & Callback<void, ComponentAssetPushParameter>(nullptr, SceneComponentCallbacks::push_componentasset2));
 	this->render = create_render(this->asset_server);
+	this->collision.allocate();
 	this->input.allocate(render_window(this->render));
 	this->render_middleware.allocate(this->render, this->asset_server);
-	this->all_middlewares.render_middleware = &this->render_middleware;
+	this->collision_middleware.allocate(this->collision);
+	this->all_middlewares = ComponentMiddlewares(&this->render_middleware, &this->collision_middleware);
 }
 
 inline void Engine::dispose()
 {
 	SceneKernel::free_scene(&this->scene);
 	this->render_middleware.free();
+	this->collision_middleware.free();
 	this->input.free();
+	this->collision.free();
 	destroy_render(this->render);
 	this->asset_server.free();
 }
@@ -157,6 +164,8 @@ inline void EngineCallbacks::update_callback(float p_delta)
 
 inline void EngineCallbacks::endupdate_callback()
 {
+	this->closure->all_middlewares.collision_middleware->before_collision(&this->closure->scene);
+	this->closure->collision.update();
 }
 
 inline void EngineCallbacks::render_callback()

@@ -68,6 +68,19 @@ struct Camera
 
 inline const SceneNodeComponent_TypeInfo Camera::Type = SceneNodeComponent_TypeInfo(Camera::Id, sizeof(Camera));
 
+/*
+struct BoxCollider
+{
+	inline static const size_t Id = Hash<ConstString>::hash("BoxCollider");
+	static const SceneNodeComponent_TypeInfo Type;
+	inline static constexpr const char* TypeName = "BoxCollider";
+
+
+};
+
+inline const SceneNodeComponent_TypeInfo BoxCollider::Type = SceneNodeComponent_TypeInfo(BoxCollider::Id, sizeof(BoxCollider));
+*/
+
 struct SceneComponentUtils
 {
 	inline static bool get_type_from_name(StringSlice& p_component_type_name, SceneNodeComponent_TypeInfo const** out_type)

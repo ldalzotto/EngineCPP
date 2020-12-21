@@ -580,7 +580,7 @@ struct SceneKernel
 
 	inline static Math::vec3f& get_localposition(SceneNode* thiz)
 	{
-		return thiz->transform.local_position;
+		return thiz->transform.position;
 	};
 
 	inline static Math::vec3f& get_localposition(NTreeResolve<SceneNode>& thiz)
@@ -595,7 +595,7 @@ struct SceneKernel
 
 	inline static Math::quat& get_localrotation(SceneNode* thiz)
 	{
-		return thiz->transform.local_rotation;
+		return thiz->transform.rotation;
 	}; 
 	
 	inline static Math::quat& get_localrotation(NTreeResolve<SceneNode>& thiz)
@@ -610,7 +610,7 @@ struct SceneKernel
 
 	inline static Math::vec3f& get_localscale(SceneNode* thiz)
 	{
-		return thiz->transform.local_scale;
+		return thiz->transform.scale;
 	};
 
 	inline static Math::vec3f& get_localscale(NTreeResolve<SceneNode>& thiz)
@@ -625,10 +625,10 @@ struct SceneKernel
 
 	inline static void set_localposition(NodeKernel_InputParams, const Math::vec3f& p_position)
 	{
-		if (!Math::EqualsVec(thiz->transform.local_position, p_position))
+		if (!Math::EqualsVec(thiz->transform.position, p_position))
 		{
 			mark_for_recalculation(NodeKernel_InputValues);
-			thiz->transform.local_position = p_position;
+			thiz->transform.position = p_position;
 		}
 	};
 
@@ -639,19 +639,19 @@ struct SceneKernel
 
 	inline static void set_localrotation(NodeKernel_InputParams, const Math::quat& p_rotation)
 	{
-		if (!Equals(thiz->transform.local_rotation, p_rotation))
+		if (!Equals(thiz->transform.rotation, p_rotation))
 		{
 			mark_for_recalculation(NodeKernel_InputValues);
-			thiz->transform.local_rotation = p_rotation;
+			thiz->transform.rotation = p_rotation;
 		}
 	};
 
 	inline static void set_localscale(NodeKernel_InputParams, const Math::vec3f& p_scale)
 	{
-		if (!Math::EqualsVec(thiz->transform.local_scale, p_scale))
+		if (!Math::EqualsVec(thiz->transform.scale, p_scale))
 		{
 			mark_for_recalculation(NodeKernel_InputValues);
-			thiz->transform.local_scale = p_scale;
+			thiz->transform.scale = p_scale;
 		}
 	};
 
@@ -722,12 +722,12 @@ struct SceneKernel
 		NTreeResolve<SceneNode> l_current = SceneKernel::resolve_node(p_scene, thiz->scenetree_entry);
 		if (!l_current.node->has_parent())
 		{
-			return thiz->transform.local_rotation;
+			return thiz->transform.rotation;
 		}
 		else
 		{
 			NTreeResolve<SceneNode> l_parent = SceneKernel::resolve_node(p_scene, l_current.node->parent.val);
-			return mul(get_worldrotation(l_parent.element, p_scene), thiz->transform.local_rotation);
+			return mul(get_worldrotation(l_parent.element, p_scene), thiz->transform.rotation);
 		}
 	};
 
@@ -741,12 +741,12 @@ struct SceneKernel
 		NTreeResolve<SceneNode> l_current = SceneKernel::resolve_node(p_scene, thiz->scenetree_entry);
 		if (!l_current.node->has_parent())
 		{
-			return thiz->transform.local_scale;
+			return thiz->transform.scale;
 		}
 		else
 		{
 			NTreeResolve<SceneNode> l_parent = SceneKernel::resolve_node(p_scene, l_current.node->parent.val);
-			return mul(get_worldscalefactor(l_parent.element, p_scene), thiz->transform.local_scale);
+			return mul(get_worldscalefactor(l_parent.element, p_scene), thiz->transform.scale);
 		}
 	};
 
@@ -766,7 +766,7 @@ private:
 	{
 		if (thiz->state.matrices_mustBe_recalculated)
 		{
-			thiz->localtoworld = Math::TRS(thiz->transform.local_position, Math::extractAxis<float>(thiz->transform.local_rotation), thiz->transform.local_scale);
+			thiz->localtoworld = Math::TRS(thiz->transform.position, Math::extractAxis<float>(thiz->transform.rotation), thiz->transform.scale);
 			NTreeResolve<SceneNode> l_current = SceneKernel::resolve_node(p_scene, thiz->scenetree_entry);
 			if (l_current.node->has_parent())
 			{

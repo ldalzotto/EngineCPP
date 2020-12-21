@@ -3,14 +3,17 @@
 #include "Scene/scene.hpp"
 #include "SceneSerialization/scene_serialization.hpp"
 #include "render_middleware.hpp"
+#include "collision_middleware.hpp"
 
 struct ComponentMiddlewares
 {
 	RenderMiddleware* render_middleware = nullptr;
+	CollisionMiddleware* collision_middleware = nullptr;
 
 	inline ComponentMiddlewares() {};
-	inline ComponentMiddlewares(RenderMiddleware* p_render_middleware) {
+	inline ComponentMiddlewares(RenderMiddleware* p_render_middleware, CollisionMiddleware* p_collision_middleware) {
 		this->render_middleware = p_render_middleware;
+		this->collision_middleware = p_collision_middleware;
 	}
 };
 
