@@ -131,7 +131,7 @@ struct CollisionDetectionStep
 				com::TPoolToken<BoxCollider>& l_right_collider_token = this->heap->box_colliders_indices[j];
 				if (l_left_collider_token.val != l_right_collider_token.val)
 				{
-					BoxCollider& l_right_collider = this->heap->box_colliders[l_left_collider_token];
+					BoxCollider& l_right_collider = this->heap->box_colliders[l_right_collider_token];
 
 					// mat4f l_right_to_left_TRS = mul(l_left_collider_TRS_inv, l_right_collider.trs);
 					// AABB<float> l_right_projected = Geometry::project(l_right_collider.local_box, l_right_to_left_TRS);

@@ -18,6 +18,7 @@ namespace Math
 		};
 	};
 
+	/*
 	template<class TYPE>
 	struct OBB
 	{
@@ -32,4 +33,5 @@ namespace Math
 			this->radiuses = p_radiuses;
 		};
 	};
+	*/
 }

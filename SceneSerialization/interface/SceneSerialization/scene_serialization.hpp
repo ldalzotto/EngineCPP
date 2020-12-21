@@ -107,6 +107,31 @@ struct JSONSerializer<Camera>
 	};
 };
 
+template<>
+struct JSONDeserializer<BoxCollider>
+{
+	inline static BoxCollider deserialize(Deserialization::JSON::JSONObjectIterator& p_iterator)
+	{
+		BoxCollider l_asset;
+		Deserialization::JSON::JSONObjectIterator l_local_box_iterator;
+		p_iterator.next_object("local_box", &l_local_box_iterator);
+		l_asset.local_box = JSONDeserializer<Math::AABB<float>>::deserialize(l_local_box_iterator);
+		l_local_box_iterator.free();
+		p_iterator.free();
+		return l_asset;
+	};
+};
+
+template<>
+struct JSONSerializer<BoxCollider>
+{
+	inline static void serialize(Serialization::JSON::Deserializer& p_serializer, const BoxCollider& p_object)
+	{
+		p_serializer.start_object("local_box");
+		JSONSerializer<Math::AABB<float>>::serialize(p_serializer, p_object.local_box);
+	};
+};
+
 
 
 
@@ -136,6 +161,17 @@ struct ComponentAssetSerializer
 
 			return true;
 		}
+		else if (p_component_type.equals(BoxCollider::TypeName))
+		{
+			out_component_asset->id = BoxCollider::Id;
+			allocate_component_asset<BoxCollider>(p_compoent_asset_heap, &out_component_asset->componentasset_heap_index);
+
+			BoxCollider* l_camera_asset = p_compoent_asset_heap.map<BoxCollider>(out_component_asset->componentasset_heap_index);
+			*l_camera_asset = JSONDeserializer<BoxCollider>::deserialize(p_component_object_iterator);
+
+			return true;
+		}
+
 
 		return false;
 	};
@@ -152,6 +188,11 @@ struct ComponentAssetSerializer
 		else if (p_component_asset.id == Camera::Id)
 		{
 			l_component_type = StringSlice(Camera::TypeName);
+			l_component_detected = true;
+		}
+		else if (p_component_asset.id == BoxCollider::Id)
+		{
+			l_component_type = StringSlice(BoxCollider::TypeName);
 			l_component_detected = true;
 		}
 
@@ -172,6 +213,11 @@ struct ComponentAssetSerializer
 			case Camera::Id:
 			{
 				JSONSerializer<Camera>::serialize(p_serializer, *(Camera*)l_component);
+			}
+			break;
+			case BoxCollider::Id:
+			{
+				JSONSerializer<BoxCollider>::serialize(p_serializer, *(BoxCollider*)l_component);
 			}
 			break;
 			}
@@ -195,6 +241,11 @@ struct ComponentAssetSerializer
 			p_with_component.with_component((Camera*)p_component_asset_object, Camera::Type);
 		}
 		break;
+		case BoxCollider::Id:
+		{
+			p_with_component.with_component((BoxCollider*)p_component_asset_object, BoxCollider::Type);
+		}
+		break;
 		}
 	};
 
@@ -216,6 +267,14 @@ struct ComponentAssetSerializer
 			Camera* l_camera = p_component_header->cast<Camera>();
 			Camera* l_camera_asset = p_component_asset_allocator.allocate<Camera>();
 			*l_camera_asset = *l_camera;
+			return true;
+		}
+		break;
+		case BoxCollider::Id:
+		{
+			BoxCollider* l_boxcollider = p_component_header->cast<BoxCollider>();
+			BoxCollider* l_boxcollider_asset = p_component_asset_allocator.allocate<BoxCollider>();
+			*l_boxcollider_asset = *l_boxcollider;
 			return true;
 		}
 		break;

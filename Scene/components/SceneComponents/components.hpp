@@ -4,6 +4,7 @@
 #include "Common/Asset/asset_key.hpp"
 #include "Scene/component_def.hpp"
 #include <Render/assets.hpp>
+#include "Math/geometry_def.hpp"
 
 /*
 	Scene components are data holder objects. 
@@ -68,18 +69,24 @@ struct Camera
 
 inline const SceneNodeComponent_TypeInfo Camera::Type = SceneNodeComponent_TypeInfo(Camera::Id, sizeof(Camera));
 
-/*
+
 struct BoxCollider
 {
 	inline static const size_t Id = Hash<ConstString>::hash("BoxCollider");
 	static const SceneNodeComponent_TypeInfo Type;
 	inline static constexpr const char* TypeName = "BoxCollider";
 
+	Math::AABB<float> local_box;
 
+	inline BoxCollider() {};
+
+	inline BoxCollider(const Math::AABB<float>& p_local_box) {
+		this->local_box = p_local_box;
+	};
 };
 
 inline const SceneNodeComponent_TypeInfo BoxCollider::Type = SceneNodeComponent_TypeInfo(BoxCollider::Id, sizeof(BoxCollider));
-*/
+
 
 struct SceneComponentUtils
 {
@@ -97,6 +104,12 @@ struct SceneComponentUtils
 		case Hash<ConstString>::hash(Camera::TypeName):
 		{
 			*out_type = &Camera::Type;
+			return true;
+		}
+		break;
+		case Hash<ConstString>::hash(BoxCollider::TypeName):
+		{
+			*out_type = &BoxCollider::Type;
 			return true;
 		}
 		break;
@@ -118,6 +131,12 @@ struct SceneComponentUtils
 		case Camera::Id:
 		{
 			*out_name = Camera::TypeName;
+			return true;
+		}
+		break;
+		case BoxCollider::Id:
+		{
+			*out_name = BoxCollider::TypeName;
 			return true;
 		}
 		break;

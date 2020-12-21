@@ -35,6 +35,11 @@ struct SceneComponentCallbacks
 			p_component_middlewares->render_middleware->push_camera(p_parameter->node_token, p_parameter->node, *p_parameter->component->cast<Camera>());
 		}
 		break;
+		case BoxCollider::Id:
+		{
+			p_component_middlewares->collision_middleware->push_collider(p_parameter->node_token, *p_parameter->component->cast<BoxCollider>());
+		}
+		break;
 		}
 	};
 
@@ -50,6 +55,11 @@ struct SceneComponentCallbacks
 		case Camera::Id:
 		{
 			p_component_middlewares->render_middleware->remove_camera();
+		}
+		break;
+		case BoxCollider::Id:
+		{
+			p_component_middlewares->collision_middleware->remove_collider(p_paramter->node_token);
 		}
 		break;
 		}

@@ -1,7 +1,10 @@
 #include "Collision/collision.hpp"
 #include "Math/math.hpp"
+#include "Math/geometry.hpp"
+
 int main()
 {
+	/*
 	CollisionHandle l_collision;
 	l_collision.allocate();
 
@@ -23,4 +26,15 @@ int main()
 	l_box_collider.free(l_collision);
 
 	l_collision.free();
+	*/
+
+	bool l_lap = Geometry::overlap(
+		Math::AABB<float>(Math::vec3f(1.0f, 0.0f, 0.0f), Math::vec3f(0.1f, 0.1f, 0.1f)),
+		Math::AABB<float>(Math::vec3f(2.0f, 0.0f, 0.0f), Math::vec3f(1.0f, 1.0f, 1.0f))
+	);
+
+	bool l_lap2 = Geometry::overlap(
+		Math::AABB<float>(Math::vec3f(2.0f, 0.0f, 0.0f), Math::vec3f(1.0f, 1.0f, 1.0f)),
+		Math::AABB<float>(Math::vec3f(1.0f, 0.0f, 0.0f), Math::vec3f(0.1f, 0.1f, 0.1f))
+	);
 }

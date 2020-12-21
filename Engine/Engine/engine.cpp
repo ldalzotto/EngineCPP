@@ -166,6 +166,7 @@ inline void EngineCallbacks::endupdate_callback()
 {
 	this->closure->all_middlewares.collision_middleware->before_collision(&this->closure->scene);
 	this->closure->collision.update();
+	this->closure->all_middlewares.collision_middleware->debug_print();
 }
 
 inline void EngineCallbacks::render_callback()

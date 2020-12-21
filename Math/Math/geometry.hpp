@@ -11,9 +11,9 @@ struct Geometry
 	template<class TYPE>
 	inline static bool overlap(const AABB<TYPE>& p_left, const AABB<TYPE>& p_right)
 	{
-		if (fabsf(p_left.center.x - p_right.center.x) > fabsf(p_left.radiuses.x - p_right.radiuses.x)) return false;
-		if (fabsf(p_left.center.y - p_right.center.y) > fabsf(p_left.radiuses.y - p_right.radiuses.y)) return false;
-		if (fabsf(p_left.center.z - p_right.center.z) > fabsf(p_left.radiuses.z - p_right.radiuses.z)) return false;
+		if (fabsf(p_left.center.x - p_right.center.x) > (p_left.radiuses.x + p_right.radiuses.x)) return false;
+		if (fabsf(p_left.center.y - p_right.center.y) > (p_left.radiuses.y + p_right.radiuses.y)) return false;
+		if (fabsf(p_left.center.z - p_right.center.z) > (p_left.radiuses.z + p_right.radiuses.z)) return false;
 
 		return true;
 	};
@@ -39,9 +39,11 @@ struct Geometry
 		return l_return;
 	};
 
+	/*
 	template<class TYPE>
 	inline static bool overlap(const OBB<TYPE>& p_left, const OBB<TYPE>& p_right)
 	{
 		//TODO - Project right to left
 	};
+	*/
 };
