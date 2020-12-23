@@ -137,7 +137,7 @@ struct CollisionDetectionStep
 
 					OBB<float>l_right_projected = Geometry::to_obb(l_right_collider.local_box, l_right_collider.transform, l_right_collider.rotation_axis);
 					
-					if (Geometry::overlap(l_left_projected, l_right_projected))
+					if (Geometry::overlap2(l_left_projected, l_right_projected))
 					{
 						this->heap->collision_detection.push_collision_event(l_left_collider_token, l_right_collider_token);
 					}
