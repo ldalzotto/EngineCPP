@@ -123,10 +123,11 @@ struct Geometry
 	}
 	*/
 
-	//TODO -> this can be further simplified, by expressing p_right in p_left rotation reference
 	template<class TYPE>
 	inline static bool overlap2(const OBB<TYPE>& p_left, const OBB<TYPE>& p_right)
 	{
+		static_assert(false, "DEPRECATED");
+
 		Vector<3, TYPE> p_axes_arr[15];
 		com::MemorySlice<Vector<3, TYPE>> p_axes = com::MemorySlice<Vector<3, TYPE>>(p_axes_arr, 15);
 		p_axes[0] = p_left.rotation.Points2D[0];
@@ -167,6 +168,80 @@ struct Geometry
 				return false;
 			}
 		}
+
+		return true;
+	}
+
+	template<class TYPE>
+	inline static bool overlap3(const OBB<TYPE>& p_left, const OBB<TYPE>& p_right)
+	{
+		float l_left_radii_projected, l_right_radii_projected;
+		Matrix<3, TYPE> l_radii, l_radii_abs;
+		Vector<3, TYPE> l_t;
+
+		for (short int i = 0; i < 3; i++)
+		{
+			for (short int j = 0; j < 3; j++)
+			{
+				l_radii.Points2D[i].Points[j] = dot(p_left.rotation.Points2D[i], p_right.rotation.Points2D[j]);
+				l_radii_abs.Points2D[i].Points[j] = fabsf(l_radii.Points2D[i].Points[j]) + Tolerance<TYPE>::tol;
+			}
+		}
+
+		l_t = min(p_right.center, p_left.center);
+		l_t = Vector<3, TYPE>(dot(l_t, p_left.rotation.Points2D[0]), dot(l_t, p_left.rotation.Points2D[1]), dot(l_t, p_left.rotation.Points2D[2]));
+
+		for (short int i = 0; i < 3; i++)
+		{
+			l_left_radii_projected = p_left.radiuses.Points[i];
+			l_right_radii_projected = (p_right.radiuses.Points[0] * l_radii_abs.Points2D[i].Points[0]) + (p_right.radiuses.Points[1] * l_radii_abs.Points2D[i].Points[1]) + (p_right.radiuses.Points[2] * l_radii_abs.Points2D[i].Points[2]);
+			if (fabsf(l_t.Points[i]) > (l_left_radii_projected + l_right_radii_projected)) return false;
+		}
+
+		for (short int i = 0; i < 3; i++)
+		{
+			l_left_radii_projected = (p_left.radiuses.Points[0] * l_radii_abs.Points2D[0].Points[i]) + (p_left.radiuses.Points[1] * l_radii_abs.Points2D[1].Points[i]) + (p_left.radiuses.Points[2] * l_radii_abs.Points2D[2].Points[i]);
+			l_right_radii_projected = p_right.radiuses.Points[i];
+			if (fabsf((l_t.Points[0] * l_radii.Points2D[0].Points[i]) + (l_t.Points[1] * l_radii.Points2D[1].Points[i]) + (l_t.Points[2] * l_radii.Points2D[2].Points[i])) > (l_left_radii_projected + l_right_radii_projected)) return false;
+		}
+
+
+		l_left_radii_projected = (p_left.radiuses.Points[1] * l_radii_abs.Points2D[2].Points[0]) + (p_left.radiuses.Points[2] * l_radii_abs.Points2D[1].Points[0]);
+		l_right_radii_projected = (p_right.radiuses.Points[1] * l_radii_abs.Points2D[0].Points[2]) + (p_right.radiuses.Points[2] * l_radii_abs.Points2D[0].Points[1]);
+		if (fabsf((l_t.Points[2] * l_radii.Points2D[1].Points[0]) - (l_t.Points[1] * l_radii.Points2D[2].Points[0])) > (l_left_radii_projected + l_right_radii_projected)) return false;
+
+		l_left_radii_projected = (p_left.radiuses.Points[1] * l_radii_abs.Points2D[2].Points[1]) + (p_left.radiuses.Points[2] * l_radii_abs.Points2D[1].Points[1]);
+		l_right_radii_projected = (p_right.radiuses.Points[0] * l_radii_abs.Points2D[0].Points[2]) + (p_right.radiuses.Points[2] * l_radii_abs.Points2D[0].Points[0]);
+		if (fabsf((l_t.Points[2] * l_radii.Points2D[1].Points[1]) - (l_t.Points[1] * l_radii.Points2D[2].Points[1])) > (l_left_radii_projected + l_right_radii_projected)) return false;
+
+		l_left_radii_projected = (p_left.radiuses.Points[1] * l_radii_abs.Points2D[2].Points[2]) + (p_left.radiuses.Points[2] * l_radii_abs.Points2D[1].Points[2]);
+		l_right_radii_projected = (p_right.radiuses.Points[0] * l_radii_abs.Points2D[0].Points[1]) + (p_right.radiuses.Points[1] * l_radii_abs.Points2D[0].Points[0]);
+		if (fabsf((l_t.Points[2] * l_radii.Points2D[1].Points[2]) - (l_t.Points[1] * l_radii.Points2D[2].Points[2])) > (l_left_radii_projected + l_right_radii_projected)) return false;
+
+		l_left_radii_projected = (p_left.radiuses.Points[0] * l_radii_abs.Points2D[2].Points[0]) + (p_left.radiuses.Points[2] * l_radii_abs.Points2D[0].Points[0]);
+		l_right_radii_projected = (p_right.radiuses.Points[1] * l_radii_abs.Points2D[1].Points[2]) + (p_right.radiuses.Points[2] * l_radii_abs.Points2D[1].Points[1]);
+		if (fabsf((l_t.Points[0] * l_radii.Points2D[2].Points[0]) - (l_t.Points[2] * l_radii.Points2D[0].Points[0])) > (l_left_radii_projected + l_right_radii_projected)) return false;
+		
+		l_left_radii_projected = (p_left.radiuses.Points[0] * l_radii_abs.Points2D[2].Points[1]) + (p_left.radiuses.Points[2] * l_radii_abs.Points2D[0].Points[1]);
+		l_right_radii_projected = (p_right.radiuses.Points[0] * l_radii_abs.Points2D[1].Points[2]) + (p_right.radiuses.Points[2] * l_radii_abs.Points2D[1].Points[0]);
+		if (fabsf((l_t.Points[0] * l_radii.Points2D[2].Points[1]) - (l_t.Points[2] * l_radii.Points2D[0].Points[1])) > (l_left_radii_projected + l_right_radii_projected)) return false;
+
+		l_left_radii_projected = (p_left.radiuses.Points[0] * l_radii_abs.Points2D[2].Points[2]) + (p_left.radiuses.Points[2] * l_radii_abs.Points2D[0].Points[2]);
+		l_right_radii_projected = (p_right.radiuses.Points[0] * l_radii_abs.Points2D[1].Points[1]) + (p_right.radiuses.Points[1] * l_radii_abs.Points2D[1].Points[0]);
+		if (fabsf((l_t.Points[0] * l_radii.Points2D[2].Points[2]) - (l_t.Points[2] * l_radii.Points2D[0].Points[2])) > (l_left_radii_projected + l_right_radii_projected)) return false;
+
+		l_left_radii_projected = (p_left.radiuses.Points[0] * l_radii_abs.Points2D[1].Points[0]) + (p_left.radiuses.Points[1] * l_radii_abs.Points2D[0].Points[0]);
+		l_right_radii_projected = (p_right.radiuses.Points[1] * l_radii_abs.Points2D[2].Points[2]) + (p_right.radiuses.Points[2] * l_radii_abs.Points2D[2].Points[1]);
+		if (fabsf((l_t.Points[1] * l_radii.Points2D[0].Points[0]) - (l_t.Points[0] * l_radii.Points2D[1].Points[0])) > (l_left_radii_projected + l_right_radii_projected)) return false;
+		
+		l_left_radii_projected = (p_left.radiuses.Points[0] * l_radii_abs.Points2D[1].Points[1]) + (p_left.radiuses.Points[1] * l_radii_abs.Points2D[0].Points[1]);
+		l_right_radii_projected = (p_right.radiuses.Points[0] * l_radii_abs.Points2D[2].Points[2]) + (p_right.radiuses.Points[2] * l_radii_abs.Points2D[2].Points[0]);
+		if (fabsf((l_t.Points[1] * l_radii.Points2D[0].Points[1]) - (l_t.Points[0] * l_radii.Points2D[1].Points[1])) > (l_left_radii_projected + l_right_radii_projected)) return false;
+
+		l_left_radii_projected = (p_left.radiuses.Points[0] * l_radii_abs.Points2D[1].Points[2]) + (p_left.radiuses.Points[1] * l_radii_abs.Points2D[0].Points[2]);
+		l_right_radii_projected = (p_right.radiuses.Points[0] * l_radii_abs.Points2D[2].Points[1]) + (p_right.radiuses.Points[1] * l_radii_abs.Points2D[2].Points[0]);
+		if (fabsf((l_t.Points[1] * l_radii.Points2D[0].Points[2]) - (l_t.Points[0] * l_radii.Points2D[1].Points[2])) > (l_left_radii_projected + l_right_radii_projected)) return false;
+
 
 		return true;
 	}
