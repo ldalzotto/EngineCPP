@@ -1,9 +1,21 @@
 #pragma once
 
 #include "vector_def.hpp"
+#include "matrix_def.hpp"
 
 namespace Math
 {
+
+	template<unsigned N, class TYPE>
+	struct Segment
+	{
+		Vector<N, TYPE> A;
+		Vector<N, TYPE> B;
+
+		inline Segment() {};
+		inline Segment(const Vector<N, TYPE>& p_a, const Vector<N, TYPE>& p_b) { this->A = p_a; this->B = p_b; };
+	};
+
 	template<class TYPE>
 	struct AABB
 	{
@@ -18,20 +30,18 @@ namespace Math
 		};
 	};
 
-	/*
 	template<class TYPE>
 	struct OBB
 	{
 		Vector<3, TYPE> center;
-		Matrix<4, TYPE> TRS;
+		Matrix<3, TYPE> rotation;
 		Vector<3, float> radiuses;
 
 		inline OBB() {};
-		inline OBB(const Vector<3, TYPE>& p_center, const  Matrix<4, TYPE>& p_TRS, const Vector<3, float>& p_radiuses) {
+		inline OBB(const Vector<3, TYPE>& p_center, const  Matrix<3, TYPE>& p_rotation, const Vector<3, float>& p_radiuses) {
 			this->center = p_center;
-			this->TRS = p_TRS;
+			this->rotation = p_rotation;
 			this->radiuses = p_radiuses;
 		};
 	};
-	*/
 }

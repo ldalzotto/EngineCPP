@@ -37,7 +37,7 @@ struct CollisionMiddleware
 					SceneKernel::get_worldposition(l_scenenode.element, p_scene),
 					SceneKernel::get_worldrotation(l_scenenode.element, p_scene),
 					SceneKernel::get_worldscalefactor(l_scenenode.element, p_scene)
-				));
+				), SceneKernel::get_localrotation(l_scenenode.element));
 				l_collision_entry.force_update = false;
 			}
 		}

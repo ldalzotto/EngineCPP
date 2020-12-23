@@ -31,9 +31,9 @@ void BoxColliderHandle::free(CollisionHandle p_collision)
 	this->reset();
 };
 
-void BoxColliderHandle::on_collider_moved(CollisionHandle p_collision, const Math::Transform& p_transform)
+void BoxColliderHandle::on_collider_moved(CollisionHandle p_collision, const Math::Transform& p_transform, const Math::quat& p_local_rotation)
 {
-	((Collision*)p_collision.handle)->on_collider_moved(com::TPoolToken<BoxCollider>(this->handle), p_transform);
+	((Collision*)p_collision.handle)->on_collider_moved(com::TPoolToken<BoxCollider>(this->handle), p_transform, p_local_rotation);
 };
 
 com::Vector<BoxColliderHandle>& get_collision_events(CollisionHandle& p_collision, BoxColliderHandle& p_box_collider)

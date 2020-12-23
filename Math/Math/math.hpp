@@ -591,6 +591,20 @@ namespace Math
 		return l_return;
 	};
 
+	template <unsigned N, class TYPE>
+	inline Matrix<N, TYPE> add(const Matrix<N, TYPE>& p_left, const TYPE& p_right)
+	{
+		Matrix<N, TYPE> l_return;
+		for (short int p_column_index = 0; p_column_index < N; p_column_index++)
+		{
+			for (short int p_line_index = 0; p_line_index < N; p_line_index++)
+			{
+				l_return[p_column_index][p_line_index] = p_left.Points2D[p_column_index].Points[p_line_index] + p_right;
+			}
+		}
+		return l_return;
+	};
+
 	template <class TYPE>
 	inline TYPE det(const Matrix<4, TYPE>& p_mat, const short int p_column_index, const short int p_line_index)
 	{

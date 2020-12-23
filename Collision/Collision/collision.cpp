@@ -9,6 +9,7 @@ using namespace Math;
 struct BoxCollider
 {
 	Math::Transform transform;
+	Math::Matrix<3, float> rotation_axis;
 	AABB<float> local_box;
 };
 
@@ -90,9 +91,10 @@ struct CollisionHeap
 		this->collision_detection.collision_events.release_element(com::TPoolToken<com::Vector<com::TPoolToken<BoxCollider>>>(p_boxcollider.val));
 	};
 
-	inline void push_transform(const com::TPoolToken<BoxCollider>& p_boxcollider, const Math::Transform& p_transform)
+	inline void push_transform(const com::TPoolToken<BoxCollider>& p_boxcollider, const Math::Transform& p_world_transform, const Math::quat& p_local_rotation)
 	{
-		this->box_colliders[p_boxcollider].transform = p_transform;
+		this->box_colliders[p_boxcollider].transform = p_world_transform;
+		this->box_colliders[p_boxcollider].rotation_axis = Math::extractAxis<float>(p_world_transform.rotation);
 	};
 
 };
@@ -115,16 +117,16 @@ struct CollisionDetectionStep
 
 	inline void step()
 	{
-		//TODO 1/ Clear last frame results
 		this->heap->collision_detection.clear_lastframe();
 
+		//TODO avoiding multiple calculation with different order ?
 		for (size_t i = 0; i < this->colliders_tobe_process.Size; i++)
 		{
 			com::TPoolToken<BoxCollider>& l_left_collider_token = this->colliders_tobe_process[i];
 
 			BoxCollider& l_left_collider = this->heap->box_colliders[l_left_collider_token];
 
-			AABB<float> l_left_projected = Geometry::project(l_left_collider.local_box, l_left_collider.transform);
+			OBB<float>l_left_projected = Geometry::to_obb(l_left_collider.local_box, l_left_collider.transform, l_left_collider.rotation_axis);
 
 			for (size_t j = 0; j < this->heap->box_colliders_indices.Size; j++)
 			{
@@ -133,12 +135,8 @@ struct CollisionDetectionStep
 				{
 					BoxCollider& l_right_collider = this->heap->box_colliders[l_right_collider_token];
 
-					// mat4f l_right_to_left_TRS = mul(l_left_collider_TRS_inv, l_right_collider.trs);
-					// AABB<float> l_right_projected = Geometry::project(l_right_collider.local_box, l_right_to_left_TRS);
-
-					AABB<float> l_right_projected = Geometry::project(l_right_collider.local_box, l_right_collider.transform);
-
-					//TODO using OBB
+					OBB<float>l_right_projected = Geometry::to_obb(l_right_collider.local_box, l_right_collider.transform, l_right_collider.rotation_axis);
+					
 					if (Geometry::overlap(l_left_projected, l_right_projected))
 					{
 						this->heap->collision_detection.push_collision_event(l_left_collider_token, l_right_collider_token);
@@ -180,9 +178,9 @@ struct Collision
 		this->collision_detection_step.step();
 	};
 
-	inline void on_collider_moved(com::TPoolToken<BoxCollider>& p_moved_collider, const Transform& p_world_transform)
+	inline void on_collider_moved(com::TPoolToken<BoxCollider>& p_moved_collider, const Transform& p_world_transform, const Math::quat& p_local_rotation)
 	{
-		this->collision_heap.push_transform(p_moved_collider, p_world_transform);
+		this->collision_heap.push_transform(p_moved_collider, p_world_transform, p_local_rotation);
 		this->collision_detection_step.on_collider_moved(p_moved_collider);
 	};
 };
