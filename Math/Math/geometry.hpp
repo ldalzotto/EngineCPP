@@ -8,6 +8,55 @@
 
 using namespace Math;
 
+struct SATKernel
+{
+	//TODO -> We can have a more performant version by transforming right in left reference
+	template<class TYPE>
+	inline static bool separation_test_symetrical_LRoriented_shape(const Vector<3, TYPE>& p_left_center, const Vector<3, TYPE>& p_left_radii, const Matrix<3, TYPE>& p_left_rotation, 
+			const Vector<3, TYPE>& p_right_center, const Vector<3, TYPE>& p_right_radii, const Matrix<3, TYPE>& p_right_rotation, const Vector<3, TYPE>& p_tested_axis)
+	{
+		float l_left_radii_projected = 0;
+		float l_right_radii_projected = 0;
+		for (short int j = 0; j < 3; j++)
+		{
+			l_left_radii_projected += fabsf(dot(mul(p_left_rotation.Points2D[j], p_left_radii.Points[j]), p_tested_axis));
+			l_right_radii_projected += fabsf(dot(mul(p_right_rotation.Points2D[j], p_right_radii.Points[j]), p_tested_axis));
+		}
+
+		float l_left_center_projected = dot(p_left_center, p_tested_axis);
+		float l_right_center_projected = dot(p_right_center, p_tested_axis);
+
+		float l_tl = fabsf(l_right_center_projected - l_left_center_projected);
+
+		return (l_tl - (l_left_radii_projected + l_right_radii_projected) >= Tolerance<float>::tol);
+	};
+
+	template<class TYPE>
+	inline static bool separation_test_LRoriented_shape(const com::MemorySlice<Vector<3, TYPE>>& p_left_vertices, const Matrix<3, TYPE>& p_left_rotation,
+		const com::MemorySlice<Vector<3, TYPE>>& p_right_vertices, const Matrix<3, TYPE>& p_right_rotation, const Vector<3, TYPE>& p_tested_axis)
+	{
+		float l_left_min, l_left_max, l_right_min, l_right_max;
+		collapse_points_to_axis(p_tested_axis, p_left_vertices, &l_left_min, &l_left_max);
+		collapse_points_to_axis(p_tested_axis, p_right_vertices, &l_right_min, &l_right_max);
+
+		return (l_left_min < l_right_min || l_left_min > l_right_max) && (l_right_min < l_left_min || l_right_min > l_left_max);
+	};
+
+	template<class TYPE>
+	inline static void collapse_points_to_axis(const Vector<3, TYPE>& p_axis, com::MemorySlice<Vector<3, TYPE>> p_points, float* p_min, float* p_max)
+	{
+		*p_min = FLT_MAX;
+		*p_max = -FLT_MAX;
+
+		for (short int i = 0; i < p_points.count(); i++)
+		{
+			TYPE l_proj = dot(p_points[i], p_axis);
+			if (l_proj < *p_min) { *p_min = l_proj; }
+			if (l_proj > *p_max) { *p_max = l_proj; }
+		}
+	};
+};
+
 struct Geometry
 {
 	template<class TYPE>
@@ -59,21 +108,7 @@ struct Geometry
 
 
 	// This can be used as a generic shape to shape separate axis
-	/*
 
-	template<class TYPE>
-	inline static void collapse_points_to_axis(const Vector<3, TYPE>& p_axis, com::MemorySlice<Vector<3, TYPE>> p_points, float* p_min, float* p_max)
-	{
-		*p_min = FLT_MAX;
-		*p_max = -FLT_MAX;
-
-		for (short int i = 0; i < p_points.count(); i++)
-		{
-			TYPE l_proj = dot(p_points[i], p_axis);
-			if (l_proj < *p_min) { *p_min = l_proj; }
-			if (l_proj > *p_max) { *p_max = l_proj; }
-		}
-	};
 
 	template<class TYPE>
 	inline static bool overlap(const OBB<TYPE>& p_left, const OBB<TYPE>& p_right)
@@ -87,86 +122,51 @@ struct Geometry
 		extract_vertices(p_left, p_left_points.Memory, &l_index); l_index = 0;
 		extract_vertices(p_right, p_right_points.Memory, &l_index);
 
-		Vector<3, TYPE> p_axes_arr[15];
-		com::MemorySlice<Vector<3, TYPE>> p_axes = com::MemorySlice<Vector<3, TYPE>>(p_axes_arr, 15);
-		p_axes[0] = p_left.rotation.Points2D[0];
-		p_axes[1] = p_left.rotation.Points2D[1];
-		p_axes[2] = p_left.rotation.Points2D[2];
-
-		p_axes[3] = p_right.rotation.Points2D[0];
-		p_axes[4] = p_right.rotation.Points2D[1];
-		p_axes[5] = p_right.rotation.Points2D[2];
-
-		p_axes[6] = cross(p_left.rotation.Points2D[0], p_right.rotation.Points2D[0]);
-		p_axes[7] = cross(p_left.rotation.Points2D[0], p_right.rotation.Points2D[1]);
-		p_axes[8] = cross(p_left.rotation.Points2D[0], p_right.rotation.Points2D[2]);
-		p_axes[9] = cross(p_left.rotation.Points2D[1], p_right.rotation.Points2D[0]);
-		p_axes[10] = cross(p_left.rotation.Points2D[1], p_right.rotation.Points2D[1]);
-		p_axes[11] = cross(p_left.rotation.Points2D[1], p_right.rotation.Points2D[2]);
-		p_axes[12] = cross(p_left.rotation.Points2D[2], p_right.rotation.Points2D[0]);
-		p_axes[13] = cross(p_left.rotation.Points2D[2], p_right.rotation.Points2D[1]);
-		p_axes[14] = cross(p_left.rotation.Points2D[2], p_right.rotation.Points2D[2]);
-
-		float l_left_min, l_left_max, l_right_min, l_right_max;
-		for (short int i = 0; i < p_axes.count(); i++)
+		if (   SATKernel::separation_test_LRoriented_shape(p_left_points, p_left.rotation, p_right_points, p_right.rotation, p_left.rotation.Points2D[0])
+			|| SATKernel::separation_test_LRoriented_shape(p_left_points, p_left.rotation, p_right_points, p_right.rotation, p_left.rotation.Points2D[1])
+			|| SATKernel::separation_test_LRoriented_shape(p_left_points, p_left.rotation, p_right_points, p_right.rotation, p_left.rotation.Points2D[2])
+			|| SATKernel::separation_test_LRoriented_shape(p_left_points, p_left.rotation, p_right_points, p_right.rotation, p_right.rotation.Points2D[0])
+			|| SATKernel::separation_test_LRoriented_shape(p_left_points, p_left.rotation, p_right_points, p_right.rotation, p_right.rotation.Points2D[1])
+			|| SATKernel::separation_test_LRoriented_shape(p_left_points, p_left.rotation, p_right_points, p_right.rotation, p_right.rotation.Points2D[2])
+			|| SATKernel::separation_test_LRoriented_shape(p_left_points, p_left.rotation, p_right_points, p_right.rotation, cross(p_left.rotation.Points2D[0], p_right.rotation.Points2D[0]))
+			|| SATKernel::separation_test_LRoriented_shape(p_left_points, p_left.rotation, p_right_points, p_right.rotation, cross(p_left.rotation.Points2D[0], p_right.rotation.Points2D[1]))
+			|| SATKernel::separation_test_LRoriented_shape(p_left_points, p_left.rotation, p_right_points, p_right.rotation, cross(p_left.rotation.Points2D[0], p_right.rotation.Points2D[2]))
+			|| SATKernel::separation_test_LRoriented_shape(p_left_points, p_left.rotation, p_right_points, p_right.rotation, cross(p_left.rotation.Points2D[1], p_right.rotation.Points2D[0]))
+			|| SATKernel::separation_test_LRoriented_shape(p_left_points, p_left.rotation, p_right_points, p_right.rotation, cross(p_left.rotation.Points2D[1], p_right.rotation.Points2D[1]))
+			|| SATKernel::separation_test_LRoriented_shape(p_left_points, p_left.rotation, p_right_points, p_right.rotation, cross(p_left.rotation.Points2D[1], p_right.rotation.Points2D[2]))
+			|| SATKernel::separation_test_LRoriented_shape(p_left_points, p_left.rotation, p_right_points, p_right.rotation, cross(p_left.rotation.Points2D[2], p_right.rotation.Points2D[0]))
+			|| SATKernel::separation_test_LRoriented_shape(p_left_points, p_left.rotation, p_right_points, p_right.rotation, cross(p_left.rotation.Points2D[2], p_right.rotation.Points2D[1]))
+			|| SATKernel::separation_test_LRoriented_shape(p_left_points, p_left.rotation, p_right_points, p_right.rotation, cross(p_left.rotation.Points2D[2], p_right.rotation.Points2D[2]))
+			)
 		{
-			collapse_points_to_axis(p_axes[i], p_left_points, &l_left_min, &l_left_max);
-			collapse_points_to_axis(p_axes[i], p_right_points, &l_right_min, &l_right_max);
-
-			if (!((l_left_min >= l_right_min && l_left_min <= l_right_max) || (l_right_min >= l_left_min && l_right_min <= l_left_max)))
-			{
-				return false;
-			}
+			return false;
 		}
 
 		return true;
 	}
-	*/
 
 	template<class TYPE>
 	inline static bool overlap2(const OBB<TYPE>& p_left, const OBB<TYPE>& p_right)
 	{
-		static_assert(false, "DEPRECATED");
+		// static_assert(false, "DEPRECATED");
 
-		Vector<3, TYPE> p_axes_arr[15];
-		com::MemorySlice<Vector<3, TYPE>> p_axes = com::MemorySlice<Vector<3, TYPE>>(p_axes_arr, 15);
-		p_axes[0] = p_left.rotation.Points2D[0];
-		p_axes[1] = p_left.rotation.Points2D[1];
-		p_axes[2] = p_left.rotation.Points2D[2];
-
-		p_axes[3] = p_right.rotation.Points2D[0];
-		p_axes[4] = p_right.rotation.Points2D[1];
-		p_axes[5] = p_right.rotation.Points2D[2];
-
-		p_axes[6] = cross(p_left.rotation.Points2D[0], p_right.rotation.Points2D[0]);
-		p_axes[7] = cross(p_left.rotation.Points2D[0], p_right.rotation.Points2D[1]);
-		p_axes[8] = cross(p_left.rotation.Points2D[0], p_right.rotation.Points2D[2]);
-		p_axes[9] = cross(p_left.rotation.Points2D[1], p_right.rotation.Points2D[0]);
-		p_axes[10] = cross(p_left.rotation.Points2D[1], p_right.rotation.Points2D[1]);
-		p_axes[11] = cross(p_left.rotation.Points2D[1], p_right.rotation.Points2D[2]);
-		p_axes[12] = cross(p_left.rotation.Points2D[2], p_right.rotation.Points2D[0]);
-		p_axes[13] = cross(p_left.rotation.Points2D[2], p_right.rotation.Points2D[1]);
-		p_axes[14] = cross(p_left.rotation.Points2D[2], p_right.rotation.Points2D[2]);
-
-		for (short int i = 0; i < p_axes.count(); i++)
+		if    ((SATKernel::separation_test_symetrical_LRoriented_shape(p_left.center, p_left.radiuses, p_left.rotation, p_right.center, p_right.radiuses, p_right.rotation, p_left.rotation.Points2D[0]))
+			|| (SATKernel::separation_test_symetrical_LRoriented_shape(p_left.center, p_left.radiuses, p_left.rotation, p_right.center, p_right.radiuses, p_right.rotation, p_left.rotation.Points2D[1]))
+			|| (SATKernel::separation_test_symetrical_LRoriented_shape(p_left.center, p_left.radiuses, p_left.rotation, p_right.center, p_right.radiuses, p_right.rotation, p_left.rotation.Points2D[2]))
+			|| (SATKernel::separation_test_symetrical_LRoriented_shape(p_left.center, p_left.radiuses, p_left.rotation, p_right.center, p_right.radiuses, p_right.rotation, p_right.rotation.Points2D[0]))
+			|| (SATKernel::separation_test_symetrical_LRoriented_shape(p_left.center, p_left.radiuses, p_left.rotation, p_right.center, p_right.radiuses, p_right.rotation, p_right.rotation.Points2D[1]))
+			|| (SATKernel::separation_test_symetrical_LRoriented_shape(p_left.center, p_left.radiuses, p_left.rotation, p_right.center, p_right.radiuses, p_right.rotation, p_right.rotation.Points2D[2]))
+			|| (SATKernel::separation_test_symetrical_LRoriented_shape(p_left.center, p_left.radiuses, p_left.rotation, p_right.center, p_right.radiuses, p_right.rotation, cross(p_left.rotation.Points2D[0], p_right.rotation.Points2D[0])))
+			|| (SATKernel::separation_test_symetrical_LRoriented_shape(p_left.center, p_left.radiuses, p_left.rotation, p_right.center, p_right.radiuses, p_right.rotation, cross(p_left.rotation.Points2D[0], p_right.rotation.Points2D[1])))
+			|| (SATKernel::separation_test_symetrical_LRoriented_shape(p_left.center, p_left.radiuses, p_left.rotation, p_right.center, p_right.radiuses, p_right.rotation, cross(p_left.rotation.Points2D[0], p_right.rotation.Points2D[2])))
+			|| (SATKernel::separation_test_symetrical_LRoriented_shape(p_left.center, p_left.radiuses, p_left.rotation, p_right.center, p_right.radiuses, p_right.rotation, cross(p_left.rotation.Points2D[1], p_right.rotation.Points2D[0])))
+			|| (SATKernel::separation_test_symetrical_LRoriented_shape(p_left.center, p_left.radiuses, p_left.rotation, p_right.center, p_right.radiuses, p_right.rotation, cross(p_left.rotation.Points2D[1], p_right.rotation.Points2D[1])))
+			|| (SATKernel::separation_test_symetrical_LRoriented_shape(p_left.center, p_left.radiuses, p_left.rotation, p_right.center, p_right.radiuses, p_right.rotation, cross(p_left.rotation.Points2D[1], p_right.rotation.Points2D[2])))
+			|| (SATKernel::separation_test_symetrical_LRoriented_shape(p_left.center, p_left.radiuses, p_left.rotation, p_right.center, p_right.radiuses, p_right.rotation, cross(p_left.rotation.Points2D[2], p_right.rotation.Points2D[0])))
+			|| (SATKernel::separation_test_symetrical_LRoriented_shape(p_left.center, p_left.radiuses, p_left.rotation, p_right.center, p_right.radiuses, p_right.rotation, cross(p_left.rotation.Points2D[2], p_right.rotation.Points2D[1])))
+			|| (SATKernel::separation_test_symetrical_LRoriented_shape(p_left.center, p_left.radiuses, p_left.rotation, p_right.center, p_right.radiuses, p_right.rotation, cross(p_left.rotation.Points2D[2], p_right.rotation.Points2D[2]))))
 		{
-			float l_left_radii_projected = 0;
-			float l_right_radii_projected = 0;
-			for (short int j = 0; j < 3; j++)
-			{
-				l_left_radii_projected += fabsf(dot(mul(p_left.rotation.Points2D[j], p_left.radiuses.Points[j]), p_axes[i]));
-				l_right_radii_projected += fabsf(dot(mul(p_right.rotation.Points2D[j], p_right.radiuses.Points[j]), p_axes[i]));
-			}
-
-			float l_left_center_projected = dot(p_left.center, p_axes[i]);
-			float l_right_center_projected = dot(p_right.center, p_axes[i]);
-
-			float l_tl = fabsf(l_right_center_projected - l_left_center_projected);
-
-			if ((l_tl - (l_left_radii_projected + l_right_radii_projected) >= Tolerance<float>::tol))
-			{
-				return false;
-			}
+			return false;
 		}
 
 		return true;
