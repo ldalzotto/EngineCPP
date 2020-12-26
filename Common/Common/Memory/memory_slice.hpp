@@ -80,6 +80,12 @@ namespace com
 
 		inline TYPE& operator[](size_t p_index)
 		{
+#if CONTAINER_BOUND_TEST
+			if (p_index >= N)
+			{
+				abort();
+			}
+#endif
 			return this->Memory[p_index];
 		};
 

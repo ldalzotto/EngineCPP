@@ -133,7 +133,7 @@ void update(void* p_engine, float p_delta)
 		}
 
 	}
-	else if (testContext.framecount == 20 || testContext.framecount == 40 || testContext.framecount == 60)
+	else if (testContext.framecount == 20 || testContext.framecount == 40 || testContext.framecount == 60 || testContext.framecount == 80 || testContext.framecount == 100)
 	{
 		SceneKernel::set_localposition(testContext.moving_node, l_scenehandle, SceneKernel::get_localposition(testContext.moving_node, l_scenehandle) + Math::vec3f(1.0f, 0.0f, 0.0f));
 	}
@@ -147,7 +147,8 @@ void update(void* p_engine, float p_delta)
 
 	if (testContext.collider_detector.handle != -1 && testContext.collider_detector.get_collision_events(l_collider_middleware->collision).Size > 0)
 	{
-		printf("YEP");
+		printf("%ld", testContext.collider_detector.get_collision_events(l_collider_middleware->collision)[0].state);
+		// printf("YEP\n");
 	};
 
 	testContext.framecount += 1;

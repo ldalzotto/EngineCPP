@@ -13,16 +13,25 @@ struct BoxCollider
 	AABB<float> local_box;
 };
 
+struct TriggerState
+{
+	com::TPoolToken<BoxCollider> other;
+
+	Trigger::State state = Trigger::State::UNDEFINED;
+};
+
 struct ColliderDetector
 {
-	com::TPoolToken<com::Vector<com::TPoolToken<BoxCollider>>> collision_events;
+	com::TPoolToken<com::Vector<TriggerState>> collision_events;
 
-	inline ColliderDetector(const com::TPoolToken<com::Vector<com::TPoolToken<BoxCollider>>>& p_collision_events)
+	inline ColliderDetector(const com::TPoolToken<com::Vector<TriggerState>>& p_collision_events)
 	{
 		this->collision_events = p_collision_events;
 	};
 };
 
+
+//TODO -> having more than one ColliderDetector attached to a Collider.
 struct CollisionHeap
 {
 	struct BoxCollider_Heap : public com::Pool<BoxCollider> { using com::Pool<BoxCollider>::Pool; } box_colliders;
@@ -45,7 +54,7 @@ struct CollisionHeap
 	} box_colliders_to_collider_detector;
 
 	com::Pool<ColliderDetector> collider_detectors;
-	com::Pool<com::Vector<com::TPoolToken<BoxCollider>>> collider_detectors_events;
+	com::Pool<com::Vector<TriggerState>> collider_detectors_events;
 
 	inline void allocate()
 	{
@@ -84,20 +93,20 @@ struct CollisionHeap
 				break;
 			}
 		}
-		
+
 		com::TPoolToken<ColliderDetector>& l_collider_detector = this->box_colliders_to_collider_detector[p_boxcollider];
 		if (l_collider_detector.val != -1)
 		{
 			this->free_colliderdetector(p_boxcollider, l_collider_detector);
 		}
-		
+
 		this->box_colliders.release_element(p_boxcollider);
 	};
 
 	inline com::TPoolToken<ColliderDetector> allocate_colliderdetector(const com::TPoolToken<BoxCollider>& p_collider)
 	{
 		return this->box_colliders_to_collider_detector[p_collider] =
-			this->collider_detectors.alloc_element(ColliderDetector(this->collider_detectors_events.alloc_element(com::Vector<com::TPoolToken<BoxCollider>>())));
+			this->collider_detectors.alloc_element(ColliderDetector(this->collider_detectors_events.alloc_element(com::Vector<TriggerState>())));
 	};
 
 	inline void free_colliderdetector(const com::TPoolToken<BoxCollider>& p_collider, const com::TPoolToken<ColliderDetector>& p_collider_detector)
@@ -120,15 +129,37 @@ struct CollisionHeap
 		l_boxcollider.rotation_axis = Math::extractAxis<float>(p_world_transform.rotation);
 	};
 
-	
+
 
 };
 
-
+//TODO -> handling destruction of collider to reflect it in trigger state of all colliders that it was interacting with. Ex: if TRIGGER_STAY, then TRIGGER_EXIT if destructed.
 struct CollisionDetectionStep
 {
 	CollisionHeap* heap;
-	com::Vector<com::TPoolToken<BoxCollider>> colliders_tobe_process;
+
+	com::Vector<com::TPoolToken<BoxCollider>> in_colliders_processed;
+
+	struct ColliderDetector_IntersectionEvent
+	{
+		com::TPoolToken<ColliderDetector> detector;
+		com::TPoolToken<BoxCollider> source;
+		com::TPoolToken<BoxCollider> other;
+
+		inline ColliderDetector_IntersectionEvent(const com::TPoolToken<ColliderDetector>& p_detector, const com::TPoolToken<BoxCollider>& p_source, const com::TPoolToken<BoxCollider>& p_other)
+		{
+			this->detector = p_detector;
+			this->source = p_source;
+			this->other = p_other;
+		};
+	};
+
+	com::Vector<ColliderDetector_IntersectionEvent> is_waitingfor_trigger_stay_detector;
+	com::Vector<ColliderDetector_IntersectionEvent> is_waitingfor_trigger_stay_nextframe_detector;
+
+	com::Vector<ColliderDetector_IntersectionEvent> is_waitingfor_trigger_none_detector;
+	com::Vector<ColliderDetector_IntersectionEvent> is_waitingfor_trigger_none_nextframe_detector;
+	
 	com::Vector<com::TPoolToken<ColliderDetector>> lastframe_involved_colliderdetectors;
 
 	inline void allocate(CollisionHeap* p_heap)
@@ -138,17 +169,22 @@ struct CollisionDetectionStep
 
 	inline void free()
 	{
-		this->colliders_tobe_process.free();
+		this->in_colliders_processed.free();
 		this->lastframe_involved_colliderdetectors.free();
+
+		this->is_waitingfor_trigger_stay_detector.free();
+		this->is_waitingfor_trigger_stay_nextframe_detector.free();
 	};
 
 	inline void step()
 	{
 		this->clear_lastframe_collision_events();
+		this->swap_triggerstaw_waiting_buffers();
+		this->swap_triggernone_waiting_buffers();
 
-		for (size_t i = 0; i < this->colliders_tobe_process.Size; i++)
+		for (size_t i = 0; i < this->in_colliders_processed.Size; i++)
 		{
-			com::TPoolToken<BoxCollider>& l_left_collider_token = this->colliders_tobe_process[i];
+			com::TPoolToken<BoxCollider>& l_left_collider_token = this->in_colliders_processed[i];
 
 			//If there is a detector attached to the collider
 			if (this->heap->box_colliders_to_collider_detector[l_left_collider_token].val != -1)
@@ -173,45 +209,137 @@ struct CollisionDetectionStep
 						{
 							this->on_collision_detected(l_left_collider_token, l_right_collider_token);
 						}
+						else
+						{
+							this->on_collision_detection_failed(l_left_collider_token, l_right_collider_token);
+						}
 					}
 				}
 			}
 		}
 
-		this->colliders_tobe_process.clear();
+		for (size_t j = 0; j < this->is_waitingfor_trigger_stay_detector.Size; j++)
+		{
+			ColliderDetector_IntersectionEvent& l_waiting = this->is_waitingfor_trigger_stay_detector[j];
+
+			com::Vector<TriggerState>& l_events = this->heap->collider_detectors_events[this->heap->collider_detectors[l_waiting.detector].collision_events];
+			for (size_t k = 0; k < l_events.Size; k++)
+			{
+				TriggerState& l_trigger_event = l_events[k];
+				if (l_trigger_event.other.val == l_waiting.other.val)
+				{
+					l_trigger_event.state = Trigger::State::TRIGGER_STAY;
+				}
+			}
+		}
+
+		for (size_t i = 0; i < this->is_waitingfor_trigger_none_detector.Size; i++)
+		{
+			ColliderDetector_IntersectionEvent& l_waiting = this->is_waitingfor_trigger_none_detector[i];
+			com::Vector<TriggerState>& l_events = this->heap->collider_detectors_events[this->heap->collider_detectors[l_waiting.detector].collision_events];
+			for (size_t k = 0; k < l_events.Size; k++)
+			{
+				TriggerState& l_trigger_event = l_events[k];
+				if (l_trigger_event.other.val == l_waiting.other.val)
+				{
+					l_trigger_event.state = Trigger::State::NONE;
+				}
+			}
+		}
+
+		this->is_waitingfor_trigger_stay_detector.clear();
+		this->is_waitingfor_trigger_none_detector.clear();
+		this->in_colliders_processed.clear();
 
 	}
 
 	inline void clear_lastframe_collision_events()
 	{
-		for (size_t i = 0; i < this->lastframe_involved_colliderdetectors.Size; i++)
-		{
-			this->heap->collider_detectors_events[this->heap->collider_detectors[this->lastframe_involved_colliderdetectors[i]].collision_events].clear();
-		}
 		this->lastframe_involved_colliderdetectors.clear();
+	};
+
+	inline void swap_triggerstaw_waiting_buffers()
+	{
+		com::Vector<ColliderDetector_IntersectionEvent> l_tmp = this->is_waitingfor_trigger_stay_detector;
+		this->is_waitingfor_trigger_stay_detector = this->is_waitingfor_trigger_stay_nextframe_detector;
+		this->is_waitingfor_trigger_stay_nextframe_detector = l_tmp;
+	};
+
+	inline void swap_triggernone_waiting_buffers()
+	{
+		com::Vector<ColliderDetector_IntersectionEvent> l_tmp = this->is_waitingfor_trigger_none_detector;
+		this->is_waitingfor_trigger_none_detector = this->is_waitingfor_trigger_none_nextframe_detector;
+		this->is_waitingfor_trigger_none_nextframe_detector = l_tmp;
 	};
 
 	inline void on_collider_moved(com::TPoolToken<BoxCollider>& p_moved_collider)
 	{
-		this->colliders_tobe_process.push_back(p_moved_collider);
+		this->in_colliders_processed.push_back(p_moved_collider);
 	};
 
 private:
 
-	//TODO -> collision events doesn't care of previous state. They need to if we want to recreate some events like "trigger enter" or "trigger exit"
 	inline void on_collision_detected(const com::TPoolToken<BoxCollider>& p_left, const com::TPoolToken<BoxCollider>& p_right)
 	{
-		push_colliderdetector_event(p_left);
-		push_colliderdetector_event(p_right);
+		push_colliderdetector_event(p_left, p_right);
+		push_colliderdetector_event(p_right, p_left);
 	};
 
-	inline void push_colliderdetector_event(const com::TPoolToken<BoxCollider>& p_intersected_collider)
+	inline void on_collision_detection_failed(const com::TPoolToken<BoxCollider>& p_left, const com::TPoolToken<BoxCollider>& p_right)
 	{
-		com::TPoolToken<ColliderDetector>& l_left_collider_detector = this->heap->box_colliders_to_collider_detector[p_intersected_collider];
-		if (l_left_collider_detector.val != -1)
+		//TODO -> having a condition telling if trigger exit is enabled
+		no_more_collision(p_left, p_right);
+		no_more_collision(p_right, p_left);
+	};
+
+	inline void push_colliderdetector_event(const com::TPoolToken<BoxCollider>& p_source_collider, const com::TPoolToken<BoxCollider>& p_intersected_collider)
+	{
+		com::TPoolToken<ColliderDetector>& l_source_collider_detector = this->heap->box_colliders_to_collider_detector[p_source_collider];
+		if (l_source_collider_detector.val != -1)
 		{
-			this->lastframe_involved_colliderdetectors.push_back(l_left_collider_detector);
-			this->heap->collider_detectors_events[this->heap->collider_detectors[l_left_collider_detector].collision_events].push_back(p_intersected_collider);
+			this->lastframe_involved_colliderdetectors.push_back(l_source_collider_detector);
+
+			com::Vector<TriggerState>& l_collider_triggerevents = this->heap->collider_detectors_events[this->heap->collider_detectors[l_source_collider_detector].collision_events];
+
+
+			bool l_trigger_event_found = false;
+			for (size_t i = 0; i < l_collider_triggerevents.Size; i++)
+			{
+				TriggerState& l_collider_trigger_event = l_collider_triggerevents[i];
+				if (l_collider_trigger_event.other.val == p_intersected_collider.val)
+				{
+					l_collider_trigger_event.state = Trigger::State::TRIGGER_STAY;
+					l_trigger_event_found = true;
+					break;
+				}
+			}
+
+			if (!l_trigger_event_found)
+			{
+				TriggerState l_trigger_event = TriggerState();
+				l_trigger_event.other = p_intersected_collider;
+				l_trigger_event.state = Trigger::State::TRIGGER_ENTER;
+				l_collider_triggerevents.push_back(l_trigger_event);
+				this->is_waitingfor_trigger_stay_nextframe_detector.push_back(ColliderDetector_IntersectionEvent(l_source_collider_detector, p_source_collider, p_intersected_collider));
+			}
+		}
+	}
+
+	inline void no_more_collision(const com::TPoolToken<BoxCollider>& p_source_collider, const com::TPoolToken<BoxCollider>& p_intersected_collider)
+	{
+		com::TPoolToken<ColliderDetector>& l_source_collider_detector = this->heap->box_colliders_to_collider_detector[p_source_collider];
+		if (l_source_collider_detector.val != -1)
+		{
+			com::Vector<TriggerState>& l_source_trigger_events = this->heap->collider_detectors_events[this->heap->collider_detectors[l_source_collider_detector].collision_events];
+			for (size_t i = 0; i < l_source_trigger_events.Size; i++)
+			{
+				TriggerState& l_trigger_event = l_source_trigger_events[i];
+				if (l_trigger_event.other.val == p_intersected_collider.val)
+				{
+					l_trigger_event.state = Trigger::State::TRIGGER_EXIT;
+					this->is_waitingfor_trigger_none_nextframe_detector.push_back(ColliderDetector_IntersectionEvent(l_source_collider_detector, p_source_collider, p_intersected_collider));
+				}
+			}
 		}
 	}
 };

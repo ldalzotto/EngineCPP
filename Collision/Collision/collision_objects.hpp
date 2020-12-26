@@ -49,7 +49,7 @@ void ColliderDetectorHandle::free(CollisionHandle p_collision)
 	this->reset();
 };
 
-com::Vector<BoxColliderHandle>& ColliderDetectorHandle::get_collision_events(CollisionHandle& p_collision)
+com::Vector<Trigger::Event>& ColliderDetectorHandle::get_collision_events(CollisionHandle& p_collision)
 {
-	return (com::Vector<BoxColliderHandle>&)((Collision*)p_collision.handle)->collision_heap.collider_detectors_events[((Collision*)p_collision.handle)->collision_heap.collider_detectors[this->handle].collision_events];
+	return (com::Vector<Trigger::Event>&)((Collision*)p_collision.handle)->collision_heap.collider_detectors_events[((Collision*)p_collision.handle)->collision_heap.collider_detectors[this->handle].collision_events];
 };
