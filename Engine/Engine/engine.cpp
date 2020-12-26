@@ -166,7 +166,6 @@ inline void EngineCallbacks::endupdate_callback()
 {
 	this->closure->all_middlewares.collision_middleware->before_collision(&this->closure->scene);
 	this->closure->collision.update();
-	this->closure->all_middlewares.collision_middleware->debug_print();
 }
 
 inline void EngineCallbacks::render_callback()
@@ -220,6 +219,10 @@ RenderMiddlewareHandle engine_render_middleware(const EngineHandle& p_engine)
 	return &((Engine*)p_engine)->render_middleware;
 };
 
+CollisionMiddlewareHandle engine_collider_middleware(const EngineHandle& p_engine)
+{
+	return &((Engine*)p_engine)->collision_middleware;
+};
 
 Clock* engine_clock(const EngineHandle& p_engine)
 {

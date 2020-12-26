@@ -17,6 +17,9 @@ const SceneNodeComponent_TypeInfo test_component_info = SceneNodeComponent_TypeI
 
 using namespace Math;
 
+//scenes/test_scene.json
+#if 0
+
 struct TestContext
 {
 	com::PoolToken center_node;
@@ -38,7 +41,7 @@ void update(void* p_engine, float p_delta)
 		com::Vector<char> l_scene_binary = engine_assetserver(*l_engine).get_resource("scenes/test_scene.json");
 		SceneAsset l_scene_asset = SceneSerializer2::Binary_to_SceneAsset(l_scene_binary);
 		SceneKernel::feed_with_asset(l_scenehandle, l_scene_asset);
-// 		*l_scenehandle = SceneKernel::clone(l_scenehandle);
+		// 		*l_scenehandle = SceneKernel::clone(l_scenehandle);
 
 		l_scene_binary.free();
 
@@ -90,73 +93,66 @@ void update(void* p_engine, float p_delta)
 		SceneKernel::set_localrotation(l_node, l_scenehandle, mul(SceneKernel::get_localrotation(l_node), rotateAround(vec3f(0.0f, 1.0f, 0.0f), p_delta)));
 	}
 
-	
 
-
-	/*
-	if ((testContext.framecount % 101) == 0)
-	{
-		com::Vector<NTreeResolve<SceneNode>> l_nodes = l_scenehandle.get_nodes_with_component<MeshRenderer>();
-		if (l_nodes.Size > 0)
-		{
-			l_scenehandle.remove_component<MeshRenderer>(l_nodes[0].node->index);
-		}
-		l_nodes.free();
-	}
-	*/
-	
-#endif
-
-#if 0
-	if (testContext.framecount == 0)
-	{
-		{
-			auto l_node = l_scenehandle.add_node(l_scenehandle.root(), Math::Transform());
-
-			MeshRenderer l_mesh_renderer;
-			l_mesh_renderer.initialize("materials/test.json", "models/16.09.obj");
-			l_scenehandle.add_component<MeshRenderer>(l_node, l_mesh_renderer);
-
-			testContext.center_node = l_node;
-		}
-		{
-			auto l_node = l_scenehandle.add_node(testContext.center_node, Math::Transform(vec3f(0.0f, 0.0f, 0.0f), QuatConst::IDENTITY, VecConst<float>::ONE));
-
-			MeshRenderer l_mesh_renderer;
-			l_mesh_renderer.initialize("materials/test.json", "models/16.09.obj");
-			l_scenehandle.add_component<MeshRenderer>(l_node, l_mesh_renderer);
-
-			testContext.moving_node = l_node;
-		}
-
-	}
-
-	if (testContext.framecount == 200)
-	{
-		l_scenehandle.remove_component<MeshRenderer>(testContext.moving_node);
-	}
-	else if (testContext.framecount == 300)
-	{
-		// l_scenehandle.free_node(testContext.center_node);
-		// l_scenehandle.remove_component<MeshRenderer>(testContext.center_node);
-	}
-	// else if()
-	{
-		SceneNode* l_node = l_scenehandle.resolve_node(testContext.moving_node).element;
-
-		l_node->set_localposition(l_node->get_localposition() + (vec3f(VecConst<float>::FORWARD) * p_delta));
-		l_node->set_localrotation(mul(l_node->get_localrotation(), rotateAround(vec3f(0.0f, 1.0f, 0.0f), p_delta)));
-}
-
-	{
-		SceneNode* l_node = l_scenehandle.resolve_node(testContext.center_node).element;
-		l_node->set_worldposition(l_node->get_worldposition() + (vec3f(VecConst<float>::RIGHT) * p_delta));
-		l_node->set_localrotation(mul(l_node->get_localrotation(), rotateAround(vec3f(0.0f, 1.0f, 0.0f), p_delta)));
-	}
 #endif
 
 	testContext.framecount += 1;
 };
+
+#endif
+
+#if 1
+struct TestContext
+{
+	SceneNodeToken moving_node;
+	ColliderDetectorHandle collider_detector;
+	size_t framecount = 0;
+} testContext;
+
+void update(void* p_engine, float p_delta)
+{
+	EngineHandle* l_engine = (EngineHandle*)p_engine;
+	Scene* l_scenehandle = engine_scene(*l_engine);
+	InputHandle l_input = engine_input(*l_engine);
+	CollisionMiddlewareHandle l_collider_middleware = engine_collider_middleware(*l_engine);
+
+	if (testContext.framecount == 0)
+	{
+		com::Vector<char> l_scene_binary = engine_assetserver(*l_engine).get_resource("scenes/box_collider_scene.json");
+		SceneAsset l_scene_asset = SceneSerializer2::Binary_to_SceneAsset(l_scene_binary);
+		SceneKernel::feed_with_asset(l_scenehandle, l_scene_asset);
+		l_scene_binary.free();
+
+		com::Vector<NTreeResolve<SceneNode>> l_nodes = SceneKernel::get_nodes_with_component<BoxCollider>(l_scenehandle);
+		if (l_nodes.Size > 0)
+		{
+			// BoxCollider& l_collider = SceneKernel::get_component<BoxCollider>(l_scenehandle, l_nodes[0]);
+			// BoxColliderHandle l_box_collider = l_collider_middleware->get_collider(l_nodes[0].element->scenetree_entry);
+			testContext.moving_node = SceneNodeToken(l_nodes[0].node->parent.val);
+			testContext.collider_detector = l_collider_middleware->attach_collider_detector(l_nodes[0].element->scenetree_entry);
+		}
+
+	}
+	else if (testContext.framecount == 20 || testContext.framecount == 40 || testContext.framecount == 60)
+	{
+		SceneKernel::set_localposition(testContext.moving_node, l_scenehandle, SceneKernel::get_localposition(testContext.moving_node, l_scenehandle) + Math::vec3f(1.0f, 0.0f, 0.0f));
+	}
+	
+	/*
+	if (testContext.framecount == 40)
+	{
+		l_collider_middleware->remove_collider_detector(testContext.collider_detector);
+	}
+	*/
+
+	if (testContext.collider_detector.handle != -1 && testContext.collider_detector.get_collision_events(l_collider_middleware->collision).Size > 0)
+	{
+		printf("YEP");
+	};
+
+	testContext.framecount += 1;
+}
+#endif
 
 int main(int argc, char** argv)
 {

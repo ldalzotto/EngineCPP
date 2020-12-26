@@ -43,18 +43,6 @@ struct CollisionMiddleware
 		}
 	};
 
-	inline void debug_print()
-	{
-		for (size_t i = 0; i < this->collision_entries.Size; i++)
-		{
-			CollisionEntry& l_collision_entry = this->collision_entries[i];
-			if (get_collision_events(this->collision, l_collision_entry.box_collider).Size > 0)
-			{
-				printf("COLLISION ! \n");
-			}
-		}
-	};
-
 	inline void push_collider(SceneNodeToken p_node, const BoxCollider& p_box_collider )
 	{
 		BoxColliderHandle l_box_collider;
@@ -78,4 +66,32 @@ struct CollisionMiddleware
 			}
 		}
 	};
+
+	inline ColliderDetectorHandle attach_collider_detector(SceneNodeToken p_node)
+	{
+		BoxColliderHandle l_box_collider = this->get_collider(p_node);
+		ColliderDetectorHandle l_detector;
+		l_detector.allocate(this->collision, l_box_collider);
+		return l_detector;
+	};
+
+	inline void remove_collider_detector(ColliderDetectorHandle& p_collider_detector)
+	{
+		p_collider_detector.free(this->collision);
+	};
+
+	inline BoxColliderHandle get_collider(SceneNodeToken p_node)
+	{
+		for (size_t i = 0; i < this->collision_entries.Size; i++)
+		{
+			if (this->collision_entries[i].node.val == p_node.val)
+			{
+				return this->collision_entries[i].box_collider;
+			}
+		}
+		
+		abort();
+	};
 };
+
+typedef CollisionMiddleware* CollisionMiddlewareHandle;

@@ -36,7 +36,20 @@ void BoxColliderHandle::on_collider_moved(CollisionHandle p_collision, const Mat
 	((Collision*)p_collision.handle)->on_collider_moved(com::TPoolToken<BoxCollider>(this->handle), p_transform, p_local_rotation);
 };
 
-com::Vector<BoxColliderHandle>& get_collision_events(CollisionHandle& p_collision, BoxColliderHandle& p_box_collider)
+
+void ColliderDetectorHandle::allocate(CollisionHandle p_collision, BoxColliderHandle p_collider)
 {
-	return (com::Vector<BoxColliderHandle>&)((Collision*)p_collision.handle)->collision_heap.collision_detection.get_collision_events(com::TPoolToken<BoxCollider>(p_box_collider.handle));
+	this->handle = ((Collision*)p_collision.handle)->collision_heap.allocate_colliderdetector(p_collider.handle).val;
+	this->collider = p_collider;
+};
+
+void ColliderDetectorHandle::free(CollisionHandle p_collision)
+{
+	((Collision*)p_collision.handle)->collision_heap.free_colliderdetector(this->collider.handle, this->handle);
+	this->reset();
+};
+
+com::Vector<BoxColliderHandle>& ColliderDetectorHandle::get_collision_events(CollisionHandle& p_collision)
+{
+	return (com::Vector<BoxColliderHandle>&)((Collision*)p_collision.handle)->collision_heap.collider_detectors_events[((Collision*)p_collision.handle)->collision_heap.collider_detectors[this->handle].collision_events];
 };

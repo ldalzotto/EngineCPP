@@ -195,9 +195,9 @@ struct SceneKernel
 		return thiz->node_to_components[*p_node.element->scenetree_entry.cast_to_componentstoken()];
 	};
 
-	inline static bool get_component(Scene* thiz, const SceneNodeToken p_node, const SceneNodeComponent_TypeInfo& p_component_type_info, SceneNodeComponentHeader** out_component_header)
+	inline static bool get_component(Scene* thiz, const NTreeResolve<SceneNode>& p_node, const SceneNodeComponent_TypeInfo& p_component_type_info, SceneNodeComponentHeader** out_component_header)
 	{
-		com::Vector<SceneNodeComponentToken>& l_components = thiz->node_to_components[*resolve_node(thiz, p_node).element->scenetree_entry.cast_to_componentstoken()];
+		com::Vector<SceneNodeComponentToken>& l_components = thiz->node_to_components[*p_node.element->scenetree_entry.cast_to_componentstoken()];
 		for (size_t i = 0; i < l_components.Size; i++)
 		{
 			SceneNodeComponentHeader* l_component_header = resolve_component(thiz, l_components[i]);
@@ -208,6 +208,11 @@ struct SceneKernel
 			};
 		}
 		return false;
+	};
+
+	inline static bool get_component(Scene* thiz, const SceneNodeToken p_node, const SceneNodeComponent_TypeInfo& p_component_type_info, SceneNodeComponentHeader** out_component_header)
+	{
+		return get_component(thiz, resolve_node(thiz, p_node), p_component_type_info, out_component_header);
 	};
 
 	template<class ComponentType>
@@ -224,6 +229,14 @@ struct SceneKernel
 
 	template<class ComponentType>
 	inline static ComponentType& get_component(Scene* thiz, const SceneNodeToken p_node)
+	{
+		SceneNodeComponentHeader* l_component_header;
+		CHECK_SCENE_BOUND(get_component(thiz, p_node, ComponentType::Type, &l_component_header), false);
+		return *l_component_header->cast<ComponentType>();
+	};
+
+	template<class ComponentType>
+	inline static ComponentType& get_component(Scene* thiz, const NTreeResolve<SceneNode>& p_node)
 	{
 		SceneNodeComponentHeader* l_component_header;
 		CHECK_SCENE_BOUND(get_component(thiz, p_node, ComponentType::Type, &l_component_header), false);

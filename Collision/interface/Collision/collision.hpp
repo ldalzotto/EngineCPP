@@ -15,6 +15,8 @@ struct CollisionHandle
 	void update();
 };
 
+struct ColliderDetectorHandle;
+
 struct BoxColliderHandle : public Handle
 {
 	using Handle::Handle;
@@ -24,4 +26,19 @@ struct BoxColliderHandle : public Handle
 	void on_collider_moved(CollisionHandle p_collision, const Math::Transform& p_transform, const Math::quat& p_local_rotation);
 };
 
-com::Vector<BoxColliderHandle>& get_collision_events(CollisionHandle& p_collision, BoxColliderHandle& p_box_collider);
+struct ColliderDetectorHandle
+{
+	size_t handle = -1;
+	BoxColliderHandle collider = BoxColliderHandle();
+
+	inline void reset()
+	{
+		this->handle = -1;
+		this->collider.reset();
+	}
+
+	void allocate(CollisionHandle p_collision, BoxColliderHandle p_collider);
+	void free(CollisionHandle p_collision);
+
+	com::Vector<BoxColliderHandle>& get_collision_events(CollisionHandle& p_collision);
+};

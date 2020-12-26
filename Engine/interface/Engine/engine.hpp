@@ -6,6 +6,7 @@
 #include <string>
 #include "Input/input.hpp"
 #include "Middleware/render_middleware.hpp"
+#include "Middleware/collision_middleware.hpp"
 
 typedef void* EngineHandle;
 
@@ -31,4 +32,5 @@ AssetServerHandle engine_assetserver(const EngineHandle& p_engine);
 WindowHandle engine_window(const EngineHandle& p_engine);
 InputHandle engine_input(const EngineHandle& p_engine);
 RenderMiddlewareHandle engine_render_middleware(const EngineHandle& p_engine);
+CollisionMiddlewareHandle engine_collider_middleware(const EngineHandle& p_engine);
 Clock* engine_clock(const EngineHandle& p_engine);
