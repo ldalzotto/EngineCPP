@@ -27,7 +27,7 @@ void BoxColliderHandle::allocate(CollisionHandle p_collision, const Math::AABB<f
 
 void BoxColliderHandle::free(CollisionHandle p_collision)
 {
-	((Collision*)p_collision.handle)->collision_heap.free_boxcollider(com::TPoolToken<BoxCollider>(this->handle));
+	((Collision*)p_collision.handle)->free_boxcollider(com::TPoolToken<BoxCollider>(this->handle));
 	this->reset();
 };
 
@@ -45,11 +45,22 @@ void ColliderDetectorHandle::allocate(CollisionHandle p_collision, BoxColliderHa
 
 void ColliderDetectorHandle::free(CollisionHandle p_collision)
 {
-	((Collision*)p_collision.handle)->collision_heap.free_colliderdetector(this->collider.handle, this->handle);
+	((Collision*)p_collision.handle)->free_colliderdetector(this->collider.handle, this->handle);
 	this->reset();
 };
 
 com::Vector<Trigger::Event>& ColliderDetectorHandle::get_collision_events(CollisionHandle& p_collision)
 {
-	return (com::Vector<Trigger::Event>&)((Collision*)p_collision.handle)->collision_heap.collider_detectors_events[((Collision*)p_collision.handle)->collision_heap.collider_detectors[this->handle].collision_events];
+	Collision* l_collision = (Collision*)p_collision.handle;
+
+//TODO -> is it really necessary ?
+#if COLLIDER_BOUND_TEST
+	if (l_collision->collision_heap.collider_detectors.is_token_free(this->handle))
+	{
+		abort();
+	}
+#endif
+
+	return (com::Vector<Trigger::Event>&)l_collision->collision_heap.collider_detectors_events[l_collision->collision_heap.collider_detectors[this->handle].collision_events];
+	
 };

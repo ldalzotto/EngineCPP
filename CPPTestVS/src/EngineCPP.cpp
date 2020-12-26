@@ -105,7 +105,9 @@ void update(void* p_engine, float p_delta)
 struct TestContext
 {
 	SceneNodeToken moving_node;
-	ColliderDetectorHandle collider_detector;
+	SceneNodeToken other_node;
+	ColliderDetectorHandle collider_detector_0;
+	ColliderDetectorHandle collider_detector_1;
 	size_t framecount = 0;
 } testContext;
 
@@ -129,13 +131,22 @@ void update(void* p_engine, float p_delta)
 			// BoxCollider& l_collider = SceneKernel::get_component<BoxCollider>(l_scenehandle, l_nodes[0]);
 			// BoxColliderHandle l_box_collider = l_collider_middleware->get_collider(l_nodes[0].element->scenetree_entry);
 			testContext.moving_node = SceneNodeToken(l_nodes[0].node->parent.val);
-			testContext.collider_detector = l_collider_middleware->attach_collider_detector(l_nodes[0].element->scenetree_entry);
+			testContext.other_node = SceneNodeToken(l_nodes[1].node->parent.val);
+			testContext.collider_detector_0 = l_collider_middleware->attach_collider_detector(l_nodes[0].element->scenetree_entry);
+			testContext.collider_detector_1 = l_collider_middleware->attach_collider_detector(l_nodes[1].element->scenetree_entry);
 		}
 
 	}
-	else if (testContext.framecount == 20 || testContext.framecount == 40 || testContext.framecount == 60 || testContext.framecount == 80 || testContext.framecount == 100)
+	else if (testContext.framecount == 20 || testContext.framecount == 40 || testContext.framecount == 60 || testContext.framecount == 80 /*|| testContext.framecount == 100*/)
 	{
 		SceneKernel::set_localposition(testContext.moving_node, l_scenehandle, SceneKernel::get_localposition(testContext.moving_node, l_scenehandle) + Math::vec3f(1.0f, 0.0f, 0.0f));
+	}
+	
+	if (testContext.framecount == 80)
+	{
+		// SceneKernel::remove_node(l_scenehandle, testContext.other_node);
+		SceneKernel::remove_node(l_scenehandle, testContext.moving_node);
+		// l_collider_middleware->remove_collider_detector(testContext.collider_detector_1);
 	}
 	
 	/*
@@ -145,12 +156,32 @@ void update(void* p_engine, float p_delta)
 	}
 	*/
 
-	if (testContext.collider_detector.handle != -1 && testContext.collider_detector.get_collision_events(l_collider_middleware->collision).Size > 0)
+	//TODO -> how to properly handle the fact that the node can be destroyed at any moment ?
+	com::Vector<Trigger::Event>& l_0_trigger_events = testContext.collider_detector_0.get_collision_events(l_collider_middleware->collision);
+	com::Vector<Trigger::Event>& l_1_trigger_events = testContext.collider_detector_1.get_collision_events(l_collider_middleware->collision);
+
+	printf("Trigger events : ");
+	if (testContext.collider_detector_0.handle != -1 && l_0_trigger_events.Size > 0)
 	{
-		printf("%ld", testContext.collider_detector.get_collision_events(l_collider_middleware->collision)[0].state);
-		// printf("YEP\n");
+		printf("collider : %lld", testContext.collider_detector_0.collider.handle);
+		for (size_t i = 0; i < l_0_trigger_events.Size; i++)
+		{
+			printf(" to : %lld, ", l_0_trigger_events[i].other.handle);
+			printf("%ld;", l_0_trigger_events[i].state);
+		}
 	};
 
+	if (testContext.collider_detector_1.handle != -1 && l_1_trigger_events.Size > 0)
+	{
+		printf("collider : %lld", testContext.collider_detector_1.collider.handle);
+		for (size_t i = 0; i < l_1_trigger_events.Size; i++)
+		{
+			printf(" to : %lld, ", l_1_trigger_events[i].other.handle);
+			printf("%ld;", l_1_trigger_events[i].state);
+		}
+		printf("\n");
+	};
+	
 	testContext.framecount += 1;
 }
 #endif

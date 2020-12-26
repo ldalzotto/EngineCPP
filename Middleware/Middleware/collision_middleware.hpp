@@ -92,6 +92,7 @@ struct CollisionMiddleware
 		
 		abort();
 	};
+
 };
 
 typedef CollisionMiddleware* CollisionMiddlewareHandle;

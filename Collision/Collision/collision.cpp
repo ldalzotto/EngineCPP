@@ -54,6 +54,7 @@ struct CollisionHeap
 	} box_colliders_to_collider_detector;
 
 	com::Pool<ColliderDetector> collider_detectors;
+	com::Vector<com::TPoolToken<ColliderDetector>> collider_detectors_indices;
 	com::Pool<com::Vector<TriggerState>> collider_detectors_events;
 
 	inline void allocate()
@@ -62,6 +63,7 @@ struct CollisionHeap
 		this->box_colliders_indices.allocate(0);
 		this->box_colliders_to_collider_detector.allocate(0);
 		this->collider_detectors.allocate(0);
+		this->collider_detectors_indices.allocate(0);
 		this->collider_detectors_events.allocate(0);
 	};
 
@@ -71,6 +73,7 @@ struct CollisionHeap
 		this->box_colliders_indices.free_checked();
 		this->collider_detectors.free_checked();
 		this->collider_detectors_events.free_checked();
+		this->collider_detectors_indices.free_checked();
 	};
 
 	inline com::TPoolToken<BoxCollider> allocate_boxcollider(const AABB<float>& p_local_aabb)
@@ -105,8 +108,10 @@ struct CollisionHeap
 
 	inline com::TPoolToken<ColliderDetector> allocate_colliderdetector(const com::TPoolToken<BoxCollider>& p_collider)
 	{
-		return this->box_colliders_to_collider_detector[p_collider] =
-			this->collider_detectors.alloc_element(ColliderDetector(this->collider_detectors_events.alloc_element(com::Vector<TriggerState>())));
+		com::TPoolToken<ColliderDetector> l_colider_detector = this->collider_detectors.alloc_element(ColliderDetector(this->collider_detectors_events.alloc_element(com::Vector<TriggerState>())));
+		this->collider_detectors_indices.push_back(l_colider_detector);
+		this->box_colliders_to_collider_detector[p_collider] = l_colider_detector;
+		return l_colider_detector;
 	};
 
 	inline void free_colliderdetector(const com::TPoolToken<BoxCollider>& p_collider, const com::TPoolToken<ColliderDetector>& p_collider_detector)
@@ -120,6 +125,15 @@ struct CollisionHeap
 		this->collider_detectors_events[l_collider_detector.collision_events].free();
 		this->collider_detectors_events.release_element(l_collider_detector.collision_events);
 		this->collider_detectors.release_element(l_removed_collider_detector);
+
+		for (size_t i = 0; i < this->collider_detectors_indices.Size; i++)
+		{
+			if (this->collider_detectors_indices[i].val == l_removed_collider_detector.val)
+			{
+				this->collider_detectors_indices.erase_at(i, 1);
+				break;
+			}
+		}
 	};
 
 	inline void push_transform(const com::TPoolToken<BoxCollider>& p_boxcollider, const Math::Transform& p_world_transform, const Math::quat& p_local_rotation)
@@ -133,7 +147,6 @@ struct CollisionHeap
 
 };
 
-//TODO -> handling destruction of collider to reflect it in trigger state of all colliders that it was interacting with. Ex: if TRIGGER_STAY, then TRIGGER_EXIT if destructed.
 struct CollisionDetectionStep
 {
 	CollisionHeap* heap;
@@ -154,12 +167,26 @@ struct CollisionDetectionStep
 		};
 	};
 
+	struct ColliderDetector_TriggerEvent
+	{
+		com::TPoolToken<ColliderDetector> detector;
+		com::TPoolToken<BoxCollider> other;
+
+		inline ColliderDetector_TriggerEvent(const com::TPoolToken<ColliderDetector>& p_detector, const com::TPoolToken<BoxCollider>& p_other)
+		{
+			this->detector = p_detector;
+			this->other = p_other;
+		};
+	};
+
+	com::Vector<com::TPoolToken<BoxCollider>> deleted_colliders_from_last_step;
+
 	com::Vector<ColliderDetector_IntersectionEvent> is_waitingfor_trigger_stay_detector;
 	com::Vector<ColliderDetector_IntersectionEvent> is_waitingfor_trigger_stay_nextframe_detector;
 
-	com::Vector<ColliderDetector_IntersectionEvent> is_waitingfor_trigger_none_detector;
-	com::Vector<ColliderDetector_IntersectionEvent> is_waitingfor_trigger_none_nextframe_detector;
-	
+	com::Vector<ColliderDetector_TriggerEvent> is_waitingfor_trigger_none_detector;
+	com::Vector<ColliderDetector_TriggerEvent> is_waitingfor_trigger_none_nextframe_detector;
+
 	com::Vector<com::TPoolToken<ColliderDetector>> lastframe_involved_colliderdetectors;
 
 	inline void allocate(CollisionHeap* p_heap)
@@ -174,6 +201,8 @@ struct CollisionDetectionStep
 
 		this->is_waitingfor_trigger_stay_detector.free();
 		this->is_waitingfor_trigger_stay_nextframe_detector.free();
+
+		this->deleted_colliders_from_last_step.free();
 	};
 
 	inline void step()
@@ -181,6 +210,8 @@ struct CollisionDetectionStep
 		this->clear_lastframe_collision_events();
 		this->swap_triggerstaw_waiting_buffers();
 		this->swap_triggernone_waiting_buffers();
+
+		this->clean_deleted_colliders();
 
 		for (size_t i = 0; i < this->in_colliders_processed.Size; i++)
 		{
@@ -235,7 +266,7 @@ struct CollisionDetectionStep
 
 		for (size_t i = 0; i < this->is_waitingfor_trigger_none_detector.Size; i++)
 		{
-			ColliderDetector_IntersectionEvent& l_waiting = this->is_waitingfor_trigger_none_detector[i];
+			ColliderDetector_TriggerEvent& l_waiting = this->is_waitingfor_trigger_none_detector[i];
 			com::Vector<TriggerState>& l_events = this->heap->collider_detectors_events[this->heap->collider_detectors[l_waiting.detector].collision_events];
 			for (size_t k = 0; k < l_events.Size; k++)
 			{
@@ -267,7 +298,7 @@ struct CollisionDetectionStep
 
 	inline void swap_triggernone_waiting_buffers()
 	{
-		com::Vector<ColliderDetector_IntersectionEvent> l_tmp = this->is_waitingfor_trigger_none_detector;
+		com::Vector<ColliderDetector_TriggerEvent> l_tmp = this->is_waitingfor_trigger_none_detector;
 		this->is_waitingfor_trigger_none_detector = this->is_waitingfor_trigger_none_nextframe_detector;
 		this->is_waitingfor_trigger_none_nextframe_detector = l_tmp;
 	};
@@ -275,6 +306,11 @@ struct CollisionDetectionStep
 	inline void on_collider_moved(com::TPoolToken<BoxCollider>& p_moved_collider)
 	{
 		this->in_colliders_processed.push_back(p_moved_collider);
+	};
+
+	inline void on_collider_deleted(const com::TPoolToken<BoxCollider> p_collider)
+	{
+		this->deleted_colliders_from_last_step.push_back(p_collider);
 	};
 
 private:
@@ -287,7 +323,7 @@ private:
 
 	inline void on_collision_detection_failed(const com::TPoolToken<BoxCollider>& p_left, const com::TPoolToken<BoxCollider>& p_right)
 	{
-		//TODO -> having a condition telling if trigger exit is enabled
+		//TOZDO -> having a condition telling if trigger exit is enabled
 		no_more_collision(p_left, p_right);
 		no_more_collision(p_right, p_left);
 	};
@@ -337,11 +373,55 @@ private:
 				if (l_trigger_event.other.val == p_intersected_collider.val)
 				{
 					l_trigger_event.state = Trigger::State::TRIGGER_EXIT;
-					this->is_waitingfor_trigger_none_nextframe_detector.push_back(ColliderDetector_IntersectionEvent(l_source_collider_detector, p_source_collider, p_intersected_collider));
+					this->is_waitingfor_trigger_none_nextframe_detector.push_back(ColliderDetector_TriggerEvent(l_source_collider_detector, p_intersected_collider));
 				}
 			}
 		}
 	}
+
+	inline void clean_deleted_colliders()
+	{
+		if (this->deleted_colliders_from_last_step.Size > 0)
+		{
+			for (size_t i = 0; i < this->deleted_colliders_from_last_step.Size; i++)
+			{
+				com::TPoolToken<BoxCollider>& l_deleted_collider = this->deleted_colliders_from_last_step[i];
+				for (size_t j = this->in_colliders_processed.Size - 1; j != -1; --j)
+				{
+					if (l_deleted_collider.val == this->in_colliders_processed[j].val)
+					{
+						this->in_colliders_processed.erase_at(j, 1);
+					}
+				}
+				for (size_t j = this->is_waitingfor_trigger_stay_detector.Size - 1; j != -1; --j)
+				{
+					if (l_deleted_collider.val == this->is_waitingfor_trigger_stay_detector[j].other.val)
+					{
+						this->is_waitingfor_trigger_stay_detector.erase_at(j, 1);
+					}
+				}
+				for (size_t j = this->is_waitingfor_trigger_none_detector.Size - 1; j != -1; --j)
+				{
+					if (l_deleted_collider.val == this->is_waitingfor_trigger_none_detector[j].other.val)
+					{
+						this->is_waitingfor_trigger_none_detector.erase_at(j, 1);
+					}
+				}
+
+				//We get all ColliderDetector and check if they have an active state with the deleted collider
+				//if that's the case, then we invalidate the collision
+				for (size_t j = 0; j < this->heap->box_colliders_indices.Size; j++)
+				{
+					this->no_more_collision(this->heap->box_colliders_indices[j], l_deleted_collider);
+				}
+			}
+
+			//Notify other Trigger events
+
+			this->deleted_colliders_from_last_step.clear();
+		}
+	};
+
 };
 
 struct Collision
@@ -371,6 +451,17 @@ struct Collision
 	{
 		this->collision_heap.push_transform(p_moved_collider, p_world_transform, p_local_rotation);
 		this->collision_detection_step.on_collider_moved(p_moved_collider);
+	};
+
+	inline void free_boxcollider(const com::TPoolToken<BoxCollider>& p_boxcollider)
+	{
+		this->collision_heap.free_boxcollider(p_boxcollider);
+		this->collision_detection_step.on_collider_deleted(p_boxcollider);
+	};
+
+	inline void free_colliderdetector(const com::TPoolToken<BoxCollider>& p_collider, const com::TPoolToken<ColliderDetector>& p_collider_detector)
+	{
+		this->collision_heap.free_colliderdetector(p_collider, p_collider_detector);
 	};
 };
 
