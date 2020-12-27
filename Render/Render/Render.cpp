@@ -28,7 +28,9 @@
 2/ #RENDER_DEFERRED_COMMAND
 	Some commands can be deferred. Such as staging buffer push or texture layout transitions.
 3/ #RENDER_OBJECTS
-	Defining render objects that produces the final 3D render of a mesh
+	Defining render objects that produces the final 3D render of a mesh.
+4/ #RENDER_STEPS
+	Render passes to draw objects.
 */
 
 using namespace Math;
@@ -139,10 +141,13 @@ struct ValidationLayer
 	com::Vector<const char*> layers;
 };
 
-/*       - #RENDER_GPU_MEMORY -     
+/*       - #RENDER_GPU_MEMORY -
 
-GPU Memory heap is allocated in chunk pages. The number of pages increase when needed. @PageGPUMemory2. Every
-@PageGPUMemory2 is an allocated GPU buffer.
+GPU Memory heap is centralized allocated in chunk pages.
+Every chunk page (@PageGPUMemory2) is an allocated GPU buffer.
+The number of pages increase when needed. @PageGPUMemory2.
+
+GPU Memory pages are also dissociated by types (see @PagedMemories). These types are the one given
 
 When asking to allocate a GPU buffer, we instead cut a slice of the @PageGPUMemory2 and give back the index and offset of GPU Memory.
 
@@ -154,7 +159,7 @@ This sections includes vulkan device allocations.
 
 enum WriteMethod2
 {
-	// * HostWrite : Allow map
+	// * HostWrite : Allow cpu memory map
 	HostWrite = 0,
 	// * GPUWrite : Allow writing by copying from a source buffer.
 	//              Cannot be accesses from from host.
@@ -302,7 +307,7 @@ struct PagedGPUMemory
 struct PagedMemories
 {
 	PagedGPUMemory<WriteMethod2::GPUWrite> i7;
-	PagedGPUMemory<WriteMethod2::HostWrite> i8;
+	PagedGPUMemory<WriteMethod2::HostWrite> i8; //a memory type 8 is equivalent to HostWrite
 
 	inline void allocate()
 	{
@@ -1119,8 +1124,20 @@ struct CommandBuffer
 		- #RENDER_DEFERRED_COMMAND -
 
 Some command can be deferred to be executed at the beginnnig of the render loop.
+
+*	Commands like pushing data to GPU are deferred for performance reason.
+		Render API consumer can ask to load a Mesh at any time during the engine frame. Deferring allow to sequence loading operations in a command buffer so that GPU can do it's work
+		to parallelize them properly.
+
+		Without deferring, we would need to create a new command buffer and talk to the GPU every time a request is performed.
+
 This section defines structure that store commands and execute them in the right order.
-Commands can be aborted and a completion token is allocated to check if command is completed.
+Every commands can be aborted and a completion token is allocated to check if command is completed.
+
+
+Subsections:
+	##staged_commands
+	##texture_layout_commands
 
 */
 
@@ -1164,6 +1181,14 @@ struct DeferredBufferCommands
 	};
 };
 
+/*
+		- ##staged_commands -
+
+Staged commands are GPU commands that pushes cpu object to a GPU Read memory. (GPU Read only are more performant when GPU reads them).
+On request, we create a temporary "staged" Host buffer that store the cpu object.
+On execution, the host buffer is pushed to the GPU one.
+
+*/
 
 struct StagedBufferWriteCommand
 {
@@ -1197,7 +1222,6 @@ struct StagedBufferWriteCommand
 		this->isAborted = true;
 	};
 };
-
 
 struct StagedImageWriteCommand
 {
@@ -1256,6 +1280,16 @@ struct StagedImageWriteCommand
 	};
 };
 
+/*
+		- ##texture_layout_commands -
+
+Texture layout transition commands are requirements by the vulkan API.
+For exemple, in order to write in a texture buffer, the vulkan API must be notified that the texture is "elligible" for writing. This elligibility is done by setting
+a layout to the texture.
+The same goes for use in pixel shader stage for example.
+
+*/
+
 struct TextureLayoutTransitionBarrierConfiguration {
 	vk::AccessFlags src_access_mask;
 	vk::AccessFlags dst_access_mask;
@@ -1264,8 +1298,8 @@ struct TextureLayoutTransitionBarrierConfiguration {
 	vk::PipelineStageFlags dst_stage;
 
 	inline TextureLayoutTransitionBarrierConfiguration() {};
-	inline TextureLayoutTransitionBarrierConfiguration(const vk::AccessFlags& p_src_access_mask, const vk::AccessFlags& p_dst_access_mask, 
-			const vk::PipelineStageFlags& p_src_stage, const vk::PipelineStageFlags& p_dst_stage)
+	inline TextureLayoutTransitionBarrierConfiguration(const vk::AccessFlags& p_src_access_mask, const vk::AccessFlags& p_dst_access_mask,
+		const vk::PipelineStageFlags& p_src_stage, const vk::PipelineStageFlags& p_dst_stage)
 	{
 		this->src_access_mask = p_src_access_mask;
 		this->dst_access_mask = p_dst_access_mask;
@@ -1286,7 +1320,7 @@ struct TransitionBarrierConfigurationBuilder<vk::ImageLayout::eUndefined, vk::Im
 	inline static TextureLayoutTransitionBarrierConfiguration build()
 	{
 		return TextureLayoutTransitionBarrierConfiguration(
-			vk::AccessFlags(0), vk::AccessFlags(vk::AccessFlagBits::eTransferWrite), 
+			vk::AccessFlags(0), vk::AccessFlags(vk::AccessFlagBits::eTransferWrite),
 			vk::PipelineStageFlags(vk::PipelineStageFlagBits::eTopOfPipe), vk::PipelineStageFlags(vk::PipelineStageFlagBits::eTransfer));
 	};
 };
@@ -1495,7 +1529,7 @@ struct DeferredCommandBufferExecution
 		return this->push_command(l_command, this->texturelayouttransitions);
 	};
 
-	
+
 	inline void invalidate_command(ExecutionOrderToken p_command_index)
 	{
 		DeferredCommandBufferExecutionEntry& l_current_command_order = this->command_execution_order[p_command_index.val];
@@ -2420,7 +2454,7 @@ private:
 		l_descriptor_pool_create_info.setPPoolSizes(l_types);
 		l_descriptor_pool_create_info.setFlags(vk::DescriptorPoolCreateFlags(vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet));
 		l_descriptor_pool_create_info.setMaxSets(10000);
-		
+
 		this->descriptor_pool = this->device.device.createDescriptorPool(l_descriptor_pool_create_info);
 	}
 
@@ -2461,9 +2495,20 @@ private:
 };
 
 /*
-		- RENDER_OBJECTS -
+		- #RENDER_OBJECTS -
 
-All instanciable object that defines the render hierarchy
+Render object abstraction that defines the functional scope of the render system.
+
+	[Shader] 1 -> 2 [ShaderModule]
+	[Shader] 1 -> 1 [ShaderLayout]								Defines parameters types (uniform or texture) in the shader.
+	[Shader] 1 -> * [Material]									A material uses the shader as a "ParameterLayout". The material sets values to the ShaderLayout
+
+	[Material] 1 -> * [RenderableObject]						A material can be used to render any RenderableObject
+	[Material] 1 -> * [ShaderUniformBufferParameter]			Material parameters values
+	[Material] 1 -> * [ShaderCombinedImageSamplerParameter]		Material parameters values
+
+	[RenderableObject] 1 -> 1 [Mesh]							Vertex buffer
+	[RenderableObject] 1 -> 1 [ShaderUniformBufferParameter]	TRS matrix buffer
 
 */
 #define RENDER_OBJECTS 1
@@ -2506,7 +2551,6 @@ struct Shader
 		vk::ShaderStageFlagBits stage;
 	};
 
-	ShaderLayout pipeline_layout;
 	com::TPoolToken<ShaderLayout> pipeline_layout_token;
 	vk::Pipeline pipeline;
 
@@ -2521,9 +2565,8 @@ struct Shader
 	{
 		this->key = p_key;
 		this->execution_order = p_execution_order;
-		this->pipeline_layout = p_shader_layout;
 		this->pipeline_layout_token = p_shader_layout_token;
-		this->createPipeline(p_render_api.device, p_render_pass, p_vertex_shader, p_fragment_shader, p_shader_config);
+		this->createPipeline(p_render_api.device, p_render_pass, p_vertex_shader, p_fragment_shader, p_shader_config, p_shader_layout);
 	}
 
 	inline void dispose(const Device& p_device)
@@ -2536,7 +2579,7 @@ struct Shader
 private:
 
 	inline void createPipeline(const Device& p_device, const RenderPass& p_renderPass,
-		const ShaderModule& p_vertex_shader, const ShaderModule& p_fragment_shader, const ShaderAsset::Config& p_shader_config)
+		const ShaderModule& p_vertex_shader, const ShaderModule& p_fragment_shader, const ShaderAsset::Config& p_shader_config, ShaderLayout& p_shader_layout)
 	{
 		com::Vector<vk::DynamicState> l_dynamicstates_enabled;
 		l_dynamicstates_enabled.allocate(2);
@@ -2552,7 +2595,7 @@ private:
 		{
 
 			vk::GraphicsPipelineCreateInfo l_pipeline_graphcis_create_info;
-			l_pipeline_graphcis_create_info.setLayout(this->pipeline_layout.layout);
+			l_pipeline_graphcis_create_info.setLayout(p_shader_layout.layout);
 			l_pipeline_graphcis_create_info.setRenderPass(p_renderPass.render_pass);
 
 			vk::PipelineInputAssemblyStateCreateInfo l_inputassembly_state;
@@ -2721,7 +2764,6 @@ private:
 	}
 };
 
-
 struct Mesh
 {
 	size_t key;
@@ -2865,7 +2907,6 @@ private:
 		return vk::Format::eUndefined;
 	};
 };
-
 
 struct ShaderUniformBufferParameter
 {
@@ -3128,8 +3169,6 @@ struct RenderableObject
 	}
 };
 
-
-#endif
 
 struct RenderHeap2
 {
@@ -3769,6 +3808,21 @@ private:
 
 };
 
+#endif
+
+/*
+		- #RENDER_STEPS -
+
+Main loop render steps are the draw render passes executed to render all RenderableObjects to the end Render target texture.
+
+- @RTDrawStep : Render all RenderableObjects by traversing the Shader->Material->RenderableObject hierarchy. 
+				Responsible of allocating and binding global uniform buffers.
+- @KHRPresentStep : Draw a quad screen with RTDrawStep render target texture as parameter.
+
+*/
+#define RENDER_STEPS 1
+#if RENDER_STEPS
+
 struct RTDrawStep
 {
 	RenderAPI* renderApi = nullptr;
@@ -3835,6 +3889,7 @@ struct RTDrawStep
 			{
 				com::TPoolToken<Shader> l_shader_heap = this->heap->shaders_sortedBy_executionOrder[l_shader_index];
 				Shader& l_shader = this->heap->shaders[l_shader_heap];
+				ShaderLayout& l_shader_layout = this->heap->shader_layouts[l_shader.pipeline_layout_token];
 
 				p_command_buffer.command_buffer.bindPipeline(vk::PipelineBindPoint::eGraphics, l_shader.pipeline);
 
@@ -3844,13 +3899,13 @@ struct RTDrawStep
 					com::TPoolToken<Material> l_material_heap_token = l_materials[l_material_index];
 					Material& l_material = this->heap->materials[l_material_heap_token];
 
-					l_material.bind_command(p_command_buffer, 2, this->heap->shader_uniform_parameters, this->heap->shader_imagesample_parameters, l_shader.pipeline_layout.layout);
+					l_material.bind_command(p_command_buffer, 2, this->heap->shader_uniform_parameters, this->heap->shader_imagesample_parameters, l_shader_layout.layout);
 
 					com::Vector<com::TPoolToken<RenderableObject>>& l_renderableobjects = this->heap->material_to_renderableobjects[l_material_heap_token.val];
 					for (size_t l_renderableobject_index = 0; l_renderableobject_index < l_renderableobjects.Size; l_renderableobject_index++)
 					{
 						RenderableObject& l_renderableobject = this->heap->renderableobjects[l_renderableobjects[l_renderableobject_index]];
-						l_renderableobject.model_matrix_buffer.bind_command(p_command_buffer, 1, l_shader.pipeline_layout.layout);
+						l_renderableobject.model_matrix_buffer.bind_command(p_command_buffer, 1, l_shader_layout.layout);
 						l_renderableobject.draw(p_command_buffer, this->heap->meshes);
 					}
 				}
@@ -3928,9 +3983,10 @@ struct KHRPresentStep
 		p_command_buffer.beginRenderPass2(this->renderApi->swap_chain.khr_framebuffers[p_image_count], this->clear_values.to_memoryslice(), vk::Offset2D(0, 0), this->renderApi->swap_chain.window_extend);
 		{
 			Shader& l_shader = this->render_heap->shaders[this->khr_draw_shader];
+			ShaderLayout& l_shader_layout = this->render_heap->shader_layouts[l_shader.pipeline_layout_token];
 			p_command_buffer.command_buffer.bindPipeline(vk::PipelineBindPoint::eGraphics, l_shader.pipeline);
 
-			this->render_target_parameter.bind_command(p_command_buffer, 0, l_shader.pipeline_layout.layout);
+			this->render_target_parameter.bind_command(p_command_buffer, 0, l_shader_layout.layout);
 
 			vk::DeviceSize l_offsets[1] = { 0 };
 			p_command_buffer.command_buffer.bindVertexBuffers(0, 1, &this->quad_mesh.vertices.buffer, l_offsets);
@@ -3941,6 +3997,8 @@ struct KHRPresentStep
 	};
 
 };
+
+#endif
 
 struct Render
 {

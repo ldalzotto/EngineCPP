@@ -15,6 +15,9 @@ struct CollisionMiddleware
 	CollisionHandle collision;
 	com::Vector<CollisionEntry> collision_entries;
 
+	com::Vector<BoxColliderHandle> removed_collider_detectors;
+	com::Vector<BoxColliderHandle> removed_collider_detectors_lastframe;
+
 	inline void allocate(const CollisionHandle& p_collision)
 	{
 		this->collision = p_collision;
@@ -23,6 +26,8 @@ struct CollisionMiddleware
 	inline void free()
 	{
 		this->collision_entries.free_checked();
+		this->removed_collider_detectors.free();
+		this->removed_collider_detectors_lastframe.free();
 	};
 
 	inline void before_collision(Scene* p_scene)

@@ -8,11 +8,13 @@
 #include <optick.h>
 
 /*
-	Middleware are the communication layer between the SceneTree and internal systems (like render).
-	They track SceneNodes with a combination of components. When founds, the elligible node communicate it's presence to the internal system.
+
+The RenderMiddleware is the interface between the Render system and the Scene.
+	- It captures MeshRenderer components and creates the associated Shader->Material->RenderableObject hierarchy.
+	  Every frame, the middleware check if the scene node has moved. If so, the TRS matrix buffer is pushed to the render system.
+	- It captures the Camera component and pushes it to global buffers.
 
 */
-
 
 struct RenderableObjectEntry
 {

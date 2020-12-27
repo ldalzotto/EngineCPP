@@ -371,6 +371,11 @@ struct SceneKernel
 		return duplicate_single_node_internal(thiz, l_node_resolved.element->scenetree_entry, SceneNodeToken(l_node_resolved.node->parent.val));
 	};
 
+	/*
+		When we duplicate nodes, we want to first instanciate nodes with the same hierarchy as the original one.
+		Because the nodes_to_duplicate array is ordered in such a way that parent is always instanciated first, the
+		nodes_to_duplicate_parent array can point to indices to nodes_to_duplicate. When instancing nodes foreach nodes_to_duplicate, indices will still be correct.
+	*/
 	inline static SceneNodeToken duplicate_tree_node(Scene* thiz, SceneNodeToken& p_node)
 	{
 		struct DuplicateNodeForeach
@@ -398,7 +403,7 @@ struct SceneKernel
 					bool l_found = false;
 					for (size_t i = 0; i < this->nodes_to_duplicate.Size; i++)
 					{
-						if (this->nodes_to_duplicate.operator[](i).val == p_node.node->parent.val)
+						if (this->nodes_to_duplicate[i].val == p_node.node->parent.val)
 						{
 							this->nodes_to_duplicate_parent.push_back(i);
 							l_found = true;
@@ -413,7 +418,6 @@ struct SceneKernel
 					}
 				}
 
-				// SceneNodeToken l_duplicated_node = SceneKernel::duplicate_single_node_internal(this->scene, p_node, SceneNodeToken(p_node.node->parent.val));
 			}
 		};
 		DuplicateNodeForeach l_duplicate_foreach = DuplicateNodeForeach();

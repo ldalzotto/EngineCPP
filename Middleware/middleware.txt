@@ -1,0 +1,4 @@
+
+Middlewares are the communication layer between the scene and the engine systems. They have access to the scene and systems interface.
+It is at this level where 3D scene objects execute logic based on their components.
+They track SceneNodes with a combination of components. The middleware execute logic Depending on the requirements that are met.

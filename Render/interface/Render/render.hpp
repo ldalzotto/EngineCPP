@@ -46,6 +46,8 @@ struct MaterialHandle : public Handle
 
 	void allocate(const RenderHandle& p_render, const size_t p_material);
 
+	//TODO -> set texture parameter
+
 	void set_uniform_parameter(const RenderHandle& p_render, const size_t p_parameter_index, const GPtr& p_value);
 	void get_uniform_paramter(const RenderHandle& p_render, size_t p_parameter_index, GPtr& out_value);
 

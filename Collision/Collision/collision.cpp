@@ -108,6 +108,19 @@ struct CollisionHeap
 
 	inline com::TPoolToken<ColliderDetector> allocate_colliderdetector(const com::TPoolToken<BoxCollider>& p_collider)
 	{
+
+#if COLLIDER_BOUND_TEST
+		if (!this->box_colliders_to_collider_detector.is_token_free(com::TPoolToken<com::TPoolToken<ColliderDetector>>(p_collider.val)))
+		{
+			com::TPoolToken<ColliderDetector>& l_collider_detector = this->box_colliders_to_collider_detector[p_collider];
+			if (l_collider_detector.val != -1)
+			{
+				//Cannot attach multiple collider detector to a collider for now
+				abort();
+			}
+		}
+#endif
+
 		com::TPoolToken<ColliderDetector> l_colider_detector = this->collider_detectors.alloc_element(ColliderDetector(this->collider_detectors_events.alloc_element(com::Vector<TriggerState>())));
 		this->collider_detectors_indices.push_back(l_colider_detector);
 		this->box_colliders_to_collider_detector[p_collider] = l_colider_detector;
@@ -323,7 +336,6 @@ private:
 
 	inline void on_collision_detection_failed(const com::TPoolToken<BoxCollider>& p_left, const com::TPoolToken<BoxCollider>& p_right)
 	{
-		//TOZDO -> having a condition telling if trigger exit is enabled
 		no_more_collision(p_left, p_right);
 		no_more_collision(p_right, p_left);
 	};
@@ -408,6 +420,7 @@ private:
 					}
 				}
 
+				//Notify other Trigger events
 				//We get all ColliderDetector and check if they have an active state with the deleted collider
 				//if that's the case, then we invalidate the collision
 				for (size_t j = 0; j < this->heap->box_colliders_indices.Size; j++)
@@ -415,8 +428,6 @@ private:
 					this->no_more_collision(this->heap->box_colliders_indices[j], l_deleted_collider);
 				}
 			}
-
-			//Notify other Trigger events
 
 			this->deleted_colliders_from_last_step.clear();
 		}

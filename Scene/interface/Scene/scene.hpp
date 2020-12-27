@@ -13,7 +13,6 @@
 #include "Common/Container/vector.hpp"
 #include "Common/Memory/heap.hpp"
 
-
 struct SceneNodeComponentToken : public com::TPoolToken<GeneralPurposeHeapMemoryChunk>
 {
 	inline com::TPoolToken<GeneralPurposeHeapMemoryChunk>* cast_to_parent() { return this; }
