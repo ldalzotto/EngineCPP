@@ -1,5 +1,8 @@
 #include "Common/Container/vector.hpp"
 #include "Common/Memory/heap.hpp"
+#include "Common/Container/pool_v2.hpp"
+
+#include <stdio.h>
 
 int main()
 {
@@ -23,4 +26,13 @@ int main()
 	l_heapu.defragment();
 
 	l_heapu.dispose();
+
+	Pool_v2<int> l_int_pool; pool_allocate(&l_int_pool);
+	{
+		int l_element = 10;
+		TToken<int> l_token = pool_alloc_element(&l_int_pool, &l_element);
+		int* l_memory = pool_get(&l_int_pool, &l_token);
+		printf("%ld \n", *l_memory);
+	}
+	pool_free(&l_int_pool);
 }

@@ -148,6 +148,11 @@ namespace Math
 	{
 		return Vector<3, TYPE>(p_left.Points[0] + p_right.Points[0], p_left.Points[1] + p_right.Points[1], p_left.Points[2] + p_right.Points[2]);
 	}
+	template <class TYPE>
+	inline Vector<4, TYPE> add(const Vector<4, TYPE>& p_left, const Vector<4, TYPE>& p_right)
+	{
+		return Vector<4, TYPE>(p_left.Points[0] + p_right.Points[0], p_left.Points[1] + p_right.Points[1], p_left.Points[2] + p_right.Points[2], p_left.Points[3] + p_right.Points[3]);
+	}
 
 
 	template<class TYPE>

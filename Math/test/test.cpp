@@ -2,6 +2,9 @@
 #include "Math/geometry.hpp"
 #include "Common/Clock/clock.hpp"
 #include <cstdio>
+
+#if 0
+
 int main()
 {
 	{
@@ -84,4 +87,58 @@ int main()
 
 	}
 		*/
+}
+
+#endif 
+
+#include "Common/Clock/clock.hpp"
+
+struct Entity
+{
+	Math::vec3f position;
+	Math::vec4f rotation;
+	Math::vec3f scale;
+};
+
+template<unsigned N>
+struct EntitySOA
+{
+	Math::vec3f position[N];
+	Math::vec4f rotation[N];
+	Math::vec3f scale[N];
+};
+
+int main()
+{
+	constexpr int size = 10000000;
+	Math::vec3f l_add = Math::vec3f(1.0f, 0.0f, 1.0f);
+	Math::vec4f l_add_4 = Math::vec4f(1.0f, 0.0f, 1.0f, 1.0f);
+
+	
+	Entity* l_arr_of_enetity = (Entity*)malloc(sizeof(Entity) * size);
+
+	TimeClockPrecision l_clock = clock_currenttime_mics();
+	for (size_t i = 0; i < size; i++)
+	{
+		Entity* l_current_entity = &l_arr_of_enetity[i];
+		l_current_entity->position = Math::add(l_current_entity->position, l_add);
+		l_current_entity->rotation = Math::add(l_current_entity->rotation, l_add_4);
+		l_current_entity->scale = Math::add(   l_current_entity->scale, l_add);
+	}
+	printf("%lld \n", clock_currenttime_mics() - l_clock);
+	
+
+	
+	EntitySOA<size>* l_arr_of_enetity_soa = (EntitySOA<size>*)malloc(sizeof(EntitySOA<size>));
+	
+	l_clock = clock_currenttime_mics();
+	for (size_t i = 0; i < size; i++)
+	{
+		l_arr_of_enetity_soa->position[i] = Math::add(l_arr_of_enetity_soa->position[i], l_add);
+		l_arr_of_enetity_soa->rotation[i] = Math::add(l_arr_of_enetity_soa->rotation[i], l_add_4);
+		l_arr_of_enetity_soa->scale[i] = Math::add(l_arr_of_enetity_soa->scale[i], l_add);
+	}
+	printf("%lld", clock_currenttime_mics() - l_clock);
+	
+	// EntitySOA<size> l_soa_of_entity;
 }

@@ -37,6 +37,12 @@ namespace com
 		{
 			return PoolToken(this->val);
 		};
+
+		template<class OtherToken>
+		inline bool equals(const OtherToken& p_other) const
+		{
+			return this->val == p_other.val;
+		};
 	};
 
 	template<class TYPE, class Allocator = HeapAllocator>

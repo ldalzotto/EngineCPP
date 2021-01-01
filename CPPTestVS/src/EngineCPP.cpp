@@ -102,7 +102,7 @@ void update(void* p_engine, float p_delta)
 
 #endif
 
-#if 1
+#if 0
 
 #include <stdlib.h>
 
@@ -212,7 +212,7 @@ void update(void* p_engine, float p_delta)
 
 #endif
 
-#if 0
+#if 1
 struct TestContext
 {
 	SceneNodeToken moving_node;
