@@ -37,17 +37,27 @@ struct VaryingVector
 	};
 
 	template<class ElementType>
-	inline void push_back(const ElementHeaderType& p_header, const  ElementType& p_element)
+	inline size_t push_back(const ElementHeaderType& p_header, const  ElementType& p_element)
 	{
-		this->push_back(p_header, (const char*)&p_element, sizeof(ElementType));
+		return this->push_back(p_header, (const char*)&p_element, sizeof(ElementType));
 	};
 
-	inline void push_back(const ElementHeaderType& p_header, const char* p_element, const size_t p_element_size)
+	inline size_t push_back(const ElementHeaderType& p_header, const char* p_element, const size_t p_element_size)
 	{
 		VaryingVectorHeader<ElementHeaderType> l_header;
 		this->heap.allocate_element(p_element_size, &l_header.chunk, p_element);
 		l_header.header = p_header;
 		this->memory.push_back(l_header);
+		return this->memory.Size - 1;
+	};
+
+	inline void reallocate_element(const size_t p_old_element, const ElementHeaderType& p_header, const size_t p_element_size)
+	{
+		VaryingVectorHeader<ElementHeaderType>& l_header = this->memory[p_old_element];
+		com::TPoolToken<GeneralPurposeHeapMemoryChunk> l_allocated_chunk;
+		this->heap.reallocate_element(l_header.chunk, p_element_size, l_allocated_chunk);
+		l_header.header = p_header;
+		l_header.chunk = l_allocated_chunk;
 	};
 
 	inline VaryingVectorHeader<ElementHeaderType>& get_header(const size_t p_index)

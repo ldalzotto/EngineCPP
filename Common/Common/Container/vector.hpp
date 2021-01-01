@@ -59,6 +59,17 @@ namespace com
 	}
 
 	Vector_TemplateHeader
+		inline Vector_ClassName Vector_ClassName::build(TYPE* p_memory, size_t& p_size, size_t& p_capacity, Allocator& p_allocator)
+	{
+		Vector_ClassName l_return;
+		l_return.Memory = p_memory;
+		l_return.Size = p_size;
+		l_return.Capacity = p_capacity;
+		l_return.allocator = p_allocator;
+		return l_return;
+	};
+
+	Vector_TemplateHeader
 		inline TYPE& Vector_ClassName::operator[](size_t i)
 	{
 #if CONTAINER_BOUND_TEST

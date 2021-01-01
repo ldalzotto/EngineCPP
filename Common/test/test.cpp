@@ -1,6 +1,7 @@
 #include "Common/Container/vector.hpp"
 #include "Common/Memory/heap.hpp"
 #include "Common/Container/pool_v2.hpp"
+#include "Common/Container/vector_of_vector.hpp"
 
 #include <stdio.h>
 
@@ -35,4 +36,31 @@ int main()
 		printf("%ld \n", *l_memory);
 	}
 	pool_free(&l_int_pool);
+
+
+	struct ElementTest
+	{
+		int v1;
+		int v2;
+
+		inline static ElementTest build(int p_index) { return ElementTest{ p_index , p_index }; };
+	};
+
+
+	VectorOfVector l_vv = VectorOfVector<>::allocate(0);
+	TToken<com::Vector<int, NoAllocator>> l_int_vec = l_vv.allocate_vector<int>(5);
+	for (short int i = 0; i < 10; i++)
+	{
+		l_vv.vector_push_back(l_int_vec, (int)i);
+	}
+
+	TToken<com::Vector<ElementTest, NoAllocator>> l_test_vec = l_vv.allocate_vector<ElementTest>(0);
+	for (short int i = 0; i < 10; i++)
+	{
+		l_vv.vector_push_back(l_test_vec, ElementTest::build((int)i));
+	}
+
+	int& l_value = l_vv.vector_get(l_int_vec, 3);
+	ElementTest& l_element_test = l_vv.vector_get(l_test_vec, 8);
+	l_vv.free();
 }

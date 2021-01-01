@@ -86,7 +86,7 @@ struct GeneralPurposeHeap
 	inline ElementType* map(com::TPoolToken<GeneralPurposeHeapMemoryChunk> p_memory)
 	{
 #if CONTAINER_BOUND_TEST
-		if (this->allocated_chunks[p_memory].offset >= this->memory.capacity_in_bytes())
+		if ((this->allocated_chunks[p_memory].offset + this->allocated_chunks[p_memory].chunk_size) > this->memory.capacity_in_bytes())
 		{
 			abort();
 		}
@@ -202,6 +202,20 @@ struct GeneralPurposeHeap
 	{
 		this->free_chunks.push_back(this->allocated_chunks[p_buffer]);
 		this->allocated_chunks.release_element(p_buffer);
+	};
+
+	inline bool reallocate_element(const com::TPoolToken<GeneralPurposeHeapMemoryChunk> p_element, size_t p_new_size, com::TPoolToken<GeneralPurposeHeapMemoryChunk>& out_allocated_element)
+	{
+		if (this->allocate_element(p_new_size, &out_allocated_element))
+		{
+			GeneralPurposeHeapMemoryChunk& l_source_chunk = this->allocated_chunks[p_element];
+			GeneralPurposeHeapMemoryChunk& l_target_chunk = this->allocated_chunks[out_allocated_element];
+			Mem::memcpy_safe(this->memory.Memory + l_target_chunk.offset, l_target_chunk.chunk_size, this->memory.Memory + l_source_chunk.offset, l_source_chunk.chunk_size);
+			this->release_element(p_element);
+			return true;
+		};
+
+		return false;
 	};
 
 	inline void defragment()
@@ -329,6 +343,27 @@ struct GeneralPurposeHeap2
 	};
 
 	inline void release_element(const com::TPoolToken<GeneralPurposeHeapMemoryChunk> p_buffer) { this->heap.release_element(p_buffer); };
+
+	inline bool reallocate_element(const com::TPoolToken<GeneralPurposeHeapMemoryChunk> p_element, size_t p_new_size, com::TPoolToken<GeneralPurposeHeapMemoryChunk>& out_allocated_element)
+	{
+		if (!this->heap.reallocate_element(p_element, p_new_size, out_allocated_element))
+		{
+			this->defragment();
+			if (!this->heap.reallocate_element(p_element, p_new_size, out_allocated_element))
+			{
+				size_t l_new_size;
+				if (ReallocStrategyFn::calculate_realloc_size(this->heap.memory.Size, p_new_size, &l_new_size))
+				{
+					this->heap.realloc(l_new_size);
+					return this->heap.reallocate_element(p_element, p_new_size, out_allocated_element);
+				}
+			}
+
+			return false;
+		}
+
+		return true;
+	};
 
 	inline void defragment()
 	{

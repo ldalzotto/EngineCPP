@@ -20,6 +20,7 @@ namespace com
 		Allocator allocator;
 
 		Vector();
+		static Vector<TYPE, Allocator> build(TYPE* p_memory, size_t& p_size, size_t& p_capacity, Allocator& p_allocator);
 		void allocate(size_t p_initialSize, const Allocator& p_allocator = Allocator());
 		void free();
 		void free_checked();
