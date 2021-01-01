@@ -78,6 +78,17 @@ namespace com
 		this->Size = 0;
 	}
 
+	Vector_TemplateHeader inline Vector_ClassName Vector_ClassName::build(TYPE* p_memory, const size_t& p_size, const size_t& p_capacity, const Allocator& p_allocator)
+	{
+		Vector_ClassName l_vector;
+		l_vector.Memory = p_memory;
+		l_vector.Size = p_size;
+		l_vector.Capacity = p_capacity;
+		l_vector.allocator = p_allocator;
+		return l_vector;
+	};
+
+
 	Vector_TemplateHeader inline void Vector_ClassName::free()
 	{
 		this->allocator.free(this->Memory);

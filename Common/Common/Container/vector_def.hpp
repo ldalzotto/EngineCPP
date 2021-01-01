@@ -21,6 +21,7 @@ namespace com
 
 		Vector();
 		void allocate(size_t p_initialSize, const Allocator& p_allocator = Allocator());
+		static Vector<TYPE, Allocator> build(TYPE* p_memory, const size_t& p_size, const size_t& p_capacity, const Allocator& p_allocator);
 		void free();
 		void free_checked();
 

@@ -54,3 +54,25 @@ struct HeapZeroingAllocator : public IAllocator
 		::free(p_memory);
 	}
 };
+
+struct NoAllocator : public IAllocator
+{
+	inline void* malloc(const size_t p_allocSize)
+	{
+		return nullptr;
+	}
+
+	inline void* calloc(const size_t p_allocationSize)
+	{
+		return nullptr;
+	}
+
+	inline void* realloc(void* p_initialMemory, const size_t p_allocSize)
+	{
+		return nullptr;
+	}
+
+	inline void free(void* p_memory)
+	{
+	}
+};

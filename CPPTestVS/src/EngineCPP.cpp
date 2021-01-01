@@ -102,7 +102,7 @@ void update(void* p_engine, float p_delta)
 
 #endif
 
-#if 1
+#if 0
 
 #include <stdlib.h>
 
@@ -212,7 +212,7 @@ void update(void* p_engine, float p_delta)
 
 #endif
 
-#if 0
+#if 1
 struct TestContext
 {
 	SceneNodeToken moving_node;
@@ -248,15 +248,16 @@ void update(void* p_engine, float p_delta)
 		}
 
 	}
-	else if (testContext.framecount == 20 || testContext.framecount == 40 || testContext.framecount == 60 || testContext.framecount == 80 /*|| testContext.framecount == 100*/)
+	else if (testContext.framecount == 20 || testContext.framecount == 40 || testContext.framecount == 60 || testContext.framecount == 80 || testContext.framecount == 100)
 	{
 		SceneKernel::set_localposition(testContext.moving_node, l_scenehandle, SceneKernel::get_localposition(testContext.moving_node, l_scenehandle) + Math::vec3f(1.0f, 0.0f, 0.0f));
 	}
 
 	if (testContext.framecount == 80)
 	{
+		//TODO
 		// SceneKernel::remove_node(l_scenehandle, testContext.other_node);
-		SceneKernel::remove_node(l_scenehandle, testContext.moving_node);
+		// SceneKernel::remove_node(l_scenehandle, testContext.moving_node);
 		// l_collider_middleware->remove_collider_detector(testContext.collider_detector_1);
 	}
 
@@ -269,22 +270,22 @@ void update(void* p_engine, float p_delta)
 
 
 	printf("Trigger events : ");
-	com::Vector<Trigger::Event>& l_0_trigger_events = testContext.collider_detector_0.get_collision_events(l_collider_middleware->collision);
-	if (l_0_trigger_events.Size > 0)
+	com::MemorySlice<Trigger::Event>& l_0_trigger_events = testContext.collider_detector_0.get_collision_events(l_collider_middleware->collision);
+	if (l_0_trigger_events.count() > 0)
 	{
 		printf("collider : %lld", testContext.collider_detector_0.collider.handle);
-		for (size_t i = 0; i < l_0_trigger_events.Size; i++)
+		for (size_t i = 0; i < l_0_trigger_events.count(); i++)
 		{
 			printf(" to : %lld, ", l_0_trigger_events[i].other.handle);
 			printf("%ld;", l_0_trigger_events[i].state);
 		}
 	};
 
-	com::Vector<Trigger::Event>& l_1_trigger_events = testContext.collider_detector_1.get_collision_events(l_collider_middleware->collision);
-	if (l_1_trigger_events.Size > 0)
+	com::MemorySlice<Trigger::Event>& l_1_trigger_events = testContext.collider_detector_1.get_collision_events(l_collider_middleware->collision);
+	if (l_1_trigger_events.count() > 0)
 	{
 		printf("collider : %lld", testContext.collider_detector_1.collider.handle);
-		for (size_t i = 0; i < l_1_trigger_events.Size; i++)
+		for (size_t i = 0; i < l_1_trigger_events.count(); i++)
 		{
 			printf(" to : %lld, ", l_1_trigger_events[i].other.handle);
 			printf("%ld;", l_1_trigger_events[i].state);

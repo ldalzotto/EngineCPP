@@ -90,6 +90,10 @@ struct GeneralPurposeHeap
 		{
 			abort();
 		}
+		if (this->allocated_chunks[p_memory].offset + this->allocated_chunks[p_memory].chunk_size > this->memory.capacity_in_bytes())
+		{
+			abort();
+		}
 #endif
 		return (ElementType*)(this->memory.Memory + this->allocated_chunks[p_memory].offset);
 	};
@@ -140,6 +144,15 @@ struct GeneralPurposeHeap
 
 	inline bool allocate_element(size_t p_size, AllocationAlignementConstraint& p_alignment_constraint, com::TPoolToken<GeneralPurposeHeapMemoryChunk>* out_token)
 	{
+
+#if CONTAINER_BOUND_TEST
+		if (p_size == 0)
+		{
+			//cannot allocate a size of 0
+			abort();
+		};
+#endif
+
 		for (size_t i = 0; i < this->free_chunks.Size; i++)
 		{
 			GeneralPurposeHeapMemoryChunk& l_chunk = this->free_chunks[i];
@@ -202,6 +215,19 @@ struct GeneralPurposeHeap
 	{
 		this->free_chunks.push_back(this->allocated_chunks[p_buffer]);
 		this->allocated_chunks.release_element(p_buffer);
+	};
+
+	inline bool reallocate_element(const com::TPoolToken<GeneralPurposeHeapMemoryChunk> p_buffer, size_t p_new_size, com::TPoolToken<GeneralPurposeHeapMemoryChunk>* out_token)
+	{
+		GeneralPurposeHeapMemoryChunk& l_old_buffer = this->allocated_chunks[p_buffer];
+		if (this->allocate_element(p_new_size, out_token))
+		{
+			GeneralPurposeHeapMemoryChunk& l_new_buffer = this->allocated_chunks[*out_token];
+			Mem::memcpy_safe(this->memory.Memory + l_new_buffer.offset, l_new_buffer.chunk_size, this->memory.Memory + l_old_buffer.offset, l_old_buffer.chunk_size);
+			this->release_element(p_buffer);
+			return true;
+		};
+		return false;
 	};
 
 	inline void defragment()
@@ -329,6 +355,27 @@ struct GeneralPurposeHeap2
 	};
 
 	inline void release_element(const com::TPoolToken<GeneralPurposeHeapMemoryChunk> p_buffer) { this->heap.release_element(p_buffer); };
+
+	inline bool reallocate_element(const com::TPoolToken<GeneralPurposeHeapMemoryChunk> p_buffer, size_t p_new_size, com::TPoolToken<GeneralPurposeHeapMemoryChunk>* out_token)
+	{
+		if (!this->heap.reallocate_element(p_buffer, p_new_size, out_token))
+		{
+			this->heap.defragment();
+			if (!this->heap.reallocate_element(p_buffer, p_new_size, out_token))
+			{
+				size_t l_new_size;
+				if (ReallocStrategyFn::calculate_realloc_size(this->heap.memory.Size, p_new_size, &l_new_size))
+				{
+					this->heap.realloc(l_new_size);
+					return this->heap.reallocate_element(p_buffer, p_new_size, out_token);
+				}
+			}
+
+			return false;
+		}
+
+		return true;
+	};
 
 	inline void defragment()
 	{
