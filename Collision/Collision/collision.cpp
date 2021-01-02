@@ -2,7 +2,6 @@
 #include "Collision/collision.hpp"
 #include "Common/Container/pool.hpp"
 #include "Common/Container/vector.hpp"
-#include "Common/Container/pool_of_vector.hpp"
 #include "Math/geometry.hpp"
 
 using namespace Math;
@@ -23,9 +22,9 @@ struct TriggerState
 
 struct ColliderDetector
 {
-	TPoolOfVectorToken<TriggerState> collision_events;
+	com::TPoolToken<com::Vector<TriggerState>> collision_events;
 
-	inline ColliderDetector(const TPoolOfVectorToken<TriggerState>& p_collision_events)
+	inline ColliderDetector(const com::TPoolToken<com::Vector<TriggerState>>& p_collision_events)
 	{
 		this->collision_events = p_collision_events;
 	};
@@ -55,9 +54,8 @@ struct CollisionHeap
 	} box_colliders_to_collider_detector;
 
 	com::Pool<ColliderDetector> collider_detectors;
-	
 	com::Vector<com::TPoolToken<ColliderDetector>> collider_detectors_indices;
-	PoolOfVector<TriggerState> collider_detectors_events;
+	com::Pool<com::Vector<TriggerState>> collider_detectors_events;
 
 	inline void allocate()
 	{
@@ -66,7 +64,7 @@ struct CollisionHeap
 		this->box_colliders_to_collider_detector.allocate(0);
 		this->collider_detectors.allocate(0);
 		this->collider_detectors_indices.allocate(0);
-		this->collider_detectors_events.allocate(0, 0);
+		this->collider_detectors_events.allocate(0);
 	};
 
 	inline void free()
@@ -123,7 +121,7 @@ struct CollisionHeap
 		}
 #endif
 
-		com::TPoolToken<ColliderDetector> l_colider_detector = this->collider_detectors.alloc_element(ColliderDetector(this->collider_detectors_events.allocate_vector(1)));
+		com::TPoolToken<ColliderDetector> l_colider_detector = this->collider_detectors.alloc_element(ColliderDetector(this->collider_detectors_events.alloc_element(com::Vector<TriggerState>())));
 		this->collider_detectors_indices.push_back(l_colider_detector);
 		this->box_colliders_to_collider_detector[p_collider] = l_colider_detector;
 		return l_colider_detector;
@@ -137,7 +135,8 @@ struct CollisionHeap
 		this->box_colliders_to_collider_detector.release_element(p_collider);
 
 		ColliderDetector& l_collider_detector = this->collider_detectors[l_removed_collider_detector];
-		this->collider_detectors_events.free_vector(l_collider_detector.collision_events);
+		this->collider_detectors_events[l_collider_detector.collision_events].free();
+		this->collider_detectors_events.release_element(l_collider_detector.collision_events);
 		this->collider_detectors.release_element(l_removed_collider_detector);
 
 		for (size_t i = 0; i < this->collider_detectors_indices.Size; i++)
@@ -244,9 +243,6 @@ struct CollisionDetectionStep
 					com::TPoolToken<BoxCollider>& l_right_collider_token = this->heap->box_colliders_indices[j];
 
 					//Avoid self test
-					//TODO -> FIX - we also need to avoid calculatin the same collision between two Colliders (in the case where multiple colliders in this->in_colliders_processed are colliding between each other)
-					//		  because the on_collision_detected and on_collision_detection_failed operations are bidirectional.
-					//		  This bug presents the TRIGGER_ENTER event to be triggered.
 					if (l_left_collider_token.val != l_right_collider_token.val)
 					{
 						BoxCollider& l_right_collider = this->heap->box_colliders[l_right_collider_token];
@@ -270,8 +266,8 @@ struct CollisionDetectionStep
 		{
 			ColliderDetector_IntersectionEvent& l_waiting = this->is_waitingfor_trigger_stay_detector[j];
 
-			com::MemorySlice<TriggerState> l_events = this->heap->collider_detectors_events.get_memory_slice(this->heap->collider_detectors[l_waiting.detector].collision_events);
-			for (size_t k = 0; k < l_events.count(); k++)
+			com::Vector<TriggerState>& l_events = this->heap->collider_detectors_events[this->heap->collider_detectors[l_waiting.detector].collision_events];
+			for (size_t k = 0; k < l_events.Size; k++)
 			{
 				TriggerState& l_trigger_event = l_events[k];
 				if (l_trigger_event.other.val == l_waiting.other.val)
@@ -284,8 +280,8 @@ struct CollisionDetectionStep
 		for (size_t i = 0; i < this->is_waitingfor_trigger_none_detector.Size; i++)
 		{
 			ColliderDetector_TriggerEvent& l_waiting = this->is_waitingfor_trigger_none_detector[i];
-			com::MemorySlice<TriggerState> l_events = this->heap->collider_detectors_events.get_memory_slice(this->heap->collider_detectors[l_waiting.detector].collision_events);
-			for (size_t k = 0; k < l_events.count(); k++)
+			com::Vector<TriggerState>& l_events = this->heap->collider_detectors_events[this->heap->collider_detectors[l_waiting.detector].collision_events];
+			for (size_t k = 0; k < l_events.Size; k++)
 			{
 				TriggerState& l_trigger_event = l_events[k];
 				if (l_trigger_event.other.val == l_waiting.other.val)
@@ -351,12 +347,11 @@ private:
 		{
 			this->lastframe_involved_colliderdetectors.push_back(l_source_collider_detector);
 
-			TPoolOfVectorToken<TriggerState> l_collision_events = this->heap->collider_detectors[l_source_collider_detector].collision_events;
-			com::MemorySlice<TriggerState> l_collider_triggerevents = this->heap->collider_detectors_events.get_memory_slice(l_collision_events);
+			com::Vector<TriggerState>& l_collider_triggerevents = this->heap->collider_detectors_events[this->heap->collider_detectors[l_source_collider_detector].collision_events];
 
 
 			bool l_trigger_event_found = false;
-			for (size_t i = 0; i < l_collider_triggerevents.count(); i++)
+			for (size_t i = 0; i < l_collider_triggerevents.Size; i++)
 			{
 				TriggerState& l_collider_trigger_event = l_collider_triggerevents[i];
 				if (l_collider_trigger_event.other.val == p_intersected_collider.val)
@@ -372,7 +367,7 @@ private:
 				TriggerState l_trigger_event = TriggerState();
 				l_trigger_event.other = p_intersected_collider;
 				l_trigger_event.state = Trigger::State::TRIGGER_ENTER;
-				this->heap->collider_detectors_events.vector_push_back(l_collision_events, l_trigger_event);
+				l_collider_triggerevents.push_back(l_trigger_event);
 				this->is_waitingfor_trigger_stay_nextframe_detector.push_back(ColliderDetector_IntersectionEvent(l_source_collider_detector, p_source_collider, p_intersected_collider));
 			}
 		}
@@ -383,8 +378,8 @@ private:
 		com::TPoolToken<ColliderDetector>& l_source_collider_detector = this->heap->box_colliders_to_collider_detector[p_source_collider];
 		if (l_source_collider_detector.val != -1)
 		{
-			com::MemorySlice<TriggerState> l_source_trigger_events = this->heap->collider_detectors_events.get_memory_slice(this->heap->collider_detectors[l_source_collider_detector].collision_events);
-			for (size_t i = 0; i < l_source_trigger_events.count(); i++)
+			com::Vector<TriggerState>& l_source_trigger_events = this->heap->collider_detectors_events[this->heap->collider_detectors[l_source_collider_detector].collision_events];
+			for (size_t i = 0; i < l_source_trigger_events.Size; i++)
 			{
 				TriggerState& l_trigger_event = l_source_trigger_events[i];
 				if (l_trigger_event.other.val == p_intersected_collider.val)

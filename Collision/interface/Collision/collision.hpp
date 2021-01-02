@@ -59,5 +59,5 @@ struct ColliderDetectorHandle
 	void allocate(CollisionHandle p_collision, BoxColliderHandle p_collider);
 	void free(CollisionHandle p_collision);
 
-	com::MemorySlice<Trigger::Event> ColliderDetectorHandle::get_collision_events(CollisionHandle& p_collision);
+	com::Vector<Trigger::Event>& get_collision_events(CollisionHandle& p_collision);
 };

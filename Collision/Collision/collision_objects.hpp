@@ -49,11 +49,11 @@ void ColliderDetectorHandle::free(CollisionHandle p_collision)
 	this->reset();
 };
 
-com::MemorySlice<Trigger::Event> ColliderDetectorHandle::get_collision_events(CollisionHandle& p_collision)
+com::Vector<Trigger::Event>& ColliderDetectorHandle::get_collision_events(CollisionHandle& p_collision)
 {
 	Collision* l_collision = (Collision*)p_collision.handle;
 
-//TODO -> is it really necessary ?
+	//TODO -> is it really necessary ?
 #if COLLIDER_BOUND_TEST
 	if (l_collision->collision_heap.collider_detectors.is_token_free(this->handle))
 	{
@@ -61,6 +61,6 @@ com::MemorySlice<Trigger::Event> ColliderDetectorHandle::get_collision_events(Co
 	}
 #endif
 
-	return *(com::MemorySlice<Trigger::Event>*)&l_collision->collision_heap.collider_detectors_events.get_memory_slice(l_collision->collision_heap.collider_detectors[this->handle].collision_events);
-	
+	return (com::Vector<Trigger::Event>&)l_collision->collision_heap.collider_detectors_events[l_collision->collision_heap.collider_detectors[this->handle].collision_events];
+
 };

@@ -21,11 +21,10 @@ namespace Serialization
 			p_target_data.insert_at(com::MemorySlice<char>((char*)p_source.Memory, p_source.size_in_bytes()), p_target_data.Size);
 		};
 
-		template<class HeaderElementType>
-		inline static void serialize_varyingvector(const VaryingVector<HeaderElementType>& p_source, com::Vector<char>& p_target_data)
+		inline static void serialize_varyingvector(const VaryingVector2<>& p_source, com::Vector<char>& p_target_data)
 		{
 			serialize_vector(p_source.memory, p_target_data);
-			serialize_heap(p_source.heap, p_target_data);
+			serialize_vector(p_source.chunks, p_target_data);
 		};
 
 		template<class PoolElementType>
@@ -71,12 +70,11 @@ namespace Serialization
 			return l_return;
 		};
 
-		template<class HeaderElementType>
-		inline static VaryingVector<HeaderElementType> deserialize_varyingvector(size_t& p_current_pointer, const char* p_source)
+		inline static VaryingVector2<> deserialize_varyingvector(size_t& p_current_pointer, const char* p_source)
 		{
-			VaryingVector<HeaderElementType> l_return;
-			l_return.memory = deserialize_vector<VaryingVectorHeader<HeaderElementType>>(p_current_pointer, p_source);
-			deserialize_heap<GeneralPurposeHeap2_Times2Allocation>(p_current_pointer, p_source, &l_return.heap);
+			VaryingVector2<> l_return;
+			l_return.memory = deserialize_vector<char>(p_current_pointer, p_source);
+			l_return.chunks = deserialize_vector<VaryingVector2Chunk>(p_current_pointer, p_source);
 			return l_return;
 		};
 

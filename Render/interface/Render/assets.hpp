@@ -302,10 +302,89 @@ enum class MaterialAssetParameterType
 	UNIFORM_VARYING_VALUE = 3
 };
 
+struct MaterialAsset_Parameters
+{
+	VaryingVector2<HeapAllocator> varying_vector;
+
+
+
+	inline void free()
+	{
+		this->varying_vector.free();
+	};
+
+	struct TextureParameter
+	{
+		MaterialAssetParameterType type;
+		size_t key;
+
+		inline static TextureParameter build(const size_t& p_key)
+		{
+			return TextureParameter{ MaterialAssetParameterType::TEXTURE , p_key};
+		};
+	};
+
+	struct UniformVaryingParameter
+	{
+		MaterialAssetParameterType type;
+		size_t uniform_size;
+
+		inline static UniformVaryingParameter build(const size_t& p_size)
+		{
+			return UniformVaryingParameter{ MaterialAssetParameterType::UNIFORM_VARYING , p_size };
+		};
+	};
+
+	inline void push_texture(const size_t& p_texture_key)
+	{
+		this->varying_vector.push_back(TextureParameter::build(p_texture_key));
+	};
+
+	inline void push_uniform_varying(const size_t& p_uniform_size)
+	{
+		this->varying_vector.push_back(UniformVaryingParameter::build(p_uniform_size));
+	};
+
+	inline void push_uniform_value(char* p_value, const size_t& p_size)
+	{
+		size_t l_uniform_value_entry_size = sizeof(MaterialAssetParameterType) + p_size;
+		char* l_uniform_value_entry = (char*) ::malloc(l_uniform_value_entry_size);
+		MaterialAssetParameterType l_uniform_value_type = MaterialAssetParameterType::UNIFORM_VARYING_VALUE;
+		Mem::memcpy_safe(l_uniform_value_entry, l_uniform_value_entry_size, (char*)&l_uniform_value_type, sizeof(MaterialAssetParameterType));
+		Mem::memcpy_safe(l_uniform_value_entry + sizeof(MaterialAssetParameterType), l_uniform_value_entry_size - sizeof(MaterialAssetParameterType), p_value, p_size);
+
+		this->varying_vector.push_back(l_uniform_value_entry, l_uniform_value_entry_size);
+
+		::free(l_uniform_value_entry);
+	};
+
+	inline MaterialAssetParameterType* get_type(const size_t& p_index)
+	{
+		return (MaterialAssetParameterType*)&this->varying_vector.get(p_index);
+	};
+
+	inline size_t* get_texture_value(const size_t& p_index)
+	{
+		return (size_t*)(get_element_memory(p_index) + offsetof(TextureParameter, key));
+	};
+
+	inline void get_uniform_buffer(const size_t& p_index, size_t** out_size, char** out_value)
+	{
+		*out_size = (size_t*)(get_element_memory(p_index) + offsetof(UniformVaryingParameter, uniform_size));
+		*out_value = (char*)(get_element_memory(p_index + 1) + sizeof(MaterialAssetParameterType));
+	};
+
+private:
+	inline char* get_element_memory(const size_t& p_index)
+	{
+		return ((char*)(&this->varying_vector.get(p_index)));
+	};
+};
+
 struct MaterialAsset
 {
 	size_t shader;
-	VaryingVector<MaterialAssetParameterType> parameters;
+	MaterialAsset_Parameters parameters;
 
 	inline void free()
 	{
@@ -315,7 +394,7 @@ struct MaterialAsset
 	inline void serialize(com::Vector<char>& out_target)
 	{
 		Serialization::Binary::serialize_field<size_t>(&this->shader, out_target);
-		Serialization::Binary::serialize_varyingvector(this->parameters, out_target);
+		Serialization::Binary::serialize_varyingvector(this->parameters.varying_vector, out_target);
 	};
 
 	inline static MaterialAsset deserialize(const char* p_source)
@@ -323,7 +402,7 @@ struct MaterialAsset
 		MaterialAsset l_resource;
 		size_t l_current_pointer = 0;
 		l_resource.shader = *Serialization::Binary::deserialize_field<size_t>(l_current_pointer, p_source);
-		l_resource.parameters = Serialization::Binary::deserialize_varyingvector<MaterialAssetParameterType>(l_current_pointer, p_source);
+		l_resource.parameters.varying_vector = Serialization::Binary::deserialize_varyingvector(l_current_pointer, p_source);
 		return l_resource;
 	};
 };
@@ -350,7 +429,8 @@ struct JSONDeserializer<MaterialAsset>
 			{
 				l_parameter_iterator.next_field("object");
 				size_t l_texture = Hash<StringSlice>::hash(l_parameter_iterator.get_currentfield().value);
-				l_asset.parameters.push_back(MaterialAssetParameterType::TEXTURE, l_texture);
+				l_asset.parameters.push_texture(l_texture);
+				// l_asset.parameters.push_back(MaterialAssetParameterType::TEXTURE, l_texture);
 			}
 			else if (l_parameter_iterator.get_currentfield().value.equals(StringSlice("UNIFORM")))
 			{
@@ -377,8 +457,10 @@ struct JSONDeserializer<MaterialAsset>
 
 				if (l_uniform.Size > 0)
 				{
-					l_asset.parameters.push_back<size_t>(MaterialAssetParameterType::UNIFORM_VARYING, l_uniform.Size);
-					l_asset.parameters.push_back(MaterialAssetParameterType::UNIFORM_VARYING_VALUE, l_uniform.Memory, l_uniform.Size);
+					l_asset.parameters.push_uniform_varying(l_uniform.Size);
+					l_asset.parameters.push_uniform_value(l_uniform.Memory, l_uniform.Size);
+//					l_asset.parameters.push_back<size_t>(MaterialAssetParameterType::UNIFORM_VARYING, l_uniform.Size);
+//					l_asset.parameters.push_back(MaterialAssetParameterType::UNIFORM_VARYING_VALUE, );
 				}
 			}
 		}

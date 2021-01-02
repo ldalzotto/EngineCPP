@@ -3633,21 +3633,23 @@ public:
 
 			*out_shader = this->allocate_shader(l_material_asset.shader, this->render_api->swap_chain.render_passes.get_renderpass<RenderPass::Type::RT_COLOR_DEPTH>());
 
-			for (size_t i = 0; i < l_material_asset.parameters.size(); i++)
+			for (size_t i = 0; i < l_material_asset.parameters.varying_vector.size(); i++)
 			{
-				VaryingVectorHeader<MaterialAssetParameterType>& l_parameter_header = l_material_asset.parameters.get_header(i);
-				switch (l_parameter_header.header)
+				MaterialAssetParameterType* l_type = l_material_asset.parameters.get_type(i);
+
+				switch (*l_type)
 				{
 				case MaterialAssetParameterType::TEXTURE:
 				{
-					size_t* l_texture = l_material_asset.parameters.get_element<size_t>(l_parameter_header.chunk);
+					size_t* l_texture = l_material_asset.parameters.get_texture_value(i);
 					l_material.add_image_parameter(this->allocate_material_image_parameter(this->allocate_texture(*l_texture)));
 				}
 				break;
 				case MaterialAssetParameterType::UNIFORM_VARYING:
 				{
-					size_t* l_uniform_size = l_material_asset.parameters.get_element<size_t>(l_parameter_header.chunk);
-					char* l_uniform_buffer = l_material_asset.parameters.get_element<char>(i + 1);
+					size_t* l_uniform_size;
+					char* l_uniform_buffer;
+					l_material_asset.parameters.get_uniform_buffer(i, &l_uniform_size, &l_uniform_buffer);
 
 					l_material.add_uniform_parameter(
 						this->allocate_material_uniform_parameter(GPtr(l_uniform_buffer, *l_uniform_size))
