@@ -155,11 +155,22 @@ namespace com
 		}
 		else
 		{
-			vector_memcpy(this, getElementOffset<TYPE>(this->Size), &p_element, sizeof(TYPE));
-			this->Size += 1;
+			this->push_back_unsafe(p_element);
 		}
 
 		return 1;
+	}
+
+	Vector_TemplateHeader inline void Vector_ClassName::push_back_unsafe(const TYPE& p_element)
+	{
+		vector_memcpy(this, getElementOffset<TYPE>(this->Size), (const char*)&p_element, sizeof(TYPE));
+		this->Size += 1;
+	}
+
+	Vector_TemplateHeader inline void Vector_ClassName::push_back_unsafe(com::MemorySlice<TYPE>& p_elements)
+	{
+		vector_memcpy(this, getElementOffset<TYPE>(this->Size), (const char*)p_elements.Memory, p_elements.count() * sizeof(TYPE));
+		this->Size += p_elements.count();
 	}
 
 	Vector_TemplateHeader inline char Vector_ClassName::push_back(MemorySlice<TYPE>& p_elements)

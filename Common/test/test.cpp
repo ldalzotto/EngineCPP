@@ -1,30 +1,26 @@
-#include "Common/Container/vector.hpp"
-#include "Common/Memory/heap.hpp"
-#include "Common/Container/varying_vector.hpp"
+
+#include "Common/Container/nested_vector.hpp"
 
 int main()
 {
-	GeneralPurposeHeap2<GeneralPurposeHeap2_Times2Allocation> l_heapu;
-	l_heapu.allocate(20);
+	size_t l_element_9 = 9;
+	size_t l_element_12 = 12;
 
-	com::TPoolToken<GeneralPurposeHeapMemoryChunk> l_c1, l_c2, l_c3, l_c4, l_c5;
-	l_heapu.allocate_element(6, &l_c1);
-	l_heapu.allocate_element(6, &l_c2);
-	l_heapu.allocate_element(6, &l_c3);
-	l_heapu.allocate_element(6, &l_c4);
-	l_heapu.allocate_element(6, &l_c5);
+	TVectorOfVector<size_t> l_vv;
+	l_vv.allocate(0, 0);
 
-	l_heapu.release_element(l_c2);
-	l_heapu.release_element(l_c5);
-	l_heapu.release_element(l_c3);
+	TNestedVector<size_t> l_v0 = l_vv.push_back_vector();
 
-	l_heapu.defragment();
+	l_vv.nested_vector_push_back(l_v0, 9);
+	l_vv.nested_vector_push_back(l_v0, 9);
 
-	l_heapu.release_element(l_c4);
-	l_heapu.defragment();
+	TNestedVector<size_t> l_v1 = l_vv.push_back_vector();
 
-	l_heapu.dispose();
+	l_vv.nested_vector_push_back(l_v1, 12);
 
+	size_t& l_st = l_vv.nested_vector_get(l_v0, 0);
+	l_st = l_vv.nested_vector_get(l_v1, 0);
 
+	l_vv.free();
 
 }

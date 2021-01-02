@@ -62,6 +62,40 @@ struct VaryingVector2
 		this->chunks.erase_at(p_index, p_size);
 	};
 
+	inline void resize_element(const size_t p_index, const size_t p_new_size)
+	{
+		VaryingVector2Chunk& l_updated_chunk = this->chunks[p_index];
+		if (l_updated_chunk.size != p_new_size)
+		{
+			size_t l_size_delta = p_new_size - l_updated_chunk.size;
+			if (((this->memory.size_in_bytes() + l_size_delta) >  this->memory.capacity_in_bytes()))
+			{
+				this->memory.resize((this->memory.Capacity * 2) + l_size_delta);
+				this->resize_element(p_index, p_new_size);
+			}
+			else
+			{
+				if (p_new_size > l_updated_chunk.size)
+				{
+					this->memory.insert_at(com::MemorySlice<char>((char*)this, l_size_delta), l_updated_chunk.offset + l_updated_chunk.size);
+				}
+				else
+				{
+					this->memory.erase_at(l_updated_chunk.offset + l_updated_chunk.size + l_size_delta, -l_size_delta);
+				}
+				
+				l_updated_chunk.size += l_size_delta;
+
+				for (size_t i = p_index + 1; i < this->chunks.Size; i++)
+				{
+					this->chunks[i].offset += l_size_delta;
+				}
+				
+			};
+			
+		}
+	};
+
 	inline size_t size()
 	{
 		return this->chunks.Size;
