@@ -270,7 +270,7 @@ void update(void* p_engine, float p_delta)
 
 
 	printf("Trigger events : ");
-	com::Vector<Trigger::Event>& l_0_trigger_events = testContext.collider_detector_0.get_collision_events(l_collider_middleware->collision);
+	com::Vector<Trigger::Event, NoAllocator> l_0_trigger_events = testContext.collider_detector_0.get_collision_events(l_collider_middleware->collision);
 	if (l_0_trigger_events.Size > 0)
 	{
 		printf("collider : %lld", testContext.collider_detector_0.collider.handle);
@@ -281,7 +281,7 @@ void update(void* p_engine, float p_delta)
 		}
 	};
 
-	com::Vector<Trigger::Event>& l_1_trigger_events = testContext.collider_detector_1.get_collision_events(l_collider_middleware->collision);
+	com::Vector<Trigger::Event, NoAllocator> l_1_trigger_events = testContext.collider_detector_1.get_collision_events(l_collider_middleware->collision);
 	if (l_1_trigger_events.Size > 0)
 	{
 		printf("collider : %lld", testContext.collider_detector_1.collider.handle);

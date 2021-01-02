@@ -31,6 +31,12 @@ struct VaryingVector2
 		this->chunks.free();
 	};
 
+	inline void free_checked()
+	{
+		this->memory.free_checked();
+		this->chunks.free_checked();
+	};
+
 	inline void push_back(char* p_element, const size_t p_size)
 	{
 		this->chunks.push_back(VaryingVector2Chunk::build(this->memory.Size, p_size));

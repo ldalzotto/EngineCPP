@@ -49,7 +49,7 @@ void ColliderDetectorHandle::free(CollisionHandle p_collision)
 	this->reset();
 };
 
-com::Vector<Trigger::Event>& ColliderDetectorHandle::get_collision_events(CollisionHandle& p_collision)
+com::Vector<Trigger::Event, NoAllocator> ColliderDetectorHandle::get_collision_events(CollisionHandle& p_collision)
 {
 	Collision* l_collision = (Collision*)p_collision.handle;
 
@@ -61,6 +61,19 @@ com::Vector<Trigger::Event>& ColliderDetectorHandle::get_collision_events(Collis
 	}
 #endif
 
-	return (com::Vector<Trigger::Event>&)l_collision->collision_heap.collider_detectors_events[l_collision->collision_heap.collider_detectors[this->handle].collision_events];
 
+	TNestedVector<TriggerState> l_trigger_states = l_collision->collision_heap.collider_detectors[this->handle].collision_events;
+	size_t l_trigger_states_size = l_collision->collision_heap.collider_detectors_events_2.Memory.nested_vector_size(l_trigger_states);
+	if (l_trigger_states_size == 0)
+	{
+		return com::Vector<Trigger::Event, NoAllocator>::build(nullptr, 0,0, NoAllocator());
+	}
+	else
+	{
+		return com::Vector<Trigger::Event, NoAllocator>::build(
+			(Trigger::Event*)&l_collision->collision_heap.collider_detectors_events_2.Memory.nested_vector_get(l_trigger_states, 0),
+			l_trigger_states_size, l_trigger_states_size, 
+			NoAllocator()
+		);
+	}
 };
