@@ -11,6 +11,12 @@ struct Array
 
 	inline TYPE& operator[](size_t p_index)
 	{
+#if CONTAINER_BOUND_TEST
+		if (p_index >= this->Capacity)
+		{
+			abort();
+		}
+#endif
 		return this->Memory[p_index];
 	};
 };

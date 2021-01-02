@@ -40,7 +40,7 @@ namespace com
 			this->End = p_element_count;
 		};
 
-		inline size_t count()
+		inline size_t count() const
 		{
 			return this->End - this->Begin;
 		};

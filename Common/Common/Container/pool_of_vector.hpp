@@ -50,6 +50,7 @@ struct PoolOfVector
 
 	inline void release_element(const TNestedVector<ElementType>& p_token)
 	{
+		this->Memory.nested_vector_clear(p_token);
 		this->FreeBlocks.push_back(p_token);
 	};
 

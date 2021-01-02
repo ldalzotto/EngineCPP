@@ -243,6 +243,9 @@ struct CollisionDetectionStep
 					com::TPoolToken<BoxCollider>& l_right_collider_token = this->heap->box_colliders_indices[j];
 
 					//Avoid self test
+					//TODO -> FIX - we also need to avoid calculatin the same collision between two Colliders (in the case where multiple colliders in this->in_colliders_processed are colliding between each other)
+					//		  because the on_collision_detected and on_collision_detection_failed operations are bidirectional.
+					//		  This bug presents the TRIGGER_ENTER event to be triggered.
 					if (l_left_collider_token.val != l_right_collider_token.val)
 					{
 						BoxCollider& l_right_collider = this->heap->box_colliders[l_right_collider_token];
@@ -266,11 +269,10 @@ struct CollisionDetectionStep
 		{
 			ColliderDetector_IntersectionEvent& l_waiting = this->is_waitingfor_trigger_stay_detector[j];
 
-			TNestedVector<TriggerState> l_events = this->heap->collider_detectors[l_waiting.detector].collision_events;
-			size_t l_events_size = this->heap->collider_detectors_events_2.Memory.nested_vector_size(l_events);
-			for (size_t k = 0; k < l_events_size; k++)
+			Array<TriggerState> l_events = this->heap->collider_detectors_events_2.Memory.get_nested_vector_array(this->heap->collider_detectors[l_waiting.detector].collision_events);
+			for (size_t k = 0; k < l_events.Capacity; k++)
 			{
-				TriggerState& l_trigger_event = this->heap->collider_detectors_events_2.Memory.nested_vector_get(l_events, k);
+				TriggerState& l_trigger_event = l_events[k];
 				if (l_trigger_event.other.val == l_waiting.other.val)
 				{
 					l_trigger_event.state = Trigger::State::TRIGGER_STAY;
@@ -282,11 +284,10 @@ struct CollisionDetectionStep
 		{
 			ColliderDetector_TriggerEvent& l_waiting = this->is_waitingfor_trigger_none_detector[i];
 
-			TNestedVector<TriggerState> l_events = this->heap->collider_detectors[l_waiting.detector].collision_events;
-			size_t l_events_size = this->heap->collider_detectors_events_2.Memory.nested_vector_size(l_events);
-			for (size_t k = 0; k < l_events_size; k++)
+			Array<TriggerState> l_events = this->heap->collider_detectors_events_2.Memory.get_nested_vector_array(this->heap->collider_detectors[l_waiting.detector].collision_events);
+			for (size_t k = 0; k < l_events.Capacity; k++)
 			{
-				TriggerState& l_trigger_event = this->heap->collider_detectors_events_2.Memory.nested_vector_get(l_events, k);
+				TriggerState& l_trigger_event = l_events[k];
 				if (l_trigger_event.other.val == l_waiting.other.val)
 				{
 					l_trigger_event.state = Trigger::State::NONE;
@@ -350,13 +351,12 @@ private:
 		{
 			this->lastframe_involved_colliderdetectors.push_back(l_source_collider_detector);
 
-			TNestedVector<TriggerState> l_collider_triggerevents = this->heap->collider_detectors[l_source_collider_detector].collision_events;
-			size_t l_collider_triggerevents_size = this->heap->collider_detectors_events_2.Memory.nested_vector_size(l_collider_triggerevents);
-
+			TNestedVector<TriggerState> l_collider_triggerevents_nestedvector = this->heap->collider_detectors[l_source_collider_detector].collision_events;
+			Array<TriggerState> l_collider_triggerevents = this->heap->collider_detectors_events_2.Memory.get_nested_vector_array(l_collider_triggerevents_nestedvector);
 			bool l_trigger_event_found = false;
-			for (size_t i = 0; i < l_collider_triggerevents_size; i++)
+			for (size_t i = 0; i < l_collider_triggerevents.Capacity; i++)
 			{
-				TriggerState& l_collider_trigger_event = this->heap->collider_detectors_events_2.Memory.nested_vector_get(l_collider_triggerevents, i);
+				TriggerState& l_collider_trigger_event = l_collider_triggerevents[i];
 				if (l_collider_trigger_event.other.val == p_intersected_collider.val)
 				{
 					l_collider_trigger_event.state = Trigger::State::TRIGGER_STAY;
@@ -370,7 +370,7 @@ private:
 				TriggerState l_trigger_event = TriggerState();
 				l_trigger_event.other = p_intersected_collider;
 				l_trigger_event.state = Trigger::State::TRIGGER_ENTER;
-				this->heap->collider_detectors_events_2.Memory.nested_vector_push_back(l_collider_triggerevents, l_trigger_event);
+				this->heap->collider_detectors_events_2.Memory.nested_vector_push_back(l_collider_triggerevents_nestedvector, l_trigger_event);
 				this->is_waitingfor_trigger_stay_nextframe_detector.push_back(ColliderDetector_IntersectionEvent(l_source_collider_detector, p_source_collider, p_intersected_collider));
 			}
 		}
@@ -381,12 +381,11 @@ private:
 		com::TPoolToken<ColliderDetector>& l_source_collider_detector = this->heap->box_colliders_to_collider_detector[p_source_collider];
 		if (l_source_collider_detector.val != -1)
 		{
-			TNestedVector<TriggerState> l_collider_triggerevents = this->heap->collider_detectors[l_source_collider_detector].collision_events;
-			size_t l_collider_triggerevents_size = this->heap->collider_detectors_events_2.Memory.nested_vector_size(l_collider_triggerevents);
-
-			for (size_t i = 0; i < l_collider_triggerevents_size; i++)
+			 
+			Array<TriggerState> l_collider_triggerevents = this->heap->collider_detectors_events_2.Memory.get_nested_vector_array(this->heap->collider_detectors[l_source_collider_detector].collision_events);
+			for (size_t i = 0; i < l_collider_triggerevents.Capacity; i++)
 			{
-				TriggerState& l_trigger_event = this->heap->collider_detectors_events_2.Memory.nested_vector_get(l_collider_triggerevents, i);
+				TriggerState& l_trigger_event = l_collider_triggerevents[i];
 				if (l_trigger_event.other.val == p_intersected_collider.val)
 				{
 					l_trigger_event.state = Trigger::State::TRIGGER_EXIT;

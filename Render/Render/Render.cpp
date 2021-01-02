@@ -7,6 +7,7 @@
 #include <AssetServer/asset_server.hpp>
 #include "Math/math.hpp"
 #include "Common/Container/pool.hpp"
+#include "Common/Container/pool_of_vector.hpp"
 #include "Common/Container/vector.hpp"
 #include "Common/Container/array_def.hpp"
 #include "Common/Container/resource_map.hpp"
@@ -3179,11 +3180,12 @@ struct RenderHeap2
 
 	com::Pool<ShaderLayout> shader_layouts;
 	com::Pool<Shader> shaders;
-	com::Pool<com::Vector<com::TPoolToken<ShaderModule>>> shaders_to_modules;
-	com::Pool<com::Vector<com::TPoolToken<Material>>> shaders_to_materials;
+	PoolOfVector<com::TPoolToken<ShaderModule>> shaders_to_modules_2;
+	PoolOfVector<com::TPoolToken<Material>> shaders_to_materials_2;
 
 	com::Pool<Material> materials;
-	com::Pool<com::Vector<com::TPoolToken<RenderableObject>>> material_to_renderableobjects;
+	PoolOfVector<com::TPoolToken<RenderableObject>> material_to_renderableobjects_2;
+	
 
 	com::Pool<RenderableObject> renderableobjects;
 
@@ -3352,14 +3354,13 @@ struct RenderHeap2
 					*(this->render_heap->render_api)
 				);
 
-				this->render_heap->shaders_to_materials.alloc_element(com::Vector<com::TPoolToken<Material>>());
+				this->render_heap->shaders_to_materials_2.alloc_element();
 
-				com::Vector<com::TPoolToken<ShaderModule>> shader_modules; shader_modules.allocate(2);
-				shader_modules.Size = shader_modules.Capacity;
-				shader_modules[0] = l_vertex_module;
-				shader_modules[1] = l_fragment_module;
+				com::TPoolToken<ShaderModule> l_shader_modules_array[2] = { l_vertex_module , l_fragment_module };
+				com::MemorySlice<com::TPoolToken<ShaderModule>> l_shader_modules_slice = com::MemorySlice<com::TPoolToken<ShaderModule>>(l_shader_modules_array, 2);
 
-				this->render_heap->shaders_to_modules.alloc_element(shader_modules);
+				TNestedVector<com::TPoolToken<ShaderModule>> l_shader_modules = this->render_heap->shaders_to_modules_2.alloc_element();
+				this->render_heap->shaders_to_modules_2.Memory.nested_vector_insert_at(l_shader_modules, 0, l_shader_modules_slice);
 				return this->render_heap->shaders.alloc_element(l_shader);
 			};
 		};
@@ -3382,17 +3383,15 @@ struct RenderHeap2
 
 				l_shader.dispose(this->render_heap->render_api->device);
 
-				this->render_heap->shaders_to_materials[p_shader.cast<com::Vector<com::TPoolToken<Material>>>()].free();
-				this->render_heap->shaders_to_materials.release_element(p_shader.cast<com::Vector<com::TPoolToken<Material>>>());
+				this->render_heap->shaders_to_materials_2.release_element(TNestedVector<com::TPoolToken<Material>>::build(p_shader.val));
 
-				com::Vector<com::TPoolToken<ShaderModule>>& l_associated_modules = this->render_heap->shaders_to_modules[p_shader.cast<com::Vector<com::TPoolToken<ShaderModule>>>()];
-				for (short int i = 0; i < l_associated_modules.Size; i++)
+				TNestedVector<com::TPoolToken<ShaderModule>>l_associated_modules_nestedarray = TNestedVector<com::TPoolToken<ShaderModule>>::build(p_shader.val);
+				Array<com::TPoolToken<ShaderModule>> l_associated_modules = this->render_heap->shaders_to_modules_2.Memory.get_nested_vector_array(l_associated_modules_nestedarray);
+				for (short int i = 0; i < l_associated_modules.Capacity; i++)
 				{
 					this->render_heap->free_shadermodule(l_associated_modules[i]);
 				}
-				l_associated_modules.free();
-				this->render_heap->shaders_to_modules.release_element(p_shader.cast<com::Vector<com::TPoolToken<ShaderModule>>>());
-
+				this->render_heap->shaders_to_modules_2.release_element(l_associated_modules_nestedarray);
 				this->render_heap->shaders.release_element(p_shader);
 			};
 
@@ -3545,10 +3544,10 @@ public:
 
 		this->shadermodules.free_checked();
 		this->shaders.free_checked();
-		this->shaders_to_modules.free_checked();
-		this->shaders_to_materials.free_checked();
+		this->shaders_to_modules_2.free_checked();
+		this->shaders_to_materials_2.free_checked();
 		this->materials.free_checked();
-		this->material_to_renderableobjects.free_checked();
+		this->material_to_renderableobjects_2.free_checked();
 		this->renderableobjects.free_checked();
 		this->meshes.free_checked();
 		this->textures.free_checked();
@@ -3664,8 +3663,8 @@ public:
 
 
 		com::TPoolToken<Material> l_material_handle = this->materials.alloc_element(l_material);
-		this->material_to_renderableobjects.alloc_element(com::Vector<com::TPoolToken<RenderableObject>>());
-		this->shaders_to_materials[out_shader->val].push_back(l_material_handle);
+		this->material_to_renderableobjects_2.alloc_element();
+		this->shaders_to_materials_2.Memory.nested_vector_push_back(TNestedVector<com::TPoolToken<Material>>::build(out_shader->val), l_material_handle);
 
 		return l_material_handle;
 	};
@@ -3684,12 +3683,13 @@ public:
 
 	inline void free_material(const com::TPoolToken<Material>& p_material, const com::TPoolToken<Shader>& p_shader)
 	{
-		com::Vector<com::TPoolToken<Material>>& l_shaders_to_materials = this->shaders_to_materials[p_shader.cast<com::Vector<com::TPoolToken<Material>>>()];
-		for (size_t i = 0; i < l_shaders_to_materials.Size; i++)
+		TNestedVector<com::TPoolToken<Material>> l_shaders_to_materials_nestedarray = TNestedVector<com::TPoolToken<Material>>::build(p_shader.val);
+		Array<com::TPoolToken<Material>> l_shaders_to_materials = this->shaders_to_materials_2.Memory.get_nested_vector_array(l_shaders_to_materials_nestedarray);
+		for (size_t i = 0; i < l_shaders_to_materials.Capacity; i++)
 		{
 			if (l_shaders_to_materials[i].val == p_material.val)
 			{
-				l_shaders_to_materials.erase_at(i, 1);
+				this->shaders_to_materials_2.Memory.nested_vector_erase_at(l_shaders_to_materials_nestedarray, i, 1);
 				break;
 			}
 		}
@@ -3721,8 +3721,7 @@ public:
 
 		l_material.free();
 		this->materials.release_element(p_material);
-		this->material_to_renderableobjects[p_material.cast<com::Vector<com::TPoolToken<RenderableObject>>>()].free();
-		this->material_to_renderableobjects.release_element(p_material.cast<com::Vector<com::TPoolToken<RenderableObject>>>());
+		this->material_to_renderableobjects_2.release_element(TNestedVector<com::TPoolToken<RenderableObject>>::build(p_material.val));
 	};
 
 	inline com::TPoolToken<Mesh> allocate_mesh(const std::string& p_path)
@@ -3761,7 +3760,7 @@ public:
 		RenderableObject l_renderable_object;
 		l_renderable_object.allocate(p_mesh, *this->render_api);
 		com::TPoolToken<RenderableObject> l_renderableobjet_handle = this->renderableobjects.alloc_element(l_renderable_object);
-		this->material_to_renderableobjects[p_material.val].push_back(l_renderableobjet_handle);
+		this->material_to_renderableobjects_2.Memory.nested_vector_push_back(TNestedVector<com::TPoolToken<RenderableObject>>::build(p_material.val), l_renderableobjet_handle);
 		return l_renderableobjet_handle;
 	};
 
@@ -3775,8 +3774,21 @@ public:
 	inline void set_material(com::TPoolToken<RenderableObject> p_renderable_object, com::TPoolToken<Material> p_old_marterial,
 		com::TPoolToken<Shader> p_old_shader, com::TPoolToken<Material> p_material)
 	{
+
 		//Create new link
-		this->material_to_renderableobjects[p_material.val].push_back(p_renderable_object);
+		this->material_to_renderableobjects_2.Memory.nested_vector_push_back(TNestedVector<com::TPoolToken<RenderableObject>>::build(p_material.val), p_renderable_object);
+
+		//Remove old link
+		TNestedVector<com::TPoolToken<RenderableObject>> l_old_material_to_renderableobjects_nestedarray = TNestedVector<com::TPoolToken<RenderableObject>>::build(p_old_marterial.val);
+		Array<com::TPoolToken<RenderableObject>>l_old_material_to_renderableobjects = this->material_to_renderableobjects_2.Memory.get_nested_vector_array(l_old_material_to_renderableobjects_nestedarray);
+		for (size_t i = 0; i < l_old_material_to_renderableobjects.Capacity; i++)
+		{
+			if (l_old_material_to_renderableobjects[i].val == p_old_marterial.val)
+			{
+				this->material_to_renderableobjects_2.Memory.nested_vector_erase_at(l_old_material_to_renderableobjects_nestedarray, i, 1);
+				break;
+			}
+		}
 	};
 
 	inline void set_mesh(com::TPoolToken<RenderableObject> p_renderable_object, com::TPoolToken<Mesh> p_mesh)
@@ -3895,18 +3907,18 @@ struct RTDrawStep
 
 				p_command_buffer.command_buffer.bindPipeline(vk::PipelineBindPoint::eGraphics, l_shader.pipeline);
 
-				com::Vector<com::TPoolToken<Material>>& l_materials = this->heap->shaders_to_materials[l_shader_heap.val];
-				for (size_t l_material_index = 0; l_material_index < l_materials.Size; l_material_index++)
+				Array<com::TPoolToken<Material>> l_materials = this->heap->shaders_to_materials_2.Memory.get_nested_vector_array(TNestedVector<com::TPoolToken<Material>>::build(l_shader_heap.val));
+				for (size_t l_material_index = 0; l_material_index < l_materials.Capacity; l_material_index++)
 				{
 					com::TPoolToken<Material> l_material_heap_token = l_materials[l_material_index];
 					Material& l_material = this->heap->materials[l_material_heap_token];
 
 					l_material.bind_command(p_command_buffer, 2, this->heap->shader_uniform_parameters, this->heap->shader_imagesample_parameters, l_shader_layout.layout);
 
-					com::Vector<com::TPoolToken<RenderableObject>>& l_renderableobjects = this->heap->material_to_renderableobjects[l_material_heap_token.val];
-					for (size_t l_renderableobject_index = 0; l_renderableobject_index < l_renderableobjects.Size; l_renderableobject_index++)
+					Array<com::TPoolToken<RenderableObject>> l_renderableObjects = this->heap->material_to_renderableobjects_2.Memory.get_nested_vector_array(TNestedVector<com::TPoolToken<RenderableObject>>::build(l_material_heap_token.val));
+					for (size_t l_renderableobject_index = 0; l_renderableobject_index < l_renderableObjects.Capacity; l_renderableobject_index++)
 					{
-						RenderableObject& l_renderableobject = this->heap->renderableobjects[l_renderableobjects[l_renderableobject_index]];
+						RenderableObject& l_renderableobject = this->heap->renderableobjects[l_renderableObjects[l_renderableobject_index]];
 						l_renderableobject.model_matrix_buffer.bind_command(p_command_buffer, 1, l_shader_layout.layout);
 						l_renderableobject.draw(p_command_buffer, this->heap->meshes);
 					}

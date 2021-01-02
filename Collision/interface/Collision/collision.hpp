@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Common/Container/vector_def.hpp"
+#include "Common/Container/array_def.hpp"
 #include "Common/Memory/handle.hpp"
 #include "Math/matrix_def.hpp"
 #include "Math/geometry_def.hpp"
@@ -59,5 +60,5 @@ struct ColliderDetectorHandle
 	void allocate(CollisionHandle p_collision, BoxColliderHandle p_collider);
 	void free(CollisionHandle p_collision);
 
-	com::Vector<Trigger::Event, NoAllocator> get_collision_events(CollisionHandle& p_collision);
+	Array<Trigger::Event> get_collision_events(CollisionHandle& p_collision);
 };

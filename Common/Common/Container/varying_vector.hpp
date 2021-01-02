@@ -73,7 +73,7 @@ struct VaryingVector2
 		VaryingVector2Chunk& l_updated_chunk = this->chunks[p_index];
 		if (l_updated_chunk.size != p_new_size)
 		{
-			size_t l_size_delta = p_new_size - l_updated_chunk.size;
+			int l_size_delta = (int)(p_new_size - l_updated_chunk.size);
 			if (((this->memory.size_in_bytes() + l_size_delta) >  this->memory.capacity_in_bytes()))
 			{
 				this->memory.resize((this->memory.Capacity * 2) + l_size_delta);
@@ -87,6 +87,7 @@ struct VaryingVector2
 				}
 				else
 				{
+					//l_size_delta is < 0
 					this->memory.erase_at(l_updated_chunk.offset + l_updated_chunk.size + l_size_delta, -l_size_delta);
 				}
 				

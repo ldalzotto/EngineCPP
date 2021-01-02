@@ -1,6 +1,7 @@
 #pragma once
 
 #include "varying_vector.hpp"
+#include "array_def.hpp"
 
 struct NestedVector_SizeByte
 {
@@ -79,17 +80,26 @@ inline com::Vector<char, NoAllocator> VectorOfVector_NestedVector_build_vector(V
 template<class VectorElementHeader = NestedVector_SizeByte, class Allocator = HeapAllocator>
 inline void VectorOfVector_NestedVector_push_back(VectorOfVector<VectorElementHeader, Allocator>* thiz, const size_t p_nested_vector, const char* p_element, const size_t& p_size)
 {
-	NestedVector_SizeByte l_old_size = *(VectorOfVector_get_nested_vector_element_header(thiz, p_nested_vector)->size_byte());
-
 	{
 		VaryingVector2Chunk l_old_chunk = thiz->varying_vector.chunks[p_nested_vector];
 		thiz->varying_vector.resize_element(p_nested_vector, l_old_chunk.size + p_size);
 	}
 
-	VaryingVector2Chunk& l_chunk = thiz->varying_vector.chunks[p_nested_vector];
-
 	com::Vector<char, NoAllocator> l_vector = VectorOfVector_NestedVector_build_vector(thiz, p_nested_vector);
 	l_vector.push_back_unsafe(com::MemorySlice<char>((char*)p_element, p_size));
+	*(VectorOfVector_get_nested_vector_element_header(thiz, p_nested_vector)->size_byte()) = NestedVector_SizeByte::build(l_vector.Size, l_vector.Capacity);
+};
+
+template<class VectorElementHeader = NestedVector_SizeByte, class Allocator = HeapAllocator>
+inline void VectorOfVector_NestedVector_insert_at(VectorOfVector<VectorElementHeader, Allocator>* thiz, const size_t p_nested_vector, const size_t& p_index, const char* p_value, const size_t& p_size)
+{
+	{
+		VaryingVector2Chunk l_old_chunk = thiz->varying_vector.chunks[p_nested_vector];
+		thiz->varying_vector.resize_element(p_nested_vector, l_old_chunk.size + p_size);
+	}
+
+	com::Vector<char, NoAllocator> l_vector = VectorOfVector_NestedVector_build_vector(thiz, p_nested_vector);
+	l_vector.insert_at(com::MemorySlice<char>((char*)p_value, p_size), p_index);
 	*(VectorOfVector_get_nested_vector_element_header(thiz, p_nested_vector)->size_byte()) = NestedVector_SizeByte::build(l_vector.Size, l_vector.Capacity);
 };
 
@@ -101,25 +111,13 @@ inline void VectorOfVector_NestedVector_erase_at(VectorOfVector<VectorElementHea
 	*(VectorOfVector_get_nested_vector_element_header(thiz, p_nested_vector)->size_byte()) = NestedVector_SizeByte::build(l_vector.Size, l_vector.Capacity);
 };
 
-template<class ElementType, class VectorElementHeader = NestedVector_SizeByte, class Allocator = HeapAllocator>
-inline ElementType& VectorOfVector_NestedVector_get(VectorOfVector<VectorElementHeader, Allocator>* thiz, const size_t p_nested_vector, const size_t& p_index)
+template<class VectorElementHeader = NestedVector_SizeByte, class Allocator = HeapAllocator>
+inline void VectorOfVector_NestedVector_clear(VectorOfVector<VectorElementHeader, Allocator>* thiz, const size_t p_nested_vector)
 {
-	VectorElementHeader* l_header = VectorOfVector_get_nested_vector_element_header(thiz, p_nested_vector);
-	char* l_memory = Nestedvector_ElementHeader_get_vector(l_header);
-#if CONTAINER_BOUND_TEST
-	{
-		NestedVector_SizeByte* l_size = l_header->size_byte();
-		if (p_index >= l_size->size)
-		{
-			abort();
-		}
-	}
-#endif
-	return (((ElementType*)l_memory)[p_index]);
+	com::Vector<char, NoAllocator> l_vector = VectorOfVector_NestedVector_build_vector(thiz, p_nested_vector);
+	l_vector.clear();
+	*(VectorOfVector_get_nested_vector_element_header(thiz, p_nested_vector)->size_byte()) = NestedVector_SizeByte::build(l_vector.Size, l_vector.Capacity);
 };
-
-
-
 
 struct TNestedVector_ElementHeader
 {
@@ -175,10 +173,22 @@ struct TVectorOfVector
 		return TNestedVector<ElementType>::build(this->vector_of_vector.varying_vector.size() - 1);
 	};
 
+	inline Array<ElementType> get_nested_vector_array(const TNestedVector<ElementType>& p_nested_vector)
+	{
+		TNestedVector_ElementHeader* l_header = VectorOfVector_get_nested_vector_element_header(&this->vector_of_vector, p_nested_vector.nested_vector_index);
+		return Array<ElementType>((ElementType*)Nestedvector_ElementHeader_get_vector(l_header), l_header->element_count);
+	};
+
 	inline void nested_vector_push_back(const TNestedVector<ElementType>& p_nested_vector, const ElementType& p_element)
 	{
 		VectorOfVector_NestedVector_push_back(&this->vector_of_vector, p_nested_vector.nested_vector_index, (const char*)(&p_element), sizeof(ElementType));
 		VectorOfVector_get_nested_vector_element_header(&this->vector_of_vector, p_nested_vector.nested_vector_index)->element_count += 1;
+	};
+
+	inline void nested_vector_insert_at(const TNestedVector<ElementType>& p_nested_vector, const size_t& p_index, const com::MemorySlice<ElementType>& p_value)
+	{
+		VectorOfVector_NestedVector_insert_at(&this->vector_of_vector, p_nested_vector.nested_vector_index, p_index * sizeof(ElementType), (const char*)p_value.Memory, p_value.count() * sizeof(ElementType));
+		VectorOfVector_get_nested_vector_element_header(&this->vector_of_vector, p_nested_vector.nested_vector_index)->element_count += p_value.count();
 	};
 
 	inline void nested_vector_erase_at(const TNestedVector<ElementType>& p_nested_vector, const size_t& p_index, const size_t& p_size)
@@ -187,9 +197,10 @@ struct TVectorOfVector
 		VectorOfVector_get_nested_vector_element_header(&this->vector_of_vector, p_nested_vector.nested_vector_index)->element_count -= p_size;
 	};
 
-	inline ElementType& nested_vector_get(const TNestedVector<ElementType>& p_nested_vector, const size_t p_index)
+	inline void nested_vector_clear(const TNestedVector<ElementType>& p_nested_vector)
 	{
-		return VectorOfVector_NestedVector_get<ElementType>(&this->vector_of_vector, p_nested_vector.nested_vector_index, p_index * sizeof(ElementType));
+		VectorOfVector_NestedVector_clear(&this->vector_of_vector, p_nested_vector.nested_vector_index);
+		VectorOfVector_get_nested_vector_element_header(&this->vector_of_vector, p_nested_vector.nested_vector_index)->element_count = 0;
 	};
 
 	inline size_t nested_vector_size(const TNestedVector<ElementType>& p_nested_vector)
