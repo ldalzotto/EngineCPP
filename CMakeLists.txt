@@ -26,6 +26,7 @@ endif()
 
 
 add_subdirectory(ThirdParty)
+
 add_subdirectory(Common)
 add_subdirectory(Math)
 add_subdirectory(AssetServer)
@@ -39,5 +40,9 @@ add_subdirectory(Engine)
 add_subdirectory(SceneSerialization)
 add_subdirectory(Tools)
 add_subdirectory(CPPTestVS)
+
+
+add_subdirectory(Rewrite/Common2)
+add_subdirectory(Rewrite/Collision2)
 
 add_subdirectory(Test)

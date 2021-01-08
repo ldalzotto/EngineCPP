@@ -57,9 +57,10 @@ struct VectorOfVector
 };
 
 template<class VectorElementHeader = NestedVector_SizeByte, class Allocator = HeapAllocator>
-inline void VectorOfVector_push_back_vector(VectorOfVector<VectorElementHeader, Allocator>* thiz)
+inline size_t VectorOfVector_push_back_vector(VectorOfVector<VectorElementHeader, Allocator>* thiz)
 {
 	thiz->varying_vector.push_back(VectorElementHeader::build());
+	return thiz->varying_vector.size() - 1;
 };
 
 template<class VectorElementHeader = NestedVector_SizeByte, class Allocator = HeapAllocator>
@@ -169,8 +170,7 @@ struct TVectorOfVector
 
 	inline TNestedVector<ElementType> push_back_vector()
 	{
-		VectorOfVector_push_back_vector(&this->vector_of_vector);
-		return TNestedVector<ElementType>::build(this->vector_of_vector.varying_vector.size() - 1);
+		return TNestedVector<ElementType>::build(VectorOfVector_push_back_vector(&this->vector_of_vector));
 	};
 
 	inline Array<ElementType> get_nested_vector_array(const TNestedVector<ElementType>& p_nested_vector)

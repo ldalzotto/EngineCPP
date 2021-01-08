@@ -209,7 +209,7 @@ inline bool StringSlice::find(const StringSlice& p_other, size_t* p_outfoundInde
 		for (*p_outfoundIndex = this->Begin; *p_outfoundIndex < this->End; (*p_outfoundIndex)++)
 		{
 			size_t l_endIndex = (*p_outfoundIndex) + (p_other.End - p_other.Begin);
-			if (l_endIndex > this->End)
+			if (l_endIndex > this->End + 1)
 			{
 				break;
 			}
