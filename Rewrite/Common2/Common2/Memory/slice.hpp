@@ -8,55 +8,79 @@ struct Slice
 {
 	size_t Size;
 	ElementType* Begin;
+
+	inline static Slice<ElementType> build(ElementType* p_memory, const size_t p_begin, const size_t p_end)
+	{
+		return Slice<ElementType>{p_end - p_begin, p_memory + p_begin};
+	};
+
+	inline static Slice<ElementType> build_memory_elementnb(ElementType* p_memory, const size_t p_element_nb)
+	{
+		return Slice<ElementType>{p_element_nb, p_memory};
+	};
+
+	inline static Slice<ElementType> build_memory_offset_elementnb(ElementType* p_memory, const size_t p_offset, const size_t p_element_nb)
+	{
+		return Slice<ElementType>{p_element_nb, p_memory + p_offset};
+	};
+
+	inline static Slice<char> build_aschar(ElementType* p_memory, const size_t p_begin, const size_t p_end)
+	{
+		return Slice<char>{sizeof(ElementType)* (p_end - p_begin), cast(char*, (p_memory + p_begin))};
+	};
+
+	inline Slice<char> build_aschar() const
+	{
+		return Slice<char>{sizeof(ElementType)* this->Size, cast(char*, this->Begin)};
+	};
+
+	inline static Slice<char> build_aschar_memory_elementnb(const ElementType* p_memory, const size_t p_element_nb)
+	{
+		return Slice<char>{sizeof(ElementType)* p_element_nb, cast(char*, p_memory)};
+	};
+
+	inline static Slice<char> build_aschar_memory_singleelement(const ElementType* p_memory)
+	{
+		return Slice<char>{sizeof(ElementType), cast(char*, p_memory)};
+	};
+
+	inline ElementType* get(const size_t p_index)
+	{
+#if CONTAINER_BOUND_TEST
+		if(p_index >= this->Size)
+		{
+			abort();
+		}
+#endif
+		return &this->Begin[p_index];
+	};
+
+	inline ElementType get_rv(const size_t p_index)
+	{
+		return *this->get(p_index);
+	};
+
+	inline void slide(const size_t p_offset_index)
+	{
+#if CONTAINER_BOUND_TEST
+		if (p_offset_index >= this->Size)
+		{
+			abort();
+		};
+#endif
+
+		this->Begin = this->Begin + p_offset_index;
+		this->Size -= p_offset_index;
+	};
+
+	inline Slice<ElementType> slide_rv(const size_t p_offset_index)
+	{
+		Slice<ElementType> l_return = *this;
+		l_return.slide(p_offset_index);
+		return l_return;
+	};
 };
 
-template<class ElementType>
-inline Slice<ElementType> slice_build(ElementType* p_memory, const size_t p_begin, const size_t p_end)
-{
-	return Slice<ElementType>{p_end - p_begin, p_memory + p_begin};
-};
-
-template<class ElementType>
-inline Slice<ElementType> slice_build_memory_elementnb(ElementType* p_memory, const size_t p_element_nb)
-{
-	return Slice<ElementType>{p_element_nb, p_memory};
-};
-
-template<class ElementType>
-inline Slice<ElementType> slice_build_memory_offset_elementnb(ElementType* p_memory, const size_t p_offset, const size_t p_element_nb)
-{
-	return Slice<ElementType>{p_element_nb, p_memory + p_offset};
-};
-
-template<class ElementType>
-inline Slice<char> slice_build_aschar(ElementType* p_memory, const size_t p_begin, const size_t p_end)
-{
-	return Slice<char>{sizeof(ElementType)* (p_end - p_begin), cast(char*, (p_memory + p_begin))};
-};
-
-template<class ElementType>
-inline Slice<char> slice_build_aschar_slice(const Slice<ElementType>* p_slice)
-{
-	return Slice<char>{sizeof(ElementType) * p_slice->Size, cast(char*, p_slice->Begin)};
-};
-
-template<class ElementType>
-inline Slice<char> slice_build_aschar_slice_0v(const Slice<ElementType> p_slice)
-{
-	return slice_build_aschar_slice(&p_slice);
-};
-
-template<class ElementType>
-inline Slice<char> slice_build_aschar_memory_elementnb(ElementType* p_memory, const size_t p_element_nb)
-{
-	return Slice<char>{sizeof(ElementType)* p_element_nb, cast(char*, p_memory)};
-};
-
-template<class ElementType>
-inline Slice<char> slice_build_aschar_memory_singleelement(ElementType* p_memory)
-{
-	return Slice<char>{sizeof(ElementType), cast(char*, p_memory)};
-};
 
 template<class CastedType>
 inline Slice<CastedType> slice_cast(Slice<char>* p_slice)
@@ -70,6 +94,8 @@ inline Slice<CastedType> slice_cast(Slice<char>* p_slice)
 
 	return Slice<CastedType>{ cast(size_t, p_slice->Size / sizeof(CastedType)), cast(CastedType*, p_slice->Begin) };
 };
+
+
 
 template<class CastedType>
 inline Slice<CastedType> slice_cast_0v(Slice<char> p_slice)
@@ -114,49 +140,9 @@ inline Slice<CastedType> slice_cast_fixedelementnb_0v(Slice<char> p_slice, const
 	return slice_cast_fixedelementnb<CastedType>(&p_slice, p_element_nb);
 };
 
-template<class ElementType>
-inline ElementType* slice_get(Slice<ElementType>* p_slice, const size_t p_index)
-{
-	return &p_slice->Begin[p_index];
-};
 
-template<class ElementType>
-inline ElementType slice_get_rv(Slice<ElementType>* p_slice, const size_t p_index)
-{
-	return *slice_get(p_slice, p_index);
-};
 
-// #define slice_get_rv(p_slice, p_index) (*slice_get(p_slice, p_index))
 
-template<class ElementType>
-inline void slice_slide(Slice<ElementType>* p_slice, const size_t p_offset_index)
-{
-#if CONTAINER_BOUND_TEST
-	if (p_offset_index >= p_slice->Size)
-	{
-		abort();
-	};
-#endif
-
-	p_slice->Begin = p_slice->Begin + p_offset_index;
-	p_slice->Size -= p_offset_index;
-};
-
-template<class ElementType>
-inline Slice<ElementType> slice_slide_rv(const Slice<ElementType>* p_slice, const size_t p_offset_index)
-{
-	Slice<ElementType> l_return = *p_slice;
-	slice_slide(&l_return, p_offset_index);
-	return l_return;
-};
-
-template<class ElementType>
-inline Slice<ElementType> slice_slide_rv0v(const Slice<ElementType> p_slice, const size_t p_offset_index)
-{
-	Slice<ElementType> l_return = p_slice;
-	slice_slide(&l_return, p_offset_index);
-	return l_return;
-};
 
 template<class ElementType>
 inline char* slice_memmove(Slice<ElementType>* p_target, const Slice<ElementType>* p_source)

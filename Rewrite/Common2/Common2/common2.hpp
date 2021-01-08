@@ -8,7 +8,6 @@
 #include "./Functional/assert.hpp"
 #include "./Macros/macros.hpp"
 
-#include "./Memory/handle.hpp"
 #include "./Memory/token.hpp"
 #include "./Memory/memory.hpp"
 #include "./Memory/slice.hpp"

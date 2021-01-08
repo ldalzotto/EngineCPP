@@ -12,290 +12,264 @@ struct Vector
 {
 	size_t Size;
 	Span<ElementType> Span;
-};
 
-
-template<class ElementType>
-inline void _vector_bound_check(Vector<ElementType>* p_vector, const size_t p_index)
-{
-#if CONTAINER_BOUND_TEST
-	if (p_index > p_vector->Size)
+	inline static Vector<ElementType> build(ElementType* p_memory, size_t p_initial_capacity)
 	{
-		abort();
-	}
-#endif
-};
+		return Vector<ElementType>{0, ::Span<ElementType>::build(p_memory, p_initial_capacity)};
+	};
 
-
-template<class ElementType>
-inline void _vector_bound_head_check(Vector<ElementType>* p_vector, const size_t p_index)
-{
-#if CONTAINER_BOUND_TEST
-	if (p_index == p_vector->Size)
+	inline static Vector<ElementType> allocate(const size_t p_initial_capacity)
 	{
-		abort();
-	}
-#endif
-};
+		return Vector<ElementType>{0, ::Span<ElementType>::allocate(p_initial_capacity)};
+	};
 
 
-template<class ElementType>
-inline Vector<ElementType> vector_build(ElementType* p_memory, size_t p_initial_capacity)
-{
-	return Vector<ElementType>{0, span_build(p_memory, p_initial_capacity)};
-};
-
-template<class ElementType>
-inline Vector<ElementType> vector_allocate(const size_t p_initial_capacity)
-{
-	return Vector<ElementType>{0, span_allocate<ElementType>(p_initial_capacity)};
-};
-
-
-
-template<class ElementType>
-inline void vector_free(Vector<ElementType>* p_vector)
-{
-	span_free(&p_vector->Span);
-	*p_vector = vector_build<ElementType>(NULL, 0);
-};
-
-template<class ElementType>
-inline ElementType* vector_get_memory(Vector<ElementType>* p_vector)
-{
-	return p_vector->Span.Memory;
-};
-
-template<class ElementType>
-inline size_t vector_get_capacity(Vector<ElementType>* p_vector)
-{
-	return p_vector->Span.Capacity;
-};
-
-template<class ElementType>
-inline char vector_empty(Vector<ElementType>* p_vector)
-{
-	return p_vector->Size == 0;
-};
-
-template<class ElementType>
-inline ElementType* vector_get(Vector<ElementType>* p_vector, const size_t p_index)
-{
-#if CONTAINER_BOUND_TEST
-	_vector_bound_check(p_vector, p_index);
-	_vector_bound_head_check(p_vector, p_index);
-#endif
-	return &p_vector->Span.Memory[p_index];
-};
-
-template<class ElementType>
-inline ElementType vector_get_rv(Vector<ElementType>* p_vector, const size_t p_index)
-{
-#if CONTAINER_BOUND_TEST
-	_vector_bound_check(p_vector, p_index);
-	_vector_bound_head_check(p_vector, p_index);
-#endif
-	return p_vector->Span.Memory[p_index];
-};
-
-
-template<class ElementType>
-inline void vector_clear(Vector<ElementType>* p_vector)
-{
-	p_vector->Size = 0;
-};
-
-template<class ElementType>
-inline void _vector_move_memory_down(Vector<ElementType>* p_vector, const size_t p_break_index, const size_t p_move_delta)
-{
-	span_move_memory_down(&p_vector->Span, p_vector->Size, p_break_index, p_move_delta);
-};
-
-template<class ElementType>
-inline void _vector_move_memory_up(Vector<ElementType>* p_vector, const size_t p_break_index, const size_t p_move_delta)
-{
-	span_move_memory_up(&p_vector->Span, p_vector->Size, p_break_index, p_move_delta);
-};
-
-template<class ElementType>
-inline char _vector_insert_array_at_unchecked(Vector<ElementType>* p_vector, const Slice<ElementType>* p_elements, const size_t p_index)
-{
-	span_resize_until_capacity_met(&p_vector->Span, p_vector->Size + p_elements->Size);
-	_vector_move_memory_down(p_vector, p_index, p_elements->Size);
-	span_copy_memory(&p_vector->Span, p_index, p_elements);
-
-	p_vector->Size += p_elements->Size;
-
-	return 1;
-};
-
-template<class ElementType>
-inline char vector_insert_array_at(Vector<ElementType>* p_vector, const Slice<ElementType>* p_elements, const size_t p_index)
-{
-#if CONTAINER_BOUND_TEST
-	_vector_bound_check(p_vector, p_index);
-	_vector_bound_head_check(p_vector, p_index); // cannot insert at head. Use vector_insert_array_at_always instead.
-#endif
-
-	return _vector_insert_array_at_unchecked(p_vector, p_elements, p_index);
-};
-
-template<class ElementType>
-inline char vector_insert_array_at_1v(Vector<ElementType>* p_vector, const Slice<ElementType> p_elements, const size_t p_index)
-{
-	return vector_insert_array_at(p_vector, &p_elements, p_index);
-}
-
-template<class ElementType>
-inline char _vector_insert_element_at_unchecked(Vector<ElementType>* p_vector, const ElementType* p_element, const size_t p_index)
-{
-	span_resize_until_capacity_met(&p_vector->Span, p_vector->Size + 1);
-	_vector_move_memory_down(p_vector, p_index, 1);
-	p_vector->Span.Memory[p_index] = *p_element;
-	p_vector->Size += 1;
-
-	return 1;
-};
-
-template<class ElementType>
-inline char vector_insert_element_at(Vector<ElementType>* p_vector, const ElementType* p_element, const size_t p_index)
-{
-#if CONTAINER_BOUND_TEST
-	_vector_bound_check(p_vector, p_index);
-	_vector_bound_head_check(p_vector, p_index); // cannot insert at head. Use vector_insert_element_at_always instead.
-#endif
-
-	return _vector_insert_element_at_unchecked(p_vector, p_element, p_index);
-};
-
-template<class ElementType>
-inline char vector_insert_element_at_1v(Vector<ElementType>* p_vector, const ElementType p_element, const size_t p_index)
-{
-	return vector_insert_element_at(p_vector, &p_element, p_index);
-};
-
-template<class ElementType>
-inline char vector_push_back_array(Vector<ElementType>* p_vector, const Slice<ElementType>* p_elements)
-{
-	span_resize_until_capacity_met(&p_vector->Span, p_vector->Size + p_elements->Size);
-	span_copy_memory(&p_vector->Span, p_vector->Size, p_elements);
-	p_vector->Size += p_elements->Size;
-
-	return 1;
-};
-
-template<class ElementType>
-inline char vector_push_back_array_1v(Vector<ElementType>* p_vector, const Slice<ElementType> p_elements)
-{
-	return vector_push_back_array(p_vector, &p_elements);
-};
-
-template<class ElementType>
-inline char vector_push_back_element_empty(Vector<ElementType>* p_vector)
-{
-	span_resize_until_capacity_met(&p_vector->Span, p_vector->Size + 1);
-	p_vector->Size += 1;
-	return 1;
-};
-
-template<class ElementType>
-inline char vector_push_back_element(Vector<ElementType>* p_vector, const ElementType* p_element)
-{
-	span_resize_until_capacity_met(&p_vector->Span, p_vector->Size + 1);
-	p_vector->Span.Memory[p_vector->Size] = *p_element;
-	p_vector->Size += 1;
-
-	return 1;
-};
-
-template<class ElementType>
-inline char vector_push_back_element_1v(Vector<ElementType>* p_vector, const ElementType p_element)
-{
-	return vector_push_back_element(p_vector, &p_element);
-};
-
-
-
-template<class ElementType>
-inline char vector_insert_array_at_always(Vector<ElementType>* p_vector, const Slice<ElementType>* p_elements, const size_t p_index)
-{
-#if CONTAINER_BOUND_TEST
-	_vector_bound_check(p_vector, p_index);
-#endif
-	if (p_index == p_vector->Size)
+	inline void free()
 	{
-		return vector_push_back_array(p_vector, p_elements);
-	}
-	else
+		this->Span.free();
+		*this = Vector<ElementType>::build(NULL, 0);
+	};
+
+	inline ElementType* get_memory()
 	{
-		return _vector_insert_array_at_unchecked(p_vector, p_elements, p_index);
-	}
-};
+		return this->Span.Memory;
+	};
 
+	inline size_t get_capacity()
+	{
+		return this->Span.Capacity;
+	};
 
-template<class ElementType>
-inline char vector_insert_element_at_always(Vector<ElementType>* p_vector, const ElementType* p_element, const size_t p_index)
-{
+	inline char empty()
+	{
+		return this->Size == 0;
+	};
+
+	inline ElementType* get(const size_t p_index)
+	{
 #if CONTAINER_BOUND_TEST
-	_vector_bound_check(p_vector, p_index);
+		this->bound_check(p_index);
+		this->bound_head_check(p_index);
+#endif
+		return &this->Span.Memory[p_index];
+	};
+
+	inline ElementType get_rv(const size_t p_index)
+	{
+#if CONTAINER_BOUND_TEST
+		this->bound_check(p_index);
+		this->bound_head_check(p_index);
+#endif
+		return this->Span.Memory[p_index];
+	};
+
+
+
+	inline void clear()
+	{
+		this->Size = 0;
+	};
+
+
+	inline char insert_array_at(const Slice<ElementType>* p_elements, const size_t p_index)
+	{
+#if CONTAINER_BOUND_TEST
+		this->bound_check(p_index);
+		this->bound_head_check(p_index); // cannot insert at head. Use vector_insert_array_at_always instead.
 #endif
 
-	if (p_index == p_vector->Size)
+		return this->insert_array_at_unchecked(p_elements, p_index);
+	};
+
+	inline char insert_array_at_1v(const Slice<ElementType> p_elements, const size_t p_index)
 	{
-		return vector_push_back_element(p_vector, p_element);
-	}
-	else
+		return this->insert_array_at(&p_elements, p_index);
+	};
+
+
+
+	inline char insert_element_at(const ElementType* p_element, const size_t p_index)
 	{
-		return _vector_insert_element_at_unchecked(p_vector, p_element, p_index);
-	}
-};
-
-
-template<class ElementType>
-inline char vector_erase_array_at(Vector<ElementType>* p_vector, const size_t p_index, const size_t p_element_nb)
-{
-
 #if CONTAINER_BOUND_TEST
-	_vector_bound_check(p_vector, p_index);
-	_vector_bound_check(p_vector, p_index + p_element_nb);
-	_vector_bound_head_check(p_vector, p_index); // use vector_pop_back_array //TODO -> create a "always" variant of vector_erase_array_at
+		this->bound_check(p_index);
+		this->bound_head_check(p_index); // cannot insert at head. Use vector_insert_element_at_always instead.
 #endif
 
-	_vector_move_memory_up(p_vector, p_index, p_element_nb);
-	p_vector->Size -= p_element_nb;
+		return this->insert_element_at_unchecked(p_element, p_index);
+	};
 
-	return 1;
-};
+	inline char insert_element_at_1v(const ElementType p_element, const size_t p_index)
+	{
+		return this->insert_element_at(&p_element, p_index);
+	};
 
-template<class ElementType>
-inline char vector_erase_element_at(Vector<ElementType>* p_vector, const size_t p_index)
-{
+	inline char push_back_array(const Slice<ElementType>* p_elements)
+	{
+		this->Span.resize_until_capacity_met(this->Size + p_elements->Size);
+		this->Span.copy_memory(this->Size, p_elements);
+		this->Size += p_elements->Size;
+
+		return 1;
+	};
+
+	inline char push_back_array_1v(const Slice<ElementType> p_elements)
+	{
+		return this->push_back_array(&p_elements);
+	};
+
+	inline char push_back_element_empty()
+	{
+		this->Span.resize_until_capacity_met(this->Size + 1);
+		this->Size += 1;
+		return 1;
+	};
+
+	inline char push_back_element(const ElementType* p_element)
+	{
+		this->Span.resize_until_capacity_met(this->Size + 1);
+		this->Span.Memory[this->Size] = *p_element;
+		this->Size += 1;
+
+		return 1;
+	};
+
+	inline char push_back_element_1v(const ElementType p_element)
+	{
+		return this->push_back_element(&p_element);
+	};
+
+
+
+	inline char insert_array_at_always(const Slice<ElementType>* p_elements, const size_t p_index)
+	{
 #if CONTAINER_BOUND_TEST
-	_vector_bound_check(p_vector, p_index);
-	_vector_bound_head_check(p_vector, p_index); // use vector_pop_back //TODO -> create a "always" variant of vector_erase_element_at
+		this->bound_check(p_index);
+#endif
+		if (p_index == this->Size)
+		{
+			return this->push_back_array(p_elements);
+		}
+		else
+		{
+			return this->insert_array_at_unchecked(p_elements, p_index);
+		}
+	};
+
+
+	inline char insert_element_at_always(const ElementType* p_element, const size_t p_index)
+	{
+#if CONTAINER_BOUND_TEST
+		this->bound_check(p_index);
 #endif
 
-	_vector_move_memory_up(p_vector, p_index, 1);
-	p_vector->Size -= 1;
+		if (p_index == this->Size)
+		{
+			return this->push_back_element(p_element);
+		}
+		else
+		{
+			return this->insert_element_at_unchecked(p_element, p_index);
+		}
+	};
 
-	return 1;
+
+	inline char erase_array_at(const size_t p_index, const size_t p_element_nb)
+	{
+
+#if CONTAINER_BOUND_TEST
+		this->bound_check(p_index);
+		this->bound_check( p_index + p_element_nb);
+		this->bound_head_check(p_index); // use vector_pop_back_array //TODO -> create a "always" variant of vector_erase_array_at
+#endif
+
+		this->move_memory_up(p_index, p_element_nb);
+		this->Size -= p_element_nb;
+
+		return 1;
+	};
+
+	inline char erase_element_at(const size_t p_index)
+	{
+#if CONTAINER_BOUND_TEST
+		this->bound_check(p_index);
+		this->bound_head_check(p_index); // use vector_pop_back //TODO -> create a "always" variant of vector_erase_element_at
+#endif
+
+		this->move_memory_up(p_index, 1);
+		this->Size -= 1;
+
+		return 1;
+	};
+
+
+	inline char pop_back_array(const size_t p_element_nb)
+	{
+		this->Size -= p_element_nb;
+		return 1;
+	};
+
+	inline char pop_back()
+	{
+		this->Size -= 1;
+		return 1;
+	};
+
+
+private:
+
+	inline void bound_check(const size_t p_index)
+	{
+#if CONTAINER_BOUND_TEST
+		if (p_index > this->Size)
+		{
+			abort();
+		}
+#endif
+	};
+
+	inline void bound_head_check(const size_t p_index)
+	{
+#if CONTAINER_BOUND_TEST
+		if (p_index == this->Size)
+		{
+			abort();
+		}
+#endif
+	};
+
+
+	inline void move_memory_down(const size_t p_break_index, const size_t p_move_delta)
+	{
+		this->Span.move_memory_down(this->Size, p_break_index, p_move_delta);
+	};
+
+	inline void move_memory_up(const size_t p_break_index, const size_t p_move_delta)
+	{
+		this->Span.move_memory_up(this->Size, p_break_index, p_move_delta);
+	};
+
+	inline char insert_element_at_unchecked(const ElementType* p_element, const size_t p_index)
+	{
+		this->Span.resize_until_capacity_met(this->Size + 1);
+		this->move_memory_down(p_index, 1);
+		this->Span.Memory[p_index] = *p_element;
+		this->Size += 1;
+
+		return 1;
+	};
+
+	inline char insert_array_at_unchecked(const Slice<ElementType>* p_elements, const size_t p_index)
+	{
+		this->Span.resize_until_capacity_met(this->Size + p_elements->Size);
+		this->move_memory_down(p_index, p_elements->Size);
+		this->Span.copy_memory(p_index, p_elements);
+
+		this->Size += p_elements->Size;
+
+		return 1;
+	};
+
 };
-
-
-template<class ElementType>
-inline char vector_pop_back_array(Vector<ElementType>* p_vector, const size_t p_element_nb)
-{
-	p_vector->Size -= p_element_nb;
-	return 1;
-};
-
-template<class ElementType>
-inline char vector_pop_back(Vector<ElementType>* p_vector)
-{
-	p_vector->Size -= 1;
-	return 1;
-};
-
 
 #define vector_loop(VectorVariable, Iteratorname) size_t Iteratorname = 0; Iteratorname < (VectorVariable)->Size; Iteratorname++
 #define vector_loop_reverse(VectorVariable, Iteratorname) size_t Iteratorname = (VectorVariable)->Size - 1; Iteratorname != -1; --Iteratorname

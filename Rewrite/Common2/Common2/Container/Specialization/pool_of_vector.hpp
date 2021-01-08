@@ -4,7 +4,7 @@ template<class ElementType>
 using PoolOfVectorMemory_t = VectorOfVector<ElementType>;
 
 template<class ElementType>
-using PoolOfVectorToken = Token(VectorOfVector_Element<ElementType>);
+using PoolOfVectorToken = Token<VectorOfVector_Element<ElementType>>;
 
 template<class ElementType>
 using PoolOfVectorFreeBlocks_t = Vector<PoolOfVectorToken<ElementType>>;
@@ -18,122 +18,115 @@ struct PoolOfVector
 {
 	PoolOfVectorMemory_t<ElementType> Memory;
 	PoolOfVectorFreeBlocks_t<ElementType> FreeBlocks;
-};
 
-template<class ElementType>
-inline PoolOfVector<ElementType> poolofvector_allocate_default()
-{
-	return PoolOfVector<ElementType>
+
+	inline static PoolOfVector<ElementType> allocate_default()
 	{
-		vectorofvector_allocate_default<ElementType>(),
-		vector_allocate<PoolOfVectorToken<ElementType>>(0)
-	};
-};
-
-template<class ElementType>
-inline void poolofvector_free(PoolOfVector<ElementType>* p_poolofvector)
-{
-	vectorofvector_free(&p_poolofvector->Memory);
-	vector_free(&p_poolofvector->FreeBlocks);
-};
-
-
-template<class ElementType>
-inline char poolofvector_is_token_free(PoolOfVector<ElementType>* p_poolofvector, const PoolOfVectorToken<ElementType>* p_token)
-{
-	for (vector_loop(&p_poolofvector->FreeBlocks, i))
-	{
-		if (vector_get(&p_poolofvector->FreeBlocks, i)->tok == p_token->tok)
+		return PoolOfVector<ElementType>
 		{
-			return 1;
+			VectorOfVector<ElementType>::allocate_default(),
+				Vector<PoolOfVectorToken<ElementType>>::allocate(0)
+		};
+	};
+
+	inline void free()
+	{
+		this->Memory.free();
+		this->FreeBlocks.free();
+	};
+
+
+	inline char is_token_free(const PoolOfVectorToken<ElementType>* p_token)
+	{
+		for (vector_loop(&this->FreeBlocks, i))
+		{
+			if (this->FreeBlocks.get(i)->tok == p_token->tok)
+			{
+				return 1;
+			}
 		}
-	}
-	return 0;
-};
+		return 0;
+	};
 
-template<class ElementType>
-inline void _poolofvector_token_not_free_check(PoolOfVector<ElementType>* p_poolofvector, const PoolOfVectorToken<ElementType>* p_token)
-{
+
+	inline PoolOfVectorToken<ElementType> alloc_vector_with_values(const Slice<ElementType>* p_initial_elements)
+	{
+		if (!this->FreeBlocks.empty())
+		{
+			PoolOfVectorToken<ElementType> l_token = this->FreeBlocks.get_rv(this->FreeBlocks.Size - 1);
+			this->FreeBlocks.pop_back();
+			this->Memory.element_push_back_array(l_token.tok, p_initial_elements);
+			return l_token;
+		}
+		else
+		{
+			this->Memory.push_back_element(p_initial_elements);
+			return PoolOfVectorToken<ElementType>{ this->Memory.varying_vector.get_size() - 1 };
+		}
+	};
+
+	inline PoolOfVectorToken<ElementType> alloc_vector()
+	{
+		if (!this->FreeBlocks.empty())
+		{
+			PoolOfVectorToken<ElementType> l_token = this->FreeBlocks.get_rv(this->FreeBlocks.Size - 1);
+			this->FreeBlocks.pop_back();
+			return l_token;
+		}
+		else
+		{
+			this->Memory.push_back();
+			return PoolOfVectorToken<ElementType>{ this->Memory.varying_vector.get_size() - 1 };
+		}
+	};
+
+	inline void release_vector(const PoolOfVectorToken<ElementType>* p_token)
+	{
 #if CONTAINER_BOUND_TEST
-	if (poolofvector_is_token_free(p_poolofvector, p_token))
-	{
-		abort();
-	}
-#endif
-};
-
-template<class ElementType>
-inline PoolOfVectorToken<ElementType> poolofvector_alloc_vector_with_values(PoolOfVector<ElementType>* p_poolofvector, const Slice<ElementType>* p_initial_elements)
-{
-	if (!vector_empty(&p_poolofvector->FreeBlocks))
-	{
-		PoolOfVectorToken<ElementType> l_token = vector_get_rv(&p_poolofvector->FreeBlocks, p_poolofvector->FreeBlocks.Size - 1);
-		vector_pop_back(&p_poolofvector->FreeBlocks);
-		vectorofvector_element_push_back_array(&p_poolofvector->Memory, l_token.tok, p_initial_elements);
-		return l_token;
-	}
-	else
-	{
-		vectorofvector_push_back_element(&p_poolofvector->Memory, p_initial_elements);
-		return PoolOfVectorToken<ElementType>{ varyingvector_get_size(&p_poolofvector->Memory.varying_vector) - 1 };
-	}
-};
-
-template<class ElementType>
-inline PoolOfVectorToken<ElementType> poolofvector_alloc_vector(PoolOfVector<ElementType>* p_poolofvector)
-{
-	if (!vector_empty(&p_poolofvector->FreeBlocks))
-	{
-		PoolOfVectorToken<ElementType> l_token = vector_get_rv(&p_poolofvector->FreeBlocks, p_poolofvector->FreeBlocks.Size - 1);
-		vector_pop_back(&p_poolofvector->FreeBlocks);
-		return l_token;
-	}
-	else
-	{
-		vectorofvector_push_back(&p_poolofvector->Memory);
-		return PoolOfVectorToken<ElementType>{ varyingvector_get_size(&p_poolofvector->Memory.varying_vector) - 1 };
-	}
-};
-
-template<class ElementType>
-inline void poolofvector_release_vector(PoolOfVector<ElementType>* p_poolofvector, const PoolOfVectorToken<ElementType>* p_token)
-{
-#if CONTAINER_BOUND_TEST
-	_poolofvector_token_not_free_check(p_poolofvector, p_token);
+		this->token_not_free_check(p_token);
 #endif
 
-	vectorofvector_element_clear(&p_poolofvector->Memory, p_token->tok);
-	vector_push_back_element(&p_poolofvector->FreeBlocks, p_token);
-};
+		this->Memory.element_clear(p_token->tok);
+		this->FreeBlocks.push_back_element(p_token);
+	};
 
-template<class ElementType>
-inline VectorOfVector_Element<ElementType> poolofvector_get_vector(PoolOfVector<ElementType>* p_poolofvector, const PoolOfVectorToken<ElementType>* p_token)
-{
+	inline VectorOfVector_Element<ElementType> get_vector(const PoolOfVectorToken<ElementType>* p_token)
+	{
 #if CONTAINER_BOUND_TEST
-	_poolofvector_token_not_free_check(p_poolofvector, p_token);
+		this->token_not_free_check(p_token);
 #endif
 
-	return vectorofvector_get(&p_poolofvector->Memory, p_token->tok);
-};
+		return this->Memory.get(p_token->tok);
+	};
 
-template<class ElementType>
-inline VectorOfVector_Element<ElementType> poolofvector_get_vector_1v(PoolOfVector<ElementType>* p_poolofvector, const PoolOfVectorToken<ElementType> p_token)
-{
-	return poolofvector_get_vector(p_poolofvector, &p_token);
-};
+	inline VectorOfVector_Element<ElementType> get_vector_1v(const PoolOfVectorToken<ElementType> p_token)
+	{
+		return this->get_vector(&p_token);
+	};
 
-template<class ElementType>
-inline void poolofvector_element_push_back_element(PoolOfVector<ElementType>* p_poolofvector, const PoolOfVectorToken<ElementType>* p_token, const ElementType* p_element)
-{
+	inline void element_push_back_element(const PoolOfVectorToken<ElementType>* p_token, const ElementType* p_element)
+	{
 #if CONTAINER_BOUND_TEST
-	_poolofvector_token_not_free_check(p_poolofvector, p_token);
+		this->token_not_free_check(p_token);
 #endif
 
-	vectorofvector_element_push_back_element(&p_poolofvector->Memory, p_token->tok, p_element);
-};
+		this->Memory.element_push_back_element(p_token->tok, p_element);
+	};
 
-template<class ElementType>
-inline void poolofvector_element_push_back_element_2v(PoolOfVector<ElementType>* p_poolofvector, const PoolOfVectorToken<ElementType>* p_token, const ElementType p_element)
-{
-	poolofvector_element_push_back_element(p_poolofvector, p_token, &p_element);
+	inline void element_push_back_element_2v(const PoolOfVectorToken<ElementType>* p_token, const ElementType p_element)
+	{
+		this->element_push_back_element(p_token, &p_element);
+	};
+
+	private:
+		inline void token_not_free_check(const PoolOfVectorToken<ElementType>* p_token)
+		{
+#if CONTAINER_BOUND_TEST
+			if (this->is_token_free(p_token))
+			{
+				abort();
+			}
+#endif
+		};
+
 };

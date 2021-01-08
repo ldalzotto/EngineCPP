@@ -5,50 +5,48 @@ struct PoolIndexed
 {
 	Pool<ElementType> Pool;
 	Vector<Token(ElementType)> Indices;
-};
 
-template<class ElementType>
-inline PoolIndexed<ElementType> poolindexed_allocate_default()
-{
-	return PoolIndexed<ElementType>
+	inline static PoolIndexed<ElementType> allocate_default()
 	{
-		pool_allocate<ElementType>(0),
-		vector_allocate<Token(ElementType)>(0)
-	};
-};
-
-template<class ElementType>
-inline void poolindexed_free(PoolIndexed<ElementType>* p_indexed_pool)
-{
-	pool_free(&p_indexed_pool->Pool);
-	vector_free(&p_indexed_pool->Indices);
-};
-
-template<class ElementType>
-inline Token(ElementType) poolindexed_alloc_element(PoolIndexed<ElementType>* p_indexed_pool, const ElementType* p_element)
-{
-	Token(ElementType) l_token = pool_alloc_element(&p_indexed_pool->Pool, p_element);
-	vector_push_back_element(&p_indexed_pool->Indices, &l_token);
-	return l_token;
-};
-
-template<class ElementType>
-inline void poolindexed_release_element(PoolIndexed<ElementType>* p_indexed_pool, const Token(ElementType)* p_element)
-{
-	pool_release_element(&p_indexed_pool->Pool, p_element);
-	for (vector_loop(&p_indexed_pool->Indices, i))
-	{
-		if (vector_get(&p_indexed_pool->Indices, i)->tok == p_element->tok)
+		return PoolIndexed<ElementType>
 		{
-			vector_erase_element_at(&p_indexed_pool->Indices, i);
-			break;
-		}
+			::Pool<ElementType>::allocate(0),
+			Vector<Token(ElementType)>::allocate(0)
+		};
 	};
+
+	inline void free()
+	{
+		this->Pool.free();
+		this->Indices.free();
+	};
+
+	inline Token(ElementType) alloc_element(const ElementType* p_element)
+	{
+		Token(ElementType) l_token = this->Pool.alloc_element(p_element);
+		this->Indices.push_back_element(&l_token);
+		return l_token;
+	};
+
+	inline void release_element(const Token(ElementType)* p_element)
+	{
+		this->Pool.release_element(p_element);
+		for (vector_loop(&this->Indices, i))
+		{
+			if (this->Indices.get(i)->tok == p_element->tok)
+			{
+				this->Indices.erase_element_at(i);
+				break;
+			}
+		};
+	};
+
+	inline ElementType* get(const Token(ElementType)* p_element)
+	{
+		return this->Pool.get(p_element);
+	};
+
 };
 
-template<class ElementType>
-inline ElementType* poolindexed_get(PoolIndexed<ElementType>* p_indexed_pool, const Token(ElementType)* p_element)
-{
-	return pool_get(&p_indexed_pool->Pool, p_element);
-};
+
 
