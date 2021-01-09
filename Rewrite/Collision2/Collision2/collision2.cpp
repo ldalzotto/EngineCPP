@@ -1,5 +1,4 @@
 
-#include "Common2/common2.hpp"
 #include "Collision2/collision2.hpp"
 #include "Math/math.hpp"
 #include "Math/transform_def.hpp"

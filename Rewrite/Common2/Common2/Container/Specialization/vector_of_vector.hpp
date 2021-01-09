@@ -74,6 +74,14 @@ struct VectorOfVector_Element
 {
 	VectorOfVector_VectorHeader Header;
 	Slice<ElementType> Memory;
+
+	inline ElementType* get(const size_t p_index)
+	{
+#if CONTAINER_BOUND_TEST
+		if (p_index >= this->Header.Size) { abort(); }
+#endif
+		return this->Memory.get(p_index);
+	};
 };
 
 /*
@@ -109,7 +117,10 @@ struct VectorOfVector
 		l_pushed_memory.free();
 	};
 
-
+	inline void erase_element_at(const size_t p_index)
+	{
+		this->varying_vector.erase_element_at(p_index);
+	};
 
 	inline VectorOfVector_Element<ElementType> get(const size_t p_index)
 	{

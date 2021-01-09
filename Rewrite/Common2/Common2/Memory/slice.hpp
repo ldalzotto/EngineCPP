@@ -68,7 +68,7 @@ struct Slice
 	inline void slide(const size_t p_offset_index)
 	{
 #if CONTAINER_BOUND_TEST
-		if (p_offset_index >= this->Size)
+		if (p_offset_index > this->Size)
 		{
 			abort();
 		};

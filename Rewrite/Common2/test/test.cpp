@@ -368,7 +368,7 @@ inline void vectorofvector_test()
 		VectorOfVector_Element<size_t> l_element =
 			l_vectorofvector_size_t.get(
 				l_vectorofvector_size_t.varying_vector.get_size() - 1
-				);
+			);
 
 		l_vectorofvector_size_t.push_back();
 
@@ -524,7 +524,7 @@ inline void poolofvector_test()
 		assert_true(l_vector_mem.Memory.get_rv(0) == l_element);
 
 		l_pool_of_vector.release_vector(&l_vector_0);
-		
+
 		PoolOfVectorToken<size_t> l_vector_0_new = l_pool_of_vector.alloc_vector();
 		assert_true(l_vector_0_new.tok == l_vector_0.tok);
 		l_vector_mem = l_pool_of_vector.get_vector(&l_vector_0);
@@ -548,6 +548,99 @@ inline void poolofvector_test()
 	l_pool_of_vector.free();
 };
 
+inline void ntree_test()
+{
+	NTree<size_t> l_size_t_tree = NTree<size_t>::allocate_default();
+
+	Token<size_t> l_root = l_size_t_tree.push_root_value(cast(size_t, 0));
+	l_size_t_tree.push_value(cast(size_t, 1), &l_root);
+	Token<size_t> l_2_node = l_size_t_tree.push_value(cast(size_t, 2), &l_root);
+	Token<size_t> l_3_node = l_size_t_tree.push_value(cast(size_t, 3), &l_root);
+
+	l_size_t_tree.push_value(cast(size_t, 4), &l_2_node);
+	l_size_t_tree.push_value(cast(size_t, 5), &l_2_node);
+
+	Token<size_t> l_6_node = l_size_t_tree.push_value(cast(size_t, 6), &l_3_node);
+
+	{
+		assert_true(l_size_t_tree.Memory.get_size() == 7);
+		assert_true(l_size_t_tree.Indices.get_size() == 7);
+
+		// testing the root
+		{
+			NTree<size_t>::Resolve l_root_element = l_size_t_tree.get(&l_root);
+			assert_true((*l_root_element.Element) == 0);
+			assert_true(l_root_element.Node->parent.tok == -1);
+			assert_true(l_root_element.Node->index.tok == 0);
+			assert_true(l_root_element.Node->childs.tok != -1);
+
+			Slice<Token(NTreeNode)> l_childs_indices = l_size_t_tree.get_childs(&l_root_element.Node->childs);
+			assert_true(l_childs_indices.Size == 3);
+			for (loop(i, 0, l_childs_indices.Size))
+			{
+				assert_true(*l_size_t_tree.get_value(cast(Token(size_t)*, l_childs_indices.get(i))) == i + 1);
+			}
+		}
+
+		// testing one leaf
+		{
+			NTree<size_t>::Resolve l_2_element = l_size_t_tree.get(&l_2_node);
+			assert_true((*l_2_element.Element) == 2);
+			assert_true(l_2_element.Node->parent.tok == 0);
+			assert_true(l_2_element.Node->index.tok == 2);
+			assert_true(l_2_element.Node->childs.tok != -1);
+
+			Slice<Token(NTreeNode)> l_childs_indices = l_size_t_tree.get_childs(&l_2_element.Node->childs);
+			assert_true(l_childs_indices.Size == 2);
+			for (loop(i, 0, l_childs_indices.Size))
+			{
+				assert_true(*l_size_t_tree.get_value(cast(Token(size_t)*, l_childs_indices.get(i))) == i + 4);
+			}
+		}
+	}
+
+	// traversing test
+	{
+		size_t l_counter = 0;
+		NTree<size_t>::Traverse l_tree_traverse = NTree<size_t>::Traverse::build_default(&l_size_t_tree);
+		while (l_tree_traverse.step() != NTree<size_t>::Traverse::State::END)
+		{
+			NTree<size_t>::Resolve* l_node = l_tree_traverse.get_current_node();
+			*(l_node->Element) += 1;
+			l_counter += 1;
+		}
+		assert_true(l_counter == 7);
+
+		assert_true(*l_size_t_tree.get_value(&l_root) == 1);
+		assert_true(*l_size_t_tree.get_value(&l_2_node) == 3);
+		assert_true(*l_size_t_tree.get_value(&l_3_node) == 4);
+		assert_true(*l_size_t_tree.get_value(&l_6_node) == 7);
+	}
+
+	// removal test
+	{
+		l_size_t_tree.remove_node(token_cast_p(NTreeNode, &l_2_node));
+
+		NTree<size_t>::Resolve l_root_node = l_size_t_tree.get(&l_root);
+		Slice<Token(NTreeNode)> l_root_node_childs = l_size_t_tree.get_childs(&l_root_node.Node->childs);
+		assert_true(l_root_node_childs.Size == 2);
+
+		{
+			size_t l_counter = 0;
+			NTree<size_t>::Traverse l_tree_traverse = NTree<size_t>::Traverse::build_default(&l_size_t_tree);
+			while (l_tree_traverse.step() != NTree<size_t>::Traverse::State::END)
+			{
+				NTree<size_t>::Resolve* l_node = l_tree_traverse.get_current_node();
+				*(l_node->Element) += 1;
+				l_counter += 1;
+			}
+			assert_true(l_counter == 4);
+		}
+	}
+
+	l_size_t_tree.free();
+};
+
 int main()
 {
 	span_test();
@@ -556,4 +649,5 @@ int main()
 	varyingvector_test();
 	vectorofvector_test();
 	poolofvector_test();
+	ntree_test();
 }

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Common2/common2.hpp"
 #include "Math/matrix_def.hpp"
 #include "Math/geometry_def.hpp"
 #include "Math/transform_def.hpp"
