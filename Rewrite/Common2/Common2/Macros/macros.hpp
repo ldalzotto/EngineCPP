@@ -1,6 +1,6 @@
 #pragma once
 
-#define cast(Type, Value) (Type)(Value)
+#define cast(Type, Value) ((Type)(Value))
 #define castv(Type, Value) *(Type*)(&Value)
 
 #define loop(Iteratorname, BeginNumber, EndNumber) size_t Iteratorname = BeginNumber; Iteratorname < EndNumber; Iteratorname++

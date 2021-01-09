@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.12)
 project(Collision2 VERSION 0.0.1)
 
-file(GLOB_RECURSE COLLISION2_HEADER "./Collision2/*.hpp" "./interface/*.hpp")
+file(GLOB_RECURSE COLLISION2_HEADER "./interface/*.hpp")
 file(GLOB_RECURSE COLLISION2_SOURCE "./Collision2/collision2.cpp")
 
 enable_language(CXX)

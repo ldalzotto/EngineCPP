@@ -9,6 +9,11 @@ struct Slice
 	size_t Size;
 	ElementType* Begin;
 
+	inline static Slice<ElementType> build_default()
+	{
+		return Slice<ElementType>{0, NULL};
+	};
+
 	inline static Slice<ElementType> build(ElementType* p_memory, const size_t p_begin, const size_t p_end)
 	{
 		return Slice<ElementType>{p_end - p_begin, p_memory + p_begin};
