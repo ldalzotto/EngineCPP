@@ -16,7 +16,7 @@ struct CollisionHandle
 
 	void allocate();
 	void free();
-	void update();
+	void step();
 };
 
 struct BoxColliderHandle

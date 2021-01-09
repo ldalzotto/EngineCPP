@@ -230,15 +230,39 @@ struct VectorOfVector
 		VectorOfVector_VectorHeader* l_vector_header = this->get_vectorheader(p_nested_vector_index);
 
 #if CONTAINER_BOUND_TEST
-		if (p_index == l_vector_header->Size)
+		if (p_index == l_vector_header->Size) { abort(); } //use vectorofvector_element_pop_back_element
+		if (p_index > l_vector_header->Size) { abort(); }
+#endif
+		this->element_erase_element_at_unchecked(p_nested_vector_index, p_index, l_vector_header);
+	};
+
+	inline void element_pop_back_element(const size_t p_nested_vector_index, const size_t p_index)
+	{
+		VectorOfVector_VectorHeader* l_vector_header = this->get_vectorheader(p_nested_vector_index);
+#if CONTAINER_BOUND_TEST
+		if (p_index != (l_vector_header->Size - 1))
 		{
-			abort(); //use vectorofvector_element_pop_back_element
+			abort(); //use element_erase_element_at
 		}
 #endif
+		this->element_pop_back_element_unchecked(l_vector_header);
+	};
 
-		this->element_movememory_up(p_nested_vector_index, l_vector_header, p_index + 1, 1);
+	inline void element_erase_element_at_always(const size_t p_nested_vector_index, const size_t p_index)
+	{
+		VectorOfVector_VectorHeader* l_vector_header = this->get_vectorheader(p_nested_vector_index);
+#if CONTAINER_BOUND_TEST
+		if (p_index >= l_vector_header->Size) { abort(); }
+#endif
+		if (p_index < l_vector_header->Size - 1)
+		{
+			this->element_erase_element_at_unchecked(p_nested_vector_index, p_index, l_vector_header);
+		}
+		else
+		{
+			this->element_pop_back_element_unchecked(l_vector_header);
+		}
 
-		l_vector_header->Size -= 1;
 	};
 
 	inline void element_clear(const size_t p_nested_vector_index)
@@ -317,4 +341,14 @@ struct VectorOfVector
 			this->element_write_array(p_nested_vector_index, p_write_start_index, &p_elements);
 		};
 
+		inline void element_erase_element_at_unchecked(const size_t p_nested_vector_index, const size_t p_index, VectorOfVector_VectorHeader* p_vector_header)
+		{
+			this->element_movememory_up(p_nested_vector_index, p_vector_header, p_index + 1, 1);
+			p_vector_header->Size -= 1;
+		};
+
+		inline void element_pop_back_element_unchecked(VectorOfVector_VectorHeader* p_vector_header)
+		{
+			p_vector_header->Size -= 1;
+		};
 };

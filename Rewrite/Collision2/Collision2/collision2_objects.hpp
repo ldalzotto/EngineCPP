@@ -11,9 +11,9 @@ void CollisionHandle::free()
 	Collision2::free(cast(Collision2**, &this->handle));
 };
 
-void CollisionHandle::update()
+void CollisionHandle::step()
 {
-	cast(Collision2*, this->handle)->update();
+	cast(Collision2*, this->handle)->step();
 };
 
 void BoxColliderHandle::allocate(CollisionHandle p_collision, const Math::AABB<float>* p_local_aabb)

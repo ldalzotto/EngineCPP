@@ -64,6 +64,7 @@ struct Collision2
 		PoolIndexed<BoxCollider> box_colliders;
 		Pool<Token<ColliderDetector>> box_colliders_to_collider_detector;
 		PoolIndexed<ColliderDetector> collider_detectors;
+		//TODO -> We want the TriggerStates to be allocated on their own pool. These will be the main resource of the collision detection step
 		PoolOfVector<TriggerState> collider_detectors_events_2;
 
 		inline static CollisionHeap2 allocate_default()
@@ -182,26 +183,15 @@ struct Collision2
 		using ColliderDetector = Collision2::ColliderDetector;
 		using TriggerState = Collision2::TriggerState;
 
+		//TODO -> The IntersectionEvent must be removed to be the token created in the heap
 		struct IntersectionEvent
 		{
 			Token<ColliderDetector> detector;
-			Token<BoxCollider> source;
 			Token<BoxCollider> other;
 
-			inline static IntersectionEvent build(const Token<ColliderDetector>* p_detector, const Token<BoxCollider>* p_source, const Token<BoxCollider>* p_other)
+			inline static IntersectionEvent build(const Token<ColliderDetector>* p_detector, const Token<BoxCollider>* p_other)
 			{
-				return IntersectionEvent{ *p_detector, *p_source, *p_other };
-			};
-		};
-
-		struct TriggerEvent
-		{
-			Token<ColliderDetector> detector;
-			Token<BoxCollider> other;
-
-			inline TriggerEvent static build(const Token<ColliderDetector>* p_detector, const Token<BoxCollider>* p_other)
-			{
-				return TriggerEvent{ *p_detector, *p_other };
+				return IntersectionEvent{ *p_detector, *p_other };
 			};
 		};
 
@@ -212,12 +202,10 @@ struct Collision2
 		Vector<Token<BoxCollider>> deleted_colliders_from_last_step;
 
 		Vector<IntersectionEvent> is_waitingfor_trigger_stay_detector;
+		Vector<IntersectionEvent> is_waitingfor_trigger_none_detector;
+
 		Vector<IntersectionEvent> is_waitingfor_trigger_stay_nextframe_detector;
-
-		Vector<TriggerEvent> is_waitingfor_trigger_none_detector;
-		Vector<TriggerEvent> is_waitingfor_trigger_none_nextframe_detector;
-
-		Vector<Token<ColliderDetector>> lastframe_involved_colliderdetectors;
+		Vector<IntersectionEvent> is_waitingfor_trigger_none_nextframe_detector;
 
 		inline static CollisionDetectionStep allocate(Collision2::CollisionHeap2* p_heap)
 		{
@@ -227,9 +215,8 @@ struct Collision2
 				Vector<Token(BoxCollider)>::allocate(0),
 				Vector<IntersectionEvent>::allocate(0),
 				Vector<IntersectionEvent>::allocate(0),
-				Vector<TriggerEvent>::allocate(0),
-				Vector<TriggerEvent>::allocate(0),
-				Vector<Token<ColliderDetector>>::allocate(0)
+				Vector<IntersectionEvent>::allocate(0),
+				Vector<IntersectionEvent>::allocate(0)
 			};
 		};
 
@@ -241,15 +228,13 @@ struct Collision2
 			this->is_waitingfor_trigger_stay_nextframe_detector.free();
 			this->is_waitingfor_trigger_none_detector.free();
 			this->is_waitingfor_trigger_none_nextframe_detector.free();
-			this->lastframe_involved_colliderdetectors.free();
 		};
 
 		inline void step()
 		{
-			this->clear_lastframe_collision_events();
-			this->swap_triggerstaw_waiting_buffers();
-			this->swap_triggernone_waiting_buffers();
-			this->clean_deleted_colliders();
+			this->swap_detector_events();
+
+			this->process_deleted_colliders();
 
 			this->process_input_colliders();
 
@@ -268,34 +253,27 @@ struct Collision2
 
 	private:
 
-		inline void clear_lastframe_collision_events()
+		inline void swap_detector_events()
 		{
-			this->lastframe_involved_colliderdetectors.clear();
-		};
-
-		inline void swap_triggerstaw_waiting_buffers()
-		{
-			Vector<IntersectionEvent> l_tmp = this->is_waitingfor_trigger_stay_detector;
-			this->is_waitingfor_trigger_stay_detector = this->is_waitingfor_trigger_stay_nextframe_detector;
-			this->is_waitingfor_trigger_stay_nextframe_detector = l_tmp;
-		};
-
-		inline void swap_triggernone_waiting_buffers()
-		{
-			Vector<TriggerEvent> l_tmp = this->is_waitingfor_trigger_none_detector;
-			this->is_waitingfor_trigger_none_detector = this->is_waitingfor_trigger_none_nextframe_detector;
-			this->is_waitingfor_trigger_none_nextframe_detector = l_tmp;
+			{
+				Vector<IntersectionEvent> l_tmp = this->is_waitingfor_trigger_stay_detector;
+				this->is_waitingfor_trigger_stay_detector = this->is_waitingfor_trigger_stay_nextframe_detector;
+				this->is_waitingfor_trigger_stay_nextframe_detector = l_tmp;
+			}
+			{
+				Vector<IntersectionEvent> l_tmp = this->is_waitingfor_trigger_none_detector;
+				this->is_waitingfor_trigger_none_detector = this->is_waitingfor_trigger_none_nextframe_detector;
+				this->is_waitingfor_trigger_none_nextframe_detector = l_tmp;
+			}
 		};
 
 		// When an intersection from the source collider to target occurs
-		// If there is already a TriggerState event between then, we set to TRIGGER_STAY else, we initialize to TRIGGER_ENTER
+		// If there is already a TriggerState event between them, we set to TRIGGER_STAY else, we initialize to TRIGGER_ENTER
 		inline void enter_collision(const Token(BoxCollider)* p_source_collider, const Token(BoxCollider)* p_intersected_collider)
 		{
 			Token<ColliderDetector>* l_source_collider_detector = this->heap->get_colliderdetector_from_boxcollider(p_source_collider);
 			if (l_source_collider_detector->tok != -1)
 			{
-				this->lastframe_involved_colliderdetectors.push_back_element(l_source_collider_detector);
-
 				PoolOfVectorToken<TriggerState> l_collider_triggerevents_nestedvector = this->heap->collider_detectors.get(l_source_collider_detector)->collision_events;
 				VectorOfVector_Element<TriggerState> l_collider_triggerevents = this->heap->collider_detectors_events_2.get_vector(&l_collider_triggerevents_nestedvector);
 				bool l_trigger_event_found = false;
@@ -317,14 +295,14 @@ struct Collision2
 						TriggerState::build(p_intersected_collider, Trigger::State::TRIGGER_ENTER)
 					);
 
-					this->is_waitingfor_trigger_stay_detector.push_back_element_1v(
-						IntersectionEvent::build(l_source_collider_detector, p_source_collider, p_intersected_collider)
+					this->is_waitingfor_trigger_stay_nextframe_detector.push_back_element_1v(
+						IntersectionEvent::build(l_source_collider_detector, p_intersected_collider)
 					);
 				}
 			}
 		};
 
-		//We get all ColliderDetector and check if they have an active state with the deleted collider
+		//We get all ColliderDetector associated to the p_source_collider and check if they have an active state with the involved collider
 		//if that's the case, then we invalidate the collision
 		inline void exit_collision(const Token(BoxCollider)* p_source_collider, const Token(BoxCollider)* p_intersected_collider)
 		{
@@ -341,14 +319,19 @@ struct Collision2
 					if (l_trigger_event->other.tok == p_intersected_collider->tok)
 					{
 						l_trigger_event->state = Trigger::State::TRIGGER_EXIT;
-						// next step, collision event will be deleted
-						this->is_waitingfor_trigger_none_detector.push_back_element_1v(TriggerEvent::build(l_source_collider_detector, p_intersected_collider));
+						// on next step, collision event will be deleted
+						this->is_waitingfor_trigger_none_nextframe_detector.push_back_element_1v(IntersectionEvent::build(l_source_collider_detector, p_intersected_collider));
 					}
 				}
 			}
 		};
 
-		inline void clean_deleted_colliders()
+		/*
+			When a collider is deleted :
+				-> All pending processing data that refers to the deleted collider are deleted
+				-> All ColliderDetectors are notified that the collider is no more intersecting
+		*/
+		inline void process_deleted_colliders()
 		{
 			if (this->deleted_colliders_from_last_step.Size > 0)
 			{
@@ -367,8 +350,11 @@ struct Collision2
 					vector_erase_if_2_begin(&this->is_waitingfor_trigger_none_detector, j, l_trigger_event)
 						char l_erased = l_trigger_event->other.tok == l_deleted_collider->tok;
 					vector_erase_if_2_end(&this->is_waitingfor_trigger_stay_detector, j, l_erased);
-					//Notify other Trigger events
 
+					//Simulate a collision exit (because the collider has just been deleted) Notify other Trigger events
+					//TODO -> we notify all colliders of the world.
+					//		  Maybe only collider detectors ? because collides without detector will never handle events.
+					//        In the future, we want to partition the space to not notify the entire world
 					poolindexed_foreach_token_2_begin(&this->heap->box_colliders, j, l_box_collider)
 						this->exit_collision(l_box_collider, l_deleted_collider);
 					poolindexed_foreach_token_2_end()
@@ -401,6 +387,7 @@ struct Collision2
 					BoxCollider* l_left_collider = this->heap->box_colliders.get(l_left_collider_token);
 					Math::OBB<float>l_left_projected = Geometry::to_obb(l_left_collider->local_box, l_left_collider->transform, l_left_collider->rotation_axis);
 
+					//TODO -> In the future, we want to avoid to query the world
 					poolindexed_foreach_token_2_begin(&this->heap->box_colliders, j, l_right_collider_token);
 					//TODO -> FIX - we also need to avoid calculatin the same collision between two Colliders (in the case where multiple colliders in this->in_colliders_processed are colliding between each other)
 					//		  because the on_collision_detected and on_collision_detection_failed operations are bidirectional.
@@ -422,7 +409,34 @@ struct Collision2
 						}
 					}
 					poolindexed_foreach_token_2_end();
-				};
+				}
+				/*
+				else
+				{
+					BoxCollider* l_left_collider = this->heap->box_colliders.get(l_left_collider_token);
+					Math::OBB<float>l_left_projected = Geometry::to_obb(l_left_collider->local_box, l_left_collider->transform, l_left_collider->rotation_axis);
+
+					//TODO -> In the future, we want to avoid to query the world
+					poolindexed_foreach_token_2_begin(&this->heap->box_colliders, j, l_right_collider_token)
+					{
+						BoxCollider* l_right_collider = this->heap->box_colliders.get(l_right_collider_token);
+						if (this->heap->does_boxcollider_have_colliderdetector(l_right_collider_token))
+						{
+							Math::OBB<float>l_right_projected = Geometry::to_obb(l_right_collider->local_box, l_right_collider->transform, l_right_collider->rotation_axis);
+
+							if (Geometry::overlap3(l_left_projected, l_right_projected))
+							{
+								this->on_collision_detected(l_left_collider_token, l_right_collider_token);
+							}
+							else
+							{
+								this->on_collision_detection_failed(l_left_collider_token, l_right_collider_token);
+							}
+						}
+					}
+					poolindexed_foreach_token_2_end()
+				}
+				*/
 			}
 
 			this->in_colliders_processed.clear();
@@ -453,7 +467,7 @@ struct Collision2
 
 			for (vector_loop(&this->is_waitingfor_trigger_none_detector, i))
 			{
-				IntersectionEvent* l_intersection_event = this->is_waitingfor_trigger_stay_detector.get(i);
+				IntersectionEvent* l_intersection_event = this->is_waitingfor_trigger_none_detector.get(i);
 				this->set_triggerstate_matchingWith_boxcollider(&l_intersection_event->detector, &l_intersection_event->other, Trigger::State::NONE);
 			}
 
@@ -486,7 +500,7 @@ struct Collision2
 		this->collision_heap.free();
 	};
 
-	inline void update()
+	inline void step()
 	{
 		this->collision_detection_step.step();
 	};

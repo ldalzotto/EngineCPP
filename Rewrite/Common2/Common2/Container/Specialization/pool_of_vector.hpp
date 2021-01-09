@@ -126,6 +126,14 @@ struct PoolOfVector
 		this->Memory.element_erase_element_at(p_token->tok, p_index);
 	};
 
+	inline void element_erase_element_at_always(const PoolOfVectorToken<ElementType>* p_token, const size_t p_index)
+	{
+#if CONTAINER_BOUND_TEST
+		this->token_not_free_check(p_token);
+#endif
+		this->Memory.element_erase_element_at_always(p_token->tok, p_index);
+	};
+
 	private:
 		inline void token_not_free_check(const PoolOfVectorToken<ElementType>* p_token)
 		{

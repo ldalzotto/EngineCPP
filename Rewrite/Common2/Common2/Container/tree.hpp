@@ -20,6 +20,9 @@ struct NTreeNode
 
 using NTreeChildsToken = PoolOfVectorToken<Token(NTreeNode)>;
 
+/*
+	A NTree is a hierarchy of objects with ( Parent 1 <----> N Child ) relation ship.
+*/
 template<class ElementType>
 struct NTree
 {
@@ -262,7 +265,6 @@ struct NTree
 		for (vector_loop(&l_involved_nodes, i))
 		{
 			Resolve* l_removed_node = l_involved_nodes.get(i);
-			//TODO Indices_childs erase element
 			this->Memory.release_element(cast(Token(size_t)*, &l_removed_node->Node->index));
 			this->Indices.release_element(&l_removed_node->Node->index);
 			this->Indices_childs.release_vector(&l_removed_node->Node->childs);
@@ -304,8 +306,7 @@ private:
 			{
 				if (l_parent_childs.get(i)->tok == p_node->Node->index.tok)
 				{
-					
-					this->Indices_childs.element_erase_element_at(&l_parent.Node->childs, i);
+					this->Indices_childs.element_erase_element_at_always(&l_parent.Node->childs, i);
 					break;
 				}
 			}
