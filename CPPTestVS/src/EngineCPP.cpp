@@ -270,25 +270,25 @@ void update(void* p_engine, float p_delta)
 
 
 	printf("Trigger events : ");
-	Array<Trigger::Event> l_0_trigger_events = testContext.collider_detector_0.get_collision_events(l_collider_middleware->collision);
-	if (l_0_trigger_events.Capacity > 0)
+	Slice<Trigger::Event> l_0_trigger_events = testContext.collider_detector_0.get_collision_events(l_collider_middleware->collision);
+	if (l_0_trigger_events.Size > 0)
 	{
 		printf("collider : %lld", testContext.collider_detector_0.collider.handle);
-		for (size_t i = 0; i < l_0_trigger_events.Capacity; i++)
+		for (size_t i = 0; i < l_0_trigger_events.Size; i++)
 		{
-			printf(" to : %lld, ", l_0_trigger_events[i].other.handle);
-			printf("%ld;", l_0_trigger_events[i].state);
+			printf(" to : %lld, ", l_0_trigger_events.get(i)->other.handle);
+			printf("%ld;", l_0_trigger_events.get(i)->state);
 		}
 	};
 
-	Array<Trigger::Event> l_1_trigger_events = testContext.collider_detector_1.get_collision_events(l_collider_middleware->collision);
-	if (l_1_trigger_events.Capacity > 0)
+	Slice<Trigger::Event> l_1_trigger_events = testContext.collider_detector_1.get_collision_events(l_collider_middleware->collision);
+	if (l_1_trigger_events.Size > 0)
 	{
 		printf("collider : %lld", testContext.collider_detector_1.collider.handle);
-		for (size_t i = 0; i < l_1_trigger_events.Capacity; i++)
+		for (size_t i = 0; i < l_1_trigger_events.Size; i++)
 		{
-			printf(" to : %lld, ", l_1_trigger_events[i].other.handle);
-			printf("%ld;", l_1_trigger_events[i].state);
+			printf(" to : %lld, ", l_1_trigger_events.get(i)->other.handle);
+			printf("%ld;", l_1_trigger_events.get(i)->state);
 		}
 		printf("\n");
 	};

@@ -1,52 +1,57 @@
 #pragma once
 
-template<class ElementType>
-struct PoolIndexed
+//TODO delete when common2 migration is complete
+namespace v2
 {
-	Pool<ElementType> Pool;
-	Vector<Token(ElementType)> Indices;
-
-	inline static PoolIndexed<ElementType> allocate_default()
+	template<class ElementType>
+	struct PoolIndexed
 	{
-		return PoolIndexed<ElementType>
+		Pool<ElementType> Memory;
+		Vector<Token(ElementType)> Indices;
+
+		inline static PoolIndexed<ElementType> allocate_default()
 		{
-			::Pool<ElementType>::allocate(0),
-			Vector<Token(ElementType)>::allocate(0)
-		};
-	};
-
-	inline void free()
-	{
-		this->Pool.free();
-		this->Indices.free();
-	};
-
-	inline Token(ElementType) alloc_element(const ElementType* p_element)
-	{
-		Token(ElementType) l_token = this->Pool.alloc_element(p_element);
-		this->Indices.push_back_element(&l_token);
-		return l_token;
-	};
-
-	inline void release_element(const Token(ElementType)* p_element)
-	{
-		this->Pool.release_element(p_element);
-		for (vector_loop(&this->Indices, i))
-		{
-			if (this->Indices.get(i)->tok == p_element->tok)
+			return PoolIndexed<ElementType>
 			{
-				this->Indices.erase_element_at(i);
-				break;
-			}
+				Pool<ElementType>::allocate(0),
+					Vector<Token(ElementType)>::allocate(0)
+			};
 		};
+
+		inline void free()
+		{
+			this->Memory.free();
+			this->Indices.free();
+		};
+
+		inline Token(ElementType) alloc_element(const ElementType* p_element)
+		{
+			Token(ElementType) l_token = this->Memory.alloc_element(p_element);
+			this->Indices.push_back_element(&l_token);
+			return l_token;
+		};
+
+		inline void release_element(const Token(ElementType)* p_element)
+		{
+			this->Memory.release_element(p_element);
+			for (vector_loop(&this->Indices, i))
+			{
+				if (this->Indices.get(i)->tok == p_element->tok)
+				{
+					this->Indices.erase_element_at(i);
+					break;
+				}
+			};
+		};
+
+		inline ElementType* get(const Token(ElementType)* p_element)
+		{
+			return this->Memory.get(p_element);
+		};
+
 	};
 
-	inline ElementType* get(const Token(ElementType)* p_element)
-	{
-		return this->Pool.get(p_element);
-	};
-
-};
 
 
 
+}

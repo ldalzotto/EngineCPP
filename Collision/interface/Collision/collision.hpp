@@ -1,30 +1,35 @@
 #pragma once
 
-#include "Common/Container/vector_def.hpp"
-#include "Common/Container/array_def.hpp"
-#include "Common/Memory/handle.hpp"
+#include "Common2/common2.hpp"
 #include "Math/matrix_def.hpp"
 #include "Math/geometry_def.hpp"
 #include "Math/transform_def.hpp"
 
 struct CollisionHandle
 {
-	void* handle = nullptr;
+	void* handle;
+
+	inline static CollisionHandle build_default()
+	{
+		return CollisionHandle{ nullptr };
+	};
 
 	void allocate();
 	void free();
-	void update();
+	void step();
 };
 
-struct ColliderDetectorHandle;
-
-struct BoxColliderHandle : public Handle
+struct BoxColliderHandle
 {
-	using Handle::Handle;
+	size_t handle;
 
-	void allocate(CollisionHandle p_collision, const Math::AABB<float>& p_local_aabb);
+	inline static BoxColliderHandle build_default() { return BoxColliderHandle{ cast(size_t, -1) }; }
+	inline void reset() { *this = build_default(); };
+
+	void allocate(CollisionHandle p_collision, const Math::AABB<float>* p_local_aabb);
 	void free(CollisionHandle p_collision);
-	void on_collider_moved(CollisionHandle p_collision, const Math::Transform& p_transform, const Math::quat& p_local_rotation);
+	void on_collider_moved(CollisionHandle p_collision, const Math::Transform* p_transform, const Math::quat* p_local_rotation);
+	void on_collider_moved(CollisionHandle p_collision, const Math::Transform p_transform, const Math::quat p_local_rotation);
 };
 
 
@@ -48,17 +53,23 @@ struct Trigger
 
 struct ColliderDetectorHandle
 {
-	size_t handle = -1;
-	BoxColliderHandle collider = BoxColliderHandle();
+	size_t handle;
+	BoxColliderHandle collider;
+
+	inline static ColliderDetectorHandle build_default()
+	{
+		return ColliderDetectorHandle{
+			cast(size_t, -1), BoxColliderHandle::build_default()
+		};
+	};
 
 	inline void reset()
 	{
-		this->handle = -1;
-		this->collider.reset();
+		*this = build_default();
 	}
 
 	void allocate(CollisionHandle p_collision, BoxColliderHandle p_collider);
 	void free(CollisionHandle p_collision);
 
-	Array<Trigger::Event> get_collision_events(CollisionHandle& p_collision);
+	Slice<Trigger::Event> get_collision_events(CollisionHandle& p_collision);
 };

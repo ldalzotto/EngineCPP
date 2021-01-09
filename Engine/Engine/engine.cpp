@@ -8,7 +8,6 @@
 #include "engine_loop.hpp"
 #include "Input/input.hpp"
 #include "Collision/collision.hpp"
-
 #include "SceneComponents/components.hpp"
 #include "Middleware/render_middleware.hpp"
 #include "Middleware/scene_middleware.hpp"
@@ -165,7 +164,7 @@ inline void EngineCallbacks::update_callback(float p_delta)
 inline void EngineCallbacks::endupdate_callback()
 {
 	this->closure->all_middlewares.collision_middleware->before_collision(&this->closure->scene);
-	this->closure->collision.update();
+	this->closure->collision.step();
 }
 
 inline void EngineCallbacks::render_callback()

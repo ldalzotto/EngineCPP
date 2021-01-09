@@ -43,6 +43,5 @@ add_subdirectory(CPPTestVS)
 
 
 add_subdirectory(Rewrite/Common2)
-add_subdirectory(Rewrite/Collision2)
 
 add_subdirectory(Test)

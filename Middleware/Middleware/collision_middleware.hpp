@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Collision/collision.hpp"
+
 #include "Scene/scene.hpp"
 
 struct CollisionEntry
@@ -51,7 +52,7 @@ struct CollisionMiddleware
 	inline void push_collider(SceneNodeToken p_node, const BoxCollider& p_box_collider )
 	{
 		BoxColliderHandle l_box_collider;
-		l_box_collider.allocate(this->collision, p_box_collider.local_box);
+		l_box_collider.allocate(this->collision, &p_box_collider.local_box);
 		CollisionEntry l_entry;
 		l_entry.box_collider = l_box_collider;
 		l_entry.force_update = true;

@@ -1,76 +1,61 @@
 #pragma once
 
-#include "Collision/collision.hpp"
 
 void CollisionHandle::allocate()
 {
-	Collision* l_collision = new Collision();
-	l_collision->allocate();
-	this->handle = l_collision;
+	Collision2::allocate(cast(Collision2**, &this->handle));
 };
 
 void CollisionHandle::free()
 {
-	((Collision*)this->handle)->free();
-	delete ((Collision*)this->handle);
+	Collision2::free(cast(Collision2**, &this->handle));
 };
 
-void CollisionHandle::update()
+void CollisionHandle::step()
 {
-	((Collision*)this->handle)->update();
+	cast(Collision2*, this->handle)->step();
 };
 
-void BoxColliderHandle::allocate(CollisionHandle p_collision, const Math::AABB<float>& p_local_aabb)
+void BoxColliderHandle::allocate(CollisionHandle p_collision, const Math::AABB<float>* p_local_aabb)
 {
-	this->handle = ((Collision*)p_collision.handle)->collision_heap.allocate_boxcollider(p_local_aabb).val;
+	this->handle = cast(Collision2*, p_collision.handle)->composition_allocate_boxcollider(p_local_aabb).tok;
 };
 
 void BoxColliderHandle::free(CollisionHandle p_collision)
 {
-	((Collision*)p_collision.handle)->free_boxcollider(com::TPoolToken<BoxCollider>(this->handle));
+	cast(Collision2*, p_collision.handle)->composion_free_collider(cast(Token(Collision2::BoxCollider)*, &this->handle));
 	this->reset();
 };
 
-void BoxColliderHandle::on_collider_moved(CollisionHandle p_collision, const Math::Transform& p_transform, const Math::quat& p_local_rotation)
+void BoxColliderHandle::on_collider_moved(CollisionHandle p_collision, const Math::Transform* p_transform, const Math::quat* p_local_rotation)
 {
-	((Collision*)p_collision.handle)->on_collider_moved(com::TPoolToken<BoxCollider>(this->handle), p_transform, p_local_rotation);
+	cast(Collision2*, p_collision.handle)->composition_on_collider_moved(cast(Token(Collision2::BoxCollider)*, &this->handle), p_transform, p_local_rotation);
+};
+
+void BoxColliderHandle::on_collider_moved(CollisionHandle p_collision, const Math::Transform p_transform, const Math::quat p_local_rotation)
+{
+	this->on_collider_moved(p_collision, &p_transform, &p_local_rotation);
 };
 
 
 void ColliderDetectorHandle::allocate(CollisionHandle p_collision, BoxColliderHandle p_collider)
 {
-	this->handle = ((Collision*)p_collision.handle)->collision_heap.allocate_colliderdetector(p_collider.handle).val;
+	this->handle = cast(Collision2*, p_collision.handle)->collision_heap.allocate_colliderdetector(cast(Token(Collision2::BoxCollider)*, &p_collider.handle)).tok;
 	this->collider = p_collider;
 };
 
 void ColliderDetectorHandle::free(CollisionHandle p_collision)
 {
-	((Collision*)p_collision.handle)->free_colliderdetector(this->collider.handle, this->handle);
+	cast(Collision2*, p_collision.handle)->collision_heap.free_colliderdetector(
+		cast(Token(Collision2::BoxCollider)*, &this->collider.handle),
+		cast(Token(Collision2::ColliderDetector)*, &this->handle));
 	this->reset();
 };
 
-Array<Trigger::Event> ColliderDetectorHandle::get_collision_events(CollisionHandle& p_collision)
+Slice<Trigger::Event> ColliderDetectorHandle::get_collision_events(CollisionHandle& p_collision)
 {
-	Collision* l_collision = (Collision*)p_collision.handle;
-
-	//TODO -> is it really necessary ?
-#if COLLIDER_BOUND_TEST
-	if (l_collision->collision_heap.collider_detectors.is_token_free(this->handle))
-	{
-		abort();
-	}
-#endif
-
-
-	TNestedVector<TriggerState> l_trigger_states = l_collision->collision_heap.collider_detectors[this->handle].collision_events;
-	size_t l_trigger_states_size = l_collision->collision_heap.collider_detectors_events_2.Memory.nested_vector_size(l_trigger_states);
-	if (l_trigger_states_size == 0)
-	{
-		return Array<Trigger::Event>(nullptr, 0);
-	}
-	else
-	{
-		Array<TriggerState> l_memory = l_collision->collision_heap.collider_detectors_events_2.Memory.get_nested_vector_array(l_trigger_states);
-		return Array<Trigger::Event>((Trigger::Event*)l_memory.Memory, l_memory.Capacity);
-	}
+	return slice_cast_0v<Trigger::Event>(
+		cast(Collision2*, p_collision.handle)->collision_heap.get_triggerevents_from_colliderdetector(cast(Token(Collision2::ColliderDetector)*, &this->handle))
+		.build_aschar()
+		);
 };
