@@ -14,7 +14,6 @@ target_include_directories(Collision PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/interfac
 
 target_link_libraries(Collision PUBLIC Math)
 target_link_libraries(Collision PUBLIC Common2)
-target_link_libraries(Collision PUBLIC AssetServer)
 
 
 
