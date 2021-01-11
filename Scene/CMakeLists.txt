@@ -1,9 +1,6 @@
 cmake_minimum_required(VERSION 3.12)
 project(Scene VERSION 0.0.1)
 
-file(GLOB_RECURSE SCENE_HEADER "./Scene/*.hpp" "./interface/*.hpp")
-file(GLOB_RECURSE SCENE_SOURCE "./Scene/*.cpp" "./Scene/include.cpp" "./interface/*.cpp")
-
 enable_language(CXX)
 
 add_library(Scene INTERFACE)

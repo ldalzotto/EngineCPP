@@ -45,7 +45,7 @@ namespace v2
 
 		inline void push_back(Slice<char>* p_bytes)
 		{
-			SliceIndex l_chunk = sliceindex_build(this->memory.Size, p_bytes->Size);
+			SliceIndex l_chunk = SliceIndex::build(this->memory.Size, p_bytes->Size);
 			this->memory.push_back_array(p_bytes);
 			this->chunks.push_back_element(&l_chunk);
 		};
@@ -79,7 +79,7 @@ namespace v2
 		{
 			SliceIndex* l_break_chunk = this->chunks.get(p_index);
 			this->memory.insert_array_at(p_bytes, l_break_chunk->Begin);
-			this->chunks.insert_element_at_1v(sliceindex_build(l_break_chunk->Begin, p_bytes->Size), p_index);
+			this->chunks.insert_element_at_1v(SliceIndex::build(l_break_chunk->Begin, p_bytes->Size), p_index);
 
 			for (loop(i, p_index + 1, this->chunks.Size))
 			{
@@ -109,7 +109,7 @@ namespace v2
 			assert_true(p_element_nb != 0);
 #endif	
 
-			SliceIndex l_removed_chunk = sliceSizedIndex_build_default();
+			SliceIndex l_removed_chunk = SliceIndex::build_default();
 
 			for (loop(i, p_index, p_index + p_element_nb))
 			{

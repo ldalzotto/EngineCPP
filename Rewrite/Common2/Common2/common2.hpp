@@ -11,6 +11,8 @@
 #include "./Memory/slice.hpp"
 #include "./Memory/span.hpp"
 
+#include "./Functional/sort.hpp"
+
 #include "./Container/vector.hpp"
 #include "./Container/pool.hpp"
 #include "./Container/varying_vector.hpp"
@@ -19,6 +21,7 @@
 #include "./Container/Specialization/pool_of_vector.hpp"
 #include "./Container/Specialization/pool_indexed.hpp"
 
+#include "./Container/heap.hpp"
 #include "./Container/tree.hpp"
 
 #include "./Functional/container_iteration.hpp"

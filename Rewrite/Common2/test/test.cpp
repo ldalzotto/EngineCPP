@@ -644,6 +644,32 @@ namespace v2
 		l_size_t_tree.free();
 	};
 
+	inline void heap_test()
+	{
+		size_t l_initial_heap_size = 20;
+		Heap l_heap = Heap::allocate(l_initial_heap_size);
+
+		{
+			Token(SliceIndex) l_chunk_0;
+			assert_true(cast(short int, l_heap.allocate_element(5, &l_chunk_0)) & cast(short int, Heap::AllocationState::ALLOCATED));
+			assert_true(l_heap.get(&l_chunk_0)->Begin == 0);
+			assert_true(l_heap.get(&l_chunk_0)->Size == 5);
+
+			Token(SliceIndex) l_chunk_1;
+			assert_true(cast(short int, l_heap.allocate_element(15, &l_chunk_1)) & cast(short int, Heap::AllocationState::ALLOCATED));
+			assert_true(l_heap.get(&l_chunk_1)->Begin == 5);
+			assert_true(l_heap.get(&l_chunk_1)->Size == 15);
+
+
+			Token(SliceIndex) l_chunk_2;
+			assert_true(cast(short int, l_heap.allocate_element(5, &l_chunk_2)) & (cast(short int, Heap::AllocationState::ALLOCATED) & cast(short int, Heap::AllocationState::HEAP_RESIZED)));
+			assert_true(l_heap.get(&l_chunk_2)->Begin == 20);
+			assert_true(l_heap.get(&l_chunk_2)->Size == 5);
+		}
+
+		l_heap.free();
+	};
+
 }
 
 int main()
@@ -655,4 +681,5 @@ int main()
 	v2::vectorofvector_test();
 	v2::poolofvector_test();
 	v2::ntree_test();
+	v2::heap_test();
 }

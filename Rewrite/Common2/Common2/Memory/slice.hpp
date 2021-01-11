@@ -182,14 +182,21 @@ struct SliceIndex
 {
 	size_t Begin;
 	size_t Size;
-};
 
-inline SliceIndex sliceindex_build(const size_t p_begin, const size_t p_size)
-{
-	return SliceIndex{p_begin, p_size};
-};
+	inline static SliceIndex build(const size_t p_begin, const size_t p_size)
+	{
+		return SliceIndex{ p_begin, p_size };
+	};
 
-inline SliceIndex sliceSizedIndex_build_default()
-{
-	return sliceindex_build(0, 0);
+	inline static SliceIndex build_default()
+	{
+		return build(0, 0);
+	};
+
+	inline void slice_two(const size_t p_break_point, SliceIndex* out_left, SliceIndex* out_right) const
+	{
+		size_t l_source_initial_size = this->Size;
+		*out_left = SliceIndex::build(this->Begin, p_break_point - this->Begin);
+		*out_right = SliceIndex::build(p_break_point, l_source_initial_size - out_left->Size);
+	};
 };
