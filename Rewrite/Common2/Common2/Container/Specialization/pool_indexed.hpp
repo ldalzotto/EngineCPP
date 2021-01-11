@@ -24,6 +24,11 @@ namespace v2
 			this->Indices.free();
 		};
 
+		inline char has_allocated_elements()
+		{
+			return this->Memory.has_allocated_elements();
+		};
+
 		inline Token(ElementType) alloc_element(const ElementType* p_element)
 		{
 			Token(ElementType) l_token = this->Memory.alloc_element(p_element);

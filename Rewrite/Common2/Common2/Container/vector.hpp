@@ -27,6 +27,10 @@ namespace v2
 			return Vector<ElementType>{0, Span<ElementType>::allocate(p_initial_capacity)};
 		};
 
+		inline Slice<ElementType> to_slice()
+		{
+			return Slice<ElementType>::build_memory_elementnb(this->Memory.Memory, this->Size);
+		};
 
 		inline void free()
 		{

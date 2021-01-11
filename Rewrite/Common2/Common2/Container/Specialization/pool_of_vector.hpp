@@ -51,6 +51,10 @@ namespace v2
 			return 0;
 		};
 
+		inline char has_allocated_elements()
+		{
+			return this->Memory.varying_vector.get_size() != this->FreeBlocks.Size;
+		}
 
 		inline PoolOfVectorToken<ElementType> alloc_vector_with_values(const Slice<ElementType>* p_initial_elements)
 		{

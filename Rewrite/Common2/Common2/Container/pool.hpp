@@ -58,6 +58,11 @@ namespace v2
 			return this->memory.Memory.Memory;
 		};
 
+		inline char has_allocated_elements()
+		{
+			return this->memory.Size != this->free_blocks.Size;
+		};
+
 		inline char is_element_free(const Token<ElementType>* p_token)
 		{
 			for (vector_loop(&this->free_blocks, i))
