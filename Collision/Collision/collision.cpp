@@ -4,6 +4,11 @@
 #include "Math/transform_def.hpp"
 #include "Math/geometry.hpp"
 
+
+/*
+	The Collision engine provides a way to hook when a 3D geometric shape enters in collision with anoter one.
+	It is currently a "brute-force" implementation. Meaning that Colliders are not spatially indexed.
+*/
 struct Collision2
 {
 
@@ -80,15 +85,12 @@ struct Collision2
 
 		inline void free()
 		{
-			//TODO
-			/*
 #if COLLIDER_BOUND_TEST
 			assert_true(!this->box_colliders.has_allocated_elements());
 			assert_true(!this->box_colliders_to_collider_detector.has_allocated_elements());
 			assert_true(!this->collider_detectors.has_allocated_elements());
 			assert_true(!this->collider_detectors_events_2.has_allocated_elements());
 #endif
-			*/
 			
 			this->box_colliders.free();
 			this->box_colliders_to_collider_detector.free();
@@ -155,6 +157,7 @@ struct Collision2
 				this->free_colliderdetector(p_box_collider, l_collider_detector);
 			}
 			this->box_colliders.release_element(p_box_collider);
+			this->box_colliders_to_collider_detector.release_element(cast(Token(Token(ColliderDetector))*, p_box_collider));
 		};
 
 		inline Token(ColliderDetector)* get_colliderdetector_from_boxcollider(const Token(BoxCollider)* p_box_collider)
@@ -198,8 +201,9 @@ struct Collision2
 
 		/*
 			An IntersectionEvent is an internal structure of the CollisionDetectionStep.
-			It is the output generated when handling processed Colliders (that cna come from either a deletion or an entry in in_colliders_processed).
-			The event indicates that something has happened between a collision detector and another collider.
+			It is the output generated when handling processed Colliders (that can come from either a deletion or an entry in in_colliders_processed).
+			An intersectin event is unidirectional. Meaning that intersection is true only from the point of view of the ColliderDetector.
+			It can either be an "enter" or "exit" collision.
 		*/
 		struct IntersectionEvent
 		{
@@ -263,7 +267,9 @@ struct Collision2
 
 		inline void free()
 		{
-			this->in_colliders_disabled.free();
+			//To free pending resources
+			this->step_freeingresource_only();
+
 			this->in_colliders_processed.free();
 			this->deleted_colliders_from_last_step.free();
 			this->deleted_collider_detectors_from_last_step.free();
@@ -275,30 +281,54 @@ struct Collision2
 			this->is_waitingfor_trigger_none_nextframe_detector.free();
 		};
 
+		/*
+			A *frame* of the collision engine.
+				1* Swap "per frame" buffers.
+
+				2* Execute ColliderDetectors destroy event.
+				   By :
+					 1/ Cleaning all references of the deleted Detectors from all CollisionDetectionStep calculation data.
+					    To avoid manipulating Detectors that have already been deleted.
+					 2/ Freeing detectors from the heap.
+
+				3* Execute Colliders destroy event.
+				   By :
+				     1/ Cleaning all references of the attached Detectors from all CollisionDetectionStep calculation data.
+					 2/ Cleaning all references of the deleted Colliders from all CollisionDetectionStep calculation data.
+					 3/ Freeing Collides from the heap.
+
+				4* Process moved colliders.
+				   By :
+				     1/ Calculating intersections for every possible combinations with the moved Colliders that have a ColliderDetector.
+					 2/ Pushing enter and exit IntersectionEvents for further processing.
+				   The Colliders processing may induce duplicate intersections. eg: two Colliders with ColliderDetectors that have moved and intersect will generate 4 IntersectionEvents.
+				   IntersectionEvents generation is always done from the point of view of a single ColliderDetector. This is to handle the case where a ColliderDetector that is not moving (thus, not processed)
+				   stille generates events when another collider intersect with it.
+
+				5* Removing IntersectionEvents duplicates.
+
+				6* Update the TriggerEvent state based on last frame IntersectionEvents.
+
+				7* Update the TriggerEvent state based on generated IntersectionEvents.
+
+				8* 9* Clear resrouces.
+		*/
 		inline void step()
 		{
-			this->swap_detector_events();
+			this->swap_detector_events(); // 1*
 
-			this->process_deleted_collider_detectors();
-			this->process_deleted_colliders();
+			this->process_deleted_collider_detectors(); // 2*
+			this->process_deleted_colliders(); // 3*
 
-			this->process_disabled_colliders();
-			this->process_input_colliders();
+			this->process_input_colliders(); // 4*
+			this->remove_current_step_event_duplicates(); // 5*
 
-			this->remove_current_step_event_duplicates();
+			this->update_pending_detectors(); // 6*
+			this->process_current_step_events(); // 7*
 
-			this->update_pending_detectors();
-			this->process_current_step_events();
+			this->clear_current_step_events(); // 8*
 
-			this->clear_current_step_events();
-
-			this->free_deleted_colliders();
-		};
-
-		inline void step_freeingresource_only()
-		{
-			this->process_deleted_collider_detectors();
-			this->free_deleted_colliders();
+			this->free_deleted_colliders(); // 9*
 		};
 
 		inline void push_collider_for_process(const Token<BoxCollider>* p_moved_collider)
@@ -318,6 +348,12 @@ struct Collision2
 
 
 	private:
+
+		inline void step_freeingresource_only()
+		{
+			this->process_deleted_collider_detectors();
+			this->free_deleted_colliders();
+		};
 
 		inline void swap_detector_events()
 		{
@@ -480,25 +516,6 @@ struct Collision2
 				Token(BoxCollider)* l_disabled_box_collider_token = this->deleted_colliders_from_last_step.get(i);
 				this->generate_exit_collision_for_collider(l_disabled_box_collider_token);
 			}
-		};
-
-
-		/*
-			When a collider is disabled :
-				-> All pending processing data that refers to the deleted collider are deleted
-				-> All ColliderDetectors are notified that the collider is no more intersecting
-		*/
-		inline void process_disabled_colliders()
-		{
-			for (vector_loop(&this->in_colliders_disabled, i))
-			{
-				Token(BoxCollider)* l_disabled_box_collider_token = this->in_colliders_disabled.get(i);
-				this->heap->box_colliders.get(l_disabled_box_collider_token)->enabled = false;
-				this->remove_references_to_boxcollider(l_disabled_box_collider_token);
-				this->generate_exit_collision_for_collider(l_disabled_box_collider_token);
-			}
-
-			this->in_colliders_disabled.clear();
 		};
 
 		inline void process_input_colliders()
@@ -727,11 +744,6 @@ struct Collision2
 	inline void step()
 	{
 		this->collision_detection_step.step();
-	};
-
-	inline void step_freeingresource_only()
-	{
-		this->collision_detection_step.step_freeingresource_only();
 	};
 
 	struct ExternalInterface

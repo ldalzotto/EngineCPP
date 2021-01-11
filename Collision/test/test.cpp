@@ -97,9 +97,6 @@ inline void collision_test_01()
 	l_box_collider_2.free(l_collision);
 	l_box_collider_3.free(l_collision);
 
-	//Taking deletion into account
-	l_collision.step();
-
 	l_collision.free();
 }
 
@@ -202,9 +199,6 @@ inline void collision_test_02()
 
 	l_box_collider_1.free(l_collision);
 	l_box_collider_2.free(l_collision);
-
-	//Taking deletion into account
-	l_collision.step();
 
 	l_collision.free();
 }
@@ -365,8 +359,10 @@ inline void collision_test_03()
 		assert_true(l_box_collider_3_events.get(1)->other.handle == l_box_collider_2.handle);
 	}
 
-	l_collision.free();
+	l_box_collider_2.free(l_collision);
+	l_box_collider_3.free(l_collision);
 
+	l_collision.free();
 }
 
 /*
@@ -448,7 +444,11 @@ inline void collision_test_04()
 		assert_true(l_box_collider_3_events.get(1)->other.handle == l_box_collider_2.handle);
 	}
 
-	l_collision.step();
+
+	l_box_collider_2.free(l_collision);
+	l_box_collider_3.free(l_collision);
+	l_box_collider_4.free(l_collision);
+
 	l_collision.free();
 }
 
@@ -528,7 +528,8 @@ inline void collision_test_05()
 	}
 
 
-	l_collision.step();
+	l_box_collider_1.free(l_collision);
+
 	l_collision.free();
 }
 
