@@ -8,10 +8,18 @@ auto* SliceElementVariableName = (SliceVariable)->get(IteratorName); \
 #define slice_foreach_end() \
 }
 
+#define vector_foreach_begin(VectorVariable, IteratorName, VectorElementVariableName) \
+for (loop(IteratorName, 0, (VectorVariable)->Size)) \
+{\
+auto* VectorElementVariableName = (VectorVariable)->get(IteratorName);
+
+#define vector_foreach_end() \
+}
+
 #define vector_erase_if_2_begin(VectorVariable, IteratorName, VectorElementVariableName) \
 for (vector_loop_reverse((VectorVariable), IteratorName)) \
 { \
-auto* VectorElementVariableName = (VectorVariable)->get(i);
+auto* VectorElementVariableName = (VectorVariable)->get(IteratorName);
 
 #define vector_erase_if_2_end(VectorVariable, IteratorName, IfConditionVariableName) \
 if ((IfConditionVariableName))\

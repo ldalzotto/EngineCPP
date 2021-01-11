@@ -16,20 +16,21 @@ void CollisionHandle::step()
 	cast(Collision2*, this->handle)->step();
 };
 
+using Collision2Ext = Collision2::ExternalInterface;
+
 void BoxColliderHandle::allocate(CollisionHandle p_collision, const Math::AABB<float>* p_local_aabb)
 {
-	this->handle = cast(Collision2*, p_collision.handle)->composition_allocate_boxcollider(p_local_aabb).tok;
+	this->handle = Collision2Ext::allocate_boxcollider(cast(Collision2*, p_collision.handle), p_local_aabb).tok;
 };
 
 void BoxColliderHandle::free(CollisionHandle p_collision)
 {
-	cast(Collision2*, p_collision.handle)->composion_free_collider(cast(Token(Collision2::BoxCollider)*, &this->handle));
-	this->reset();
+	Collision2Ext::free_collider(cast(Collision2*, p_collision.handle), cast(Token(Collision2::BoxCollider)*, &this->handle));
 };
 
 void BoxColliderHandle::on_collider_moved(CollisionHandle p_collision, const Math::Transform* p_transform, const Math::quat* p_local_rotation)
 {
-	cast(Collision2*, p_collision.handle)->composition_on_collider_moved(cast(Token(Collision2::BoxCollider)*, &this->handle), p_transform, p_local_rotation);
+	Collision2Ext::on_collider_moved(cast(Collision2*, p_collision.handle), cast(Token(Collision2::BoxCollider)*, &this->handle), p_transform, p_local_rotation);
 };
 
 void BoxColliderHandle::on_collider_moved(CollisionHandle p_collision, const Math::Transform p_transform, const Math::quat p_local_rotation)
@@ -40,16 +41,17 @@ void BoxColliderHandle::on_collider_moved(CollisionHandle p_collision, const Mat
 
 void ColliderDetectorHandle::allocate(CollisionHandle p_collision, BoxColliderHandle p_collider)
 {
-	this->handle = cast(Collision2*, p_collision.handle)->collision_heap.allocate_colliderdetector(cast(Token(Collision2::BoxCollider)*, &p_collider.handle)).tok;
+	this->handle = Collision2Ext::allocate_colliderdetector(cast(Collision2*, p_collision.handle), cast(Token(Collision2::BoxCollider)*, &p_collider.handle)).tok;
 	this->collider = p_collider;
 };
 
 void ColliderDetectorHandle::free(CollisionHandle p_collision)
 {
-	cast(Collision2*, p_collision.handle)->collision_heap.free_colliderdetector(
+	Collision2Ext::free_colliderdetector(
+		cast(Collision2*, p_collision.handle), 
 		cast(Token(Collision2::BoxCollider)*, &this->collider.handle),
-		cast(Token(Collision2::ColliderDetector)*, &this->handle));
-	this->reset();
+		cast(Token(Collision2::ColliderDetector)*, &this->handle)
+	);
 };
 
 Slice<Trigger::Event> ColliderDetectorHandle::get_collision_events(CollisionHandle& p_collision)
@@ -57,5 +59,5 @@ Slice<Trigger::Event> ColliderDetectorHandle::get_collision_events(CollisionHand
 	return slice_cast_0v<Trigger::Event>(
 		cast(Collision2*, p_collision.handle)->collision_heap.get_triggerevents_from_colliderdetector(cast(Token(Collision2::ColliderDetector)*, &this->handle))
 		.build_aschar()
-		);
+	);
 };
