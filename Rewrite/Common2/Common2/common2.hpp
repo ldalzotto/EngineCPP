@@ -24,4 +24,6 @@
 #include "./Container/heap.hpp"
 #include "./Container/tree.hpp"
 
+#include "./Container/Specialization/heap_memory.hpp"
+
 #include "./Functional/container_iteration.hpp"

@@ -2,11 +2,7 @@
 
 struct Sort
 {
-	struct Quick
-	{
-
-	};
-
+	//TODO ->Implement Quick sort
 	template<class ElementType>
 	struct Linear
 	{
@@ -101,3 +97,29 @@ struct Sort
 		};
 	};
 };
+
+
+
+#define sort_linear_begin(SliceVariable, ElementType, LinearSortObjectVariableName, LeftElementVariableName, RightElementVariableName) \
+{\
+auto LinearSortObjectVariableName = Sort::Linear<##ElementType##>::build_start_0((SliceVariable)); \
+while ((LinearSortObjectVariableName).step()) \
+{ \
+	auto LeftElementVariableName = (LinearSortObjectVariableName).out.left; auto RightElementVariableName = (LinearSortObjectVariableName).out.right;
+
+#define sort_linear_end(ComparisonResultVariableName, LinearSortObjectVariableName) \
+	(LinearSortObjectVariableName).in.current_comparison_result = (ComparisonResultVariableName);\
+}\
+}
+
+#define sort_linear_single_line(SliceVariable, ElementType, LinearSortObjectVariableName, LeftElementVariableName, RightElementVariableName, ComparisonResultVariableName)\
+sort_linear_begin(SliceVariable, ElementType, LinearSortObjectVariableName, LeftElementVariableName, RightElementVariableName) \
+sort_linear_end(ComparisonResultVariableName, LinearSortObjectVariableName)
+
+/*
+			Sort::Linear<size_t> l_linear_sort = Sort::Linear<size_t>::build_start_0(&l_slice);
+			while (l_linear_sort.step())
+			{
+				l_linear_sort.in.current_comparison_result = (*l_linear_sort.out.left < *l_linear_sort.out.right);
+			}
+*/

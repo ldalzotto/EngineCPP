@@ -671,11 +671,9 @@ namespace v2
 			size_t l_sorted_sizet_array[10] = { 35,10,10,9,9,8,7,4,4,2 };
 			Slice<size_t> l_slice = Slice<size_t>::build_memory_elementnb(l_sizet_array, 10);
 
-			Sort::Linear<size_t> l_linear_sort = Sort::Linear<size_t>::build_start_0(&l_slice);
-			while (l_linear_sort.step())
-			{
-				l_linear_sort.in.current_comparison_result = (*l_linear_sort.out.left < *l_linear_sort.out.right);
-			}
+			sort_linear_begin(&l_slice, size_t, l_linear, l_left, l_right);
+			char l_comp = *l_left < *l_right;
+			sort_linear_end(l_comp, l_linear);
 
 			assert_true(memcmp(l_sizet_array, l_sorted_sizet_array, sizeof(size_t) * 10) == 0);
 		}
@@ -689,27 +687,27 @@ namespace v2
 
 		{
 
-			Token(SliceIndex) l_chunk_1;
+			Heap::AllocatedElementReturn l_chunk_1;
 			assert_true((Heap::AllocationState_t)l_heap.allocate_element(10, &l_chunk_1) & (Heap::AllocationState_t)Heap::AllocationState::ALLOCATED);
-			assert_true(l_heap.get(&l_chunk_1)->Begin == 0);
-			assert_true(l_heap.get(&l_chunk_1)->Size == 10);
+			assert_true(l_heap.get(&l_chunk_1.token)->Begin == 0);
+			assert_true(l_heap.get(&l_chunk_1.token)->Size == 10);
 			assert_heap_integrity(&l_heap);
 
 
-			Token(SliceIndex) l_chunk_0;
+			Heap::AllocatedElementReturn l_chunk_0;
 			assert_true((Heap::AllocationState_t)l_heap.allocate_element(5, &l_chunk_0) & (Heap::AllocationState_t)Heap::AllocationState::ALLOCATED);
-			assert_true(l_heap.get(&l_chunk_0)->Begin == 10);
-			assert_true(l_heap.get(&l_chunk_0)->Size == 5);
+			assert_true(l_heap.get(&l_chunk_0.token)->Begin == 10);
+			assert_true(l_heap.get(&l_chunk_0.token)->Size == 5);
 			assert_heap_integrity(&l_heap);
 
 
-			Token(SliceIndex) l_chunk_2;
+			Heap::AllocatedElementReturn l_chunk_2;
 			l_heap.allocate_element(5, &l_chunk_2);
 			assert_heap_integrity(&l_heap);
 
 			// Releasing elements
-			l_heap.release_element(&l_chunk_0);
-			l_heap.release_element(&l_chunk_2);
+			l_heap.release_element(&l_chunk_0.token);
+			l_heap.release_element(&l_chunk_2.token);
 			assert_heap_integrity(&l_heap);
 
 			// We try to allocate 10 but there is two chunks size 5 free next to each other
@@ -718,17 +716,63 @@ namespace v2
 
 
 			// The heap is resized
-			Token(SliceIndex) l_chunk_3;
+			Heap::AllocatedElementReturn l_chunk_3;
 			assert_true((Heap::AllocationState_t)l_heap.allocate_element(50, &l_chunk_3) & (Heap::AllocationState_t)Heap::AllocationState::ALLOCATED_AND_HEAP_RESIZED);
-			assert_true(l_heap.get(&l_chunk_3)->Begin == 20);
-			assert_true(l_heap.get(&l_chunk_3)->Size == 50);
+			assert_true(l_chunk_3.Offset == 20);
+			assert_true(l_heap.get(&l_chunk_3.token)->Size == 50);
 			assert_true(l_heap.Size > l_initial_heap_size);
 			assert_heap_integrity(&l_heap);
-			
+
 
 		}
-
+		
 		l_heap.free();
+
+		l_heap = Heap::allocate(l_initial_heap_size);
+		assert_heap_integrity(&l_heap);
+		{
+
+			Heap::AllocatedElementReturn l_allocated_chunk;
+			assert_true(l_heap.allocate_element_with_alignment(1, 5, &l_allocated_chunk) == Heap::AllocationState::ALLOCATED);
+			assert_heap_integrity(&l_heap);
+			assert_true(l_heap.allocate_element_with_alignment(7, 5, &l_allocated_chunk) == Heap::AllocationState::ALLOCATED);
+			assert_heap_integrity(&l_heap);
+			assert_true(l_allocated_chunk.Offset == 5);
+			assert_true(l_heap.allocate_element_with_alignment(3, 7, &l_allocated_chunk) == Heap::AllocationState::ALLOCATED);
+			assert_heap_integrity(&l_heap);
+			assert_true(l_allocated_chunk.Offset == 14);
+
+			assert_true(l_heap.Size == l_initial_heap_size);
+		}
+	};
+
+	inline void heap_memory_test()
+	{
+		size_t l_initial_heap_size = 20 * sizeof(size_t);
+		HeapMemory l_heap_memory = HeapMemory::allocate(l_initial_heap_size);
+
+		size_t l_element = 10;
+		Token(SliceIndex) l_sigle_sizet_chunk;
+
+		// single allocation
+		{
+			l_sigle_sizet_chunk = l_heap_memory.allocate_element_typed<size_t>(&l_element);
+			size_t* l_st = l_heap_memory.get_typed<size_t>(&l_sigle_sizet_chunk);
+			assert_true(*l_st == l_element);
+		}
+	
+		// resize
+		{
+			size_t l_initial_heap_size = l_heap_memory.Memory.Capacity;
+			Token(SliceIndex) l_chunk = l_heap_memory.allocate_empty_element(30 * sizeof(size_t));
+			assert_true(l_heap_memory.Memory.Capacity != l_initial_heap_size);
+			assert_true(l_heap_memory._Heap.Size != l_initial_heap_size);
+			size_t* l_st = l_heap_memory.get_typed<size_t>(&l_sigle_sizet_chunk);
+			assert_true(*l_st == l_element);
+		}
+		
+
+		l_heap_memory.free();
 	};
 
 }
@@ -744,4 +788,5 @@ int main()
 	v2::ntree_test();
 	v2::sort_test();
 	v2::heap_test();
+	v2::heap_memory_test();
 }
