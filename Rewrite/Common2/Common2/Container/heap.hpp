@@ -4,12 +4,15 @@ namespace v2
 {
 	struct Heap
 	{
-		enum class AllocationState : short int
+		enum class AllocationState
 		{
-			NOT_ALLOCATED = 0,
-			ALLOCATED = 1,
-			HEAP_RESIZED = 2
+			NOT_ALLOCATED = 1,
+			ALLOCATED = 2,
+			HEAP_RESIZED = 4,
+			ALLOCATED_AND_HEAP_RESIZED = ALLOCATED | HEAP_RESIZED
 		};
+
+		using AllocationState_t = unsigned char;
 
 		Pool<SliceIndex> AllocatedChunks;
 		Vector<SliceIndex> FreeChunks;
@@ -37,6 +40,7 @@ namespace v2
 		{
 			size_t l_old_size = this->Size;
 			this->FreeChunks.push_back_element_1v(SliceIndex::build(l_old_size, p_newsize - l_old_size));
+			this->Size = p_newsize;
 		};
 
 		inline AllocationState allocate_element(const size_t p_size, Token(SliceIndex)* out_chunk)
@@ -55,9 +59,9 @@ namespace v2
 #if CONTAINER_MEMORY_TEST
 					)
 #endif
-					;
+						;
 
-					return cast(AllocationState, cast(short int, AllocationState::ALLOCATED) & cast(short int, AllocationState::HEAP_RESIZED));
+					return AllocationState::ALLOCATED_AND_HEAP_RESIZED;
 				}
 				return AllocationState::ALLOCATED;
 			}
@@ -78,11 +82,11 @@ namespace v2
 #endif
 						_allocate_element_with_alignment(p_size, p_alignement_modulo, out_chunk)
 #if CONTAINER_MEMORY_TEST
-						)
+					)
 #endif
-					;
+						;
 
-					return cast(AllocationState, cast(short int, AllocationState::ALLOCATED) & cast(short int, AllocationState::HEAP_RESIZED));
+					return AllocationState::ALLOCATED_AND_HEAP_RESIZED;
 				}
 				return AllocationState::ALLOCATED;
 			}
@@ -103,7 +107,7 @@ namespace v2
 		inline AllocationState reallocate_element(const Token(SliceIndex)* p_chunk, const size_t p_new_size, Token(SliceIndex)* out_chunk)
 		{
 			AllocationState l_allocation = this->allocate_element(p_new_size, out_chunk);
-			if (cast(short int, l_allocation) & cast(short int, AllocationState::ALLOCATED))
+			if ((AllocationState_t)l_allocation & (AllocationState_t)AllocationState::ALLOCATED)
 			{
 				this->release_element(p_chunk);
 			}
@@ -112,7 +116,30 @@ namespace v2
 
 		inline void defragment()
 		{
-			//TODO
+			if (this->FreeChunks.Size > 0)
+			{
+				Sort::Linear<SliceIndex> l_free_chunk_sort = Sort::Linear<SliceIndex>::build_start_0(this->FreeChunks.to_slice());
+				while (l_free_chunk_sort.step())
+				{
+					l_free_chunk_sort.in.current_comparison_result = l_free_chunk_sort.out.left->Begin > l_free_chunk_sort.out.right->Begin;
+				}
+
+				SliceIndex* l_compared_chunk = this->FreeChunks.get(0);
+				for (loop(i, 1, this->FreeChunks.Size))
+				{
+					SliceIndex* l_chunk = this->FreeChunks.get(i);
+					if ((l_compared_chunk->Begin + l_compared_chunk->Size) == l_chunk->Begin)
+					{
+						l_compared_chunk->Size += l_chunk->Size;
+						this->FreeChunks.erase_element_at(i);
+						i -= 1;
+					}
+					else
+					{
+						l_compared_chunk = l_chunk;
+					}
+				}
+			}
 		};
 
 	private:

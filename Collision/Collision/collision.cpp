@@ -308,6 +308,9 @@ struct Collision2
 				5* Removing IntersectionEvents duplicates.
 
 				6* Update the TriggerEvent state based on last frame IntersectionEvents.
+					When TriggerEvent states are updated in 7*, they may also generated deferred IntersectionEvents that will be processed the next frame.
+					For example, when a TriggerState value is set to TRIGGER_ENTER, then if nothing happens, on the next frame, the TriggerState will automaticaly be set to 
+					TRIGGER_STAY.
 
 				7* Update the TriggerEvent state based on generated IntersectionEvents.
 
@@ -323,8 +326,8 @@ struct Collision2
 			this->process_input_colliders(); // 4*
 			this->remove_current_step_event_duplicates(); // 5*
 
-			this->update_pending_detectors(); // 6*
-			this->process_current_step_events(); // 7*
+			this->udpate_triggerstate_from_lastframe_intersectionevents(); // 6*
+			this->udpate_triggerstate_from_intersectionevents(); // 7*
 
 			this->clear_current_step_events(); // 8*
 
@@ -510,7 +513,7 @@ struct Collision2
 			// Once the collision step is cleaned up, we can generate exit_collision event
 			// to notify all other ColliderDetectors that a collider has gone
 			// Some exit events will be false positive (event sended but there was no collision at the first plane), 
-			// but that's not a problem as it will be ignored by the process_current_step_events step.
+			// but that's not a problem as it will be ignored by the udpate_triggerstate_from_intersectionevents step.
 			for (vector_loop(&this->deleted_colliders_from_last_step, i))
 			{
 				Token(BoxCollider)* l_disabled_box_collider_token = this->deleted_colliders_from_last_step.get(i);
@@ -660,7 +663,7 @@ struct Collision2
 			this->remove_intersectionevents_duplicate(&this->currentstep_exit_intersection_events);
 		};
 
-		inline void process_current_step_events()
+		inline void udpate_triggerstate_from_intersectionevents()
 		{
 			vector_foreach_begin(&this->currentstep_enter_intersection_events, i, l_intersection_event);
 			this->enter_collision(l_intersection_event);
@@ -691,7 +694,7 @@ struct Collision2
 			}
 		};
 
-		inline void update_pending_detectors()
+		inline void udpate_triggerstate_from_lastframe_intersectionevents()
 		{
 			for (vector_loop(&this->is_waitingfor_trigger_stay_detector, i))
 			{
