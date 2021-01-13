@@ -671,9 +671,9 @@ namespace v2
 			size_t l_sorted_sizet_array[10] = { 35,10,10,9,9,8,7,4,4,2 };
 			Slice<size_t> l_slice = Slice<size_t>::build_memory_elementnb(l_sizet_array, 10);
 
-			sort_linear_begin(&l_slice, size_t, l_linear, l_left, l_right);
-			char l_comp = *l_left < *l_right;
-			sort_linear_end(l_comp, l_linear);
+			sort_linear2_begin(size_t, Tesss);
+			return *p_left < *p_right;
+			sort_linear2_end(&l_slice, size_t, Tesss);
 
 			assert_true(memcmp(l_sizet_array, l_sorted_sizet_array, sizeof(size_t) * 10) == 0);
 		}
@@ -725,7 +725,7 @@ namespace v2
 
 
 		}
-		
+
 		l_heap.free();
 
 		l_heap = Heap::allocate(l_initial_heap_size);
@@ -760,7 +760,7 @@ namespace v2
 			size_t* l_st = l_heap_memory.get_typed<size_t>(&l_sigle_sizet_chunk);
 			assert_true(*l_st == l_element);
 		}
-	
+
 		// resize
 		{
 			size_t l_initial_heap_size = l_heap_memory.Memory.Capacity;
@@ -770,7 +770,7 @@ namespace v2
 			size_t* l_st = l_heap_memory.get_typed<size_t>(&l_sigle_sizet_chunk);
 			assert_true(*l_st == l_element);
 		}
-		
+
 
 		l_heap_memory.free();
 	};

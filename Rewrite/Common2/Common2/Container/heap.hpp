@@ -133,12 +133,10 @@ namespace v2
 		{
 			if (this->FreeChunks.Size > 0)
 			{
-				Sort::Linear<SliceIndex> l_free_chunk_sort = Sort::Linear<SliceIndex>::build_start_0(this->FreeChunks.to_slice());
-				while (l_free_chunk_sort.step())
-				{
-					l_free_chunk_sort.in.current_comparison_result = l_free_chunk_sort.out.left->Begin > l_free_chunk_sort.out.right->Begin;
-				}
-
+				sort_linear2_begin(SliceIndex, defragment_sort);
+				return p_left->Begin > p_right->Begin;
+				sort_linear2_end(this->FreeChunks.to_slice(), SliceIndex, defragment_sort);
+				
 				SliceIndex* l_compared_chunk = this->FreeChunks.get(0);
 				for (loop(i, 1, this->FreeChunks.Size))
 				{
