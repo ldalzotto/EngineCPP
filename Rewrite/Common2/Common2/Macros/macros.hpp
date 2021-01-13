@@ -1,5 +1,7 @@
 #pragma once
 
+#define COMA ,
+
 #define cast(Type, Value) ((Type)(Value))
 #define castv(Type, Value) *(Type*)(&Value)
 

@@ -605,13 +605,13 @@ namespace v2
 		// traversing test
 		{
 			size_t l_counter = 0;
-			NTree<size_t>::Traverse l_tree_traverse = NTree<size_t>::Traverse::build_default(&l_size_t_tree);
-			while (l_tree_traverse.step() != NTree<size_t>::Traverse::State::END)
-			{
-				NTree<size_t>::Resolve* l_node = l_tree_traverse.get_current_node();
-				*(l_node->Element) += 1;
-				l_counter += 1;
-			}
+			size_t l_counter_2 = 1;
+
+			tree_traverse2_stateful_begin(size_t, size_t * l_counter, CounterForEach);
+			*this->l_counter += 1;
+			*(p_node->Element) += 1;
+			tree_traverse2_stateful_end(size_t, &l_size_t_tree, Token(NTreeNode){0}, & l_counter, CounterForEach);
+
 			assert_true(l_counter == 7);
 
 			assert_true(*l_size_t_tree.get_value(&l_root) == 1);
@@ -630,13 +630,11 @@ namespace v2
 
 			{
 				size_t l_counter = 0;
-				NTree<size_t>::Traverse l_tree_traverse = NTree<size_t>::Traverse::build_default(&l_size_t_tree);
-				while (l_tree_traverse.step() != NTree<size_t>::Traverse::State::END)
-				{
-					NTree<size_t>::Resolve* l_node = l_tree_traverse.get_current_node();
-					*(l_node->Element) += 1;
-					l_counter += 1;
-				}
+				tree_traverse2_stateful_begin(size_t, size_t * l_counter, TreeForeach);
+				*this->l_counter += 1;
+				*p_node->Element += 1;
+				tree_traverse2_stateful_end(size_t, &l_size_t_tree, Token(NTreeNode){0}, & l_counter, TreeForeach);
+
 				assert_true(l_counter == 4);
 			}
 		}

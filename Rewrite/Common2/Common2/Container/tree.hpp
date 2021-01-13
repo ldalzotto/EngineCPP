@@ -1,5 +1,8 @@
 #pragma once
 
+
+
+
 //TODO -> delete when common2 migration is complete
 namespace v2
 {
@@ -126,142 +129,56 @@ namespace v2
 			return this->push_value(&p_element, &p_parent);
 		};
 
-		struct Traverse
+		template<class ForEachFunc>
+		inline void traverse2(const Token(NTreeNode)* p_current_node)
 		{
-			constexpr static int STACK_SIZE = 100;
-
-			NTree<ElementType>* tree;
-			Token(NTreeNode) start_node;
-			Resolve node_stack[STACK_SIZE];
-			Slice<Token(NTreeNode)> node_childs[STACK_SIZE];
-			size_t current_node_childs_iterator[STACK_SIZE];
-			size_t stack_index;
-
-			enum class State
+			Resolve l_node = this->get(token_cast_p(ElementType, p_current_node));
+			ForEachFunc::foreach(&l_node);
+			Slice<Token(NTreeNode)> l_childs = this->get_childs(&l_node.Node->childs);
+			for (size_t i = 0; i < l_childs.Size; i++)
 			{
-				START = 0,
-				ITERATION = 1,
-				END = 100
-			} state;
-
-			inline static Traverse build(NTree<ElementType>* p_tree, const Token(NTreeNode)* p_start_node)
-			{
-				Traverse l_traverse;
-				l_traverse.state = State::START;
-				l_traverse.tree = p_tree;
-				l_traverse.stack_index = -1;
-				l_traverse.start_node = *p_start_node;
-				return l_traverse;
-			};
-
-			inline static Traverse build(NTree<ElementType>* p_tree, Token(NTreeNode) p_start_node)
-			{
-				return build(p_tree, &p_start_node);
-			};
-
-			inline static Traverse build_default(NTree<ElementType>* p_tree)
-			{
-				return build(p_tree, Token(NTreeNode){0});
-			};
-
-			inline State step()
-			{
-				switch (this->state)
-				{
-				case State::START:
-				{
-					this->take_root_node();
-				}
-				break;
-				case State::ITERATION:
-				{
-					this->iterate();
-				}
-				break;
-				case State::END:
-				{
-					abort();
-				}
-				break;
-				}
-
-				return this->state;
-			};
-
-			inline Resolve* get_current_node()
-			{
-				return &this->node_stack[this->stack_index];
-			};
-
-		private:
-
-			inline void take_root_node()
-			{
-
-#if CONTAINER_BOUND_TEST
-				assert_true(this->tree->Indices.get_size() != 0);
-#endif
-
-				this->push_node_to_stack(&this->start_node);
-				this->state = State::ITERATION;
-			};
-
-			inline void push_node_to_stack(const Token(NTreeNode)* p_node)
-			{
-				this->stack_index += 1;
-
-#if CONTAINER_BOUND_TEST
-				if (this->stack_index >= STACK_SIZE)
-				{
-					abort();
-				}
-#endif
-
-				this->node_stack[this->stack_index] = this->tree->get_from_node(p_node);
-				this->node_childs[this->stack_index] = this->tree->get_childs(&this->node_stack[this->stack_index].Node->childs);
-				this->current_node_childs_iterator[this->stack_index] = -1;
-			};
-
-			inline void pop_node_from_stack()
-			{
-				this->stack_index -= 1;
-			};
-
-			inline void iterate()
-			{
-				// this->current_node_childs_iterator += 1;
-				Slice<Token(NTreeNode)>* l_childs = &this->node_childs[this->stack_index];
-				size_t* l_child_iterator = &this->current_node_childs_iterator[this->stack_index];
-				*l_child_iterator += 1;
-
-				if (*l_child_iterator >= l_childs->Size)
-				{
-					this->pop_node_from_stack();
-					if (this->stack_index != -1)
-					{
-						this->iterate();
-						return;
-					}
-					else
-					{
-						this->state = State::END;
-						return;
-					}
-				}
-
-				this->push_node_to_stack(l_childs->get(*l_child_iterator));
-
+				this->traverse2<ForEachFunc>(*l_childs.get(i));
 			};
 		};
+
+		template<class ForEachFunc>
+		inline void traverse2(const Token(NTreeNode) p_current_node)
+		{
+			return this->traverse2<ForEachFunc>(&p_current_node);
+		};
+
+		template<class ForEachObj>
+		inline void traverse2_stateful(const Token(NTreeNode)* p_current_node, ForEachObj* p_foreach_obj)
+		{
+			Resolve l_node = this->get(token_cast_p(ElementType, p_current_node));
+			p_foreach_obj->foreach(&l_node);
+			Slice<Token(NTreeNode)> l_childs = this->get_childs(&l_node.Node->childs);
+			for (size_t i = 0; i < l_childs.Size; i++)
+			{
+				this->traverse2_stateful<ForEachObj>(l_childs.get(i), p_foreach_obj);
+			};
+		}
+
+		template<class ForEachObj>
+		inline void traverse2_stateful(const Token(NTreeNode) p_current_node, ForEachObj p_foreach_obj)
+		{
+			this->traverse2_stateful<ForEachObj>(&p_current_node, &p_foreach_obj);
+		}
+		template<class ForEachObj>
+		inline void traverse2_stateful(const Token(NTreeNode)* p_current_node, ForEachObj p_foreach_obj)
+		{
+			this->traverse2_stateful<ForEachObj>(p_current_node, &p_foreach_obj);
+		}
 
 		inline void remove_node(const Token(NTreeNode)* p_node)
 		{
 			Vector<Resolve> l_involved_nodes = Vector<Resolve>::allocate(0);
-			Traverse l_foreach_node = Traverse::build(this, p_node);
-			while (l_foreach_node.step() != Traverse::State::END)
-			{
-				l_involved_nodes.push_back_element(l_foreach_node.get_current_node());
-			}
+
+			struct RemoveForEach {
+				Vector<Resolve>* involved_nodes;
+				inline void foreach(Resolve* p_node) { this->involved_nodes->push_back_element(p_node); }
+			};
+			this->traverse2_stateful(p_node, RemoveForEach{ &l_involved_nodes });
 
 			this->detach_from_tree(l_involved_nodes.get(0));
 			for (vector_loop(&l_involved_nodes, i))
@@ -323,3 +240,29 @@ namespace v2
 	};
 
 }
+
+
+
+
+#define tree_traverse2_stateful_begin(ElementType, StateParameters, ForEachObjStructName) \
+struct ForEachObjStructName\
+{\
+	StateParameters; \
+	inline void foreach(NTree<##ElementType##>::Resolve* p_node) \
+	{
+
+#define tree_traverse2_stateful_end(ElementType, TreeVariable, StartToken, StateParameterValues, ForEachObjStructName) \
+	};\
+};\
+(TreeVariable)->traverse2_stateful((StartToken), ForEachObjStructName{ StateParameterValues });
+
+#define tree_traverse2_begin(ElementType, ForEachObjStructName) \
+struct ForEachObjStructName\
+{\
+	inline static void foreach(NTree<##ElementType##>::Resolve* p_node) \
+	{
+
+#define tree_traverse2_end(ElementType, TreeVariable, StartToken, ForEachObjStructName) \
+	};\
+};\
+(TreeVariable)->traverse2<##ForEachObjStructName##>((StartToken));
