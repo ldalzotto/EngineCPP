@@ -2,8 +2,44 @@
 #include "Math/geometry.hpp"
 #include "Common/Clock/clock.hpp"
 #include <cstdio>
+
+using namespace Math;
+
 int main()
 {
+	
+	float l_result = Math::dot(Vector<3, float>(1.0f, 2.0f, 3.0f), Vector<3, float>(1.0f, 2.0f, 3.0f));
+	Vector<3, float> l_result_v = Math::cross(Vector<3, float>(1.0f, 2.0f, 3.0f), Vector<3, float>(1.0f, 2.0f, 3.0f));
+	l_result = Math::length(Vector<3, float>(1.0f, 2.0f, 3.0f));
+	l_result_v = Math::normalize(Vector<3, float>(1.0f, 2.0f, 3.0f));
+	l_result_v = Math::project(Vector<3, float>(1.0f, 2.0f, 3.0f), Vector<3, float>(0.3f, 0.1f, 0.9f));
+	l_result = Math::distance(Vector<3, float>(1.0f, 2.0f, 3.0f), Vector<3, float>(0.3f, 0.1f, 0.9f));
+	l_result = Math::angle(Vector<3, float>(1.0f, 2.0f, 3.0f), Vector<3, float>(0.3f, 0.1f, 0.9f));
+	l_result = Math::angle_normalized(Math::normalize(Vector<3, float>(1.0f, 2.0f, 3.0f)), Math::normalize(Vector<3, float>(0.3f, 0.1f, 0.9f)));
+	l_result = Math::anglesign(Vector<3, float>(1.0f, 2.0f, 3.0f), Math::normalize(Vector<3, float>(0.3f, 0.1f, 0.9f)), Math::VecConst<float>::FORWARD);
+	// Quaternion l_result_q = Math::rotateAround(Math::normalize(Vector<3, float>(0.3f, 0.1f, 0.9f)), M_PI * 0.3f);
+	l_result_v = Math::rotate(Vector<3, float>(1.0f, 2.0f, 3.0f), Math::rotateAround(Math::normalize(Vector<3, float>(0.3f, 0.1f, 0.9f)), M_PI * 0.3f));
+
+	Quaternion l_result_q = Math::mul(Quaternion(Vector<3, float>(0.2f, 0.1f, 0.8f), 0.3f), Quaternion(Vector<3, float>(0.8f, 0.2f, 0.3f), 0.1f));
+	l_result_q = Math::inv(Quaternion(Vector<3, float>(0.2f, 0.1f, 0.8f), 0.3f));
+	l_result_q = Math::cross(Quaternion(Vector<3, float>(0.2f, 0.1f, 0.8f), 0.3f), Quaternion(Vector<3, float>(0.8f, 0.2f, 0.3f), 0.1f));
+	Matrix<3, float> l_result_m3 = Math::extractAxis<float>(Quaternion(0.2f, 0.1f, 0.8f, 0.3f));
+   l_result_q =	Math::fromAxis(Matrix<3, float>(Vector<3, float>(1.0f, 5.0f, 0.3f), Vector<3, float>(6.0f, 0.4f, 2.3f), Vector<3, float>(9.0f, 1.0f, 0.3f)));
+	int zd;
+};
+
+/*
+	assert_true(quat{0.2f, 0.1f, 0.8f, 0.3f}.cross(quat{0.8f, 0.2f, 0.3f, 0.1f}) == );
+
+	assert_true(quat{0.2f, 0.1f, 0.8f, 0.3f}.rotation_to_axis() == );
+*/
+
+#if 0
+int main()
+{
+
+
+
 	{
 		Math::AABB<float> l_aabb_0 = Math::AABB<float>(Math::vec3f(0.0f, 0.0f, 0.0f), Math::vec3f(2.0f, 2.0f, 2.0f));
 		Math::AABB<float> l_aabb_1 = Math::AABB<float>(Math::vec3f(0.0f, 0.0f, 0.0f), Math::vec3f(0.5f, 0.5f, 0.5f));
@@ -85,3 +121,5 @@ int main()
 	}
 		*/
 }
+
+#endif

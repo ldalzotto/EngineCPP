@@ -1,8 +1,5 @@
 #pragma once
 
-
-
-
 //TODO -> delete when common2 migration is complete
 namespace v2
 {
