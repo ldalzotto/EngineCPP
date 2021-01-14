@@ -17,7 +17,7 @@ namespace v2
 		size_t Size;
 		Span<ElementType> Memory;
 
-		inline static Vector<ElementType> build(ElementType* p_memory, size_t p_initial_capacity)
+		inline static Vector<ElementType> build(ElementType* p_memory, const size_t p_initial_capacity)
 		{
 			return Vector<ElementType>{0, Span<ElementType>::build(p_memory, p_initial_capacity)};
 		};
@@ -53,16 +53,7 @@ namespace v2
 			return this->Size == 0;
 		};
 
-		inline ElementType* get(const size_t p_index)
-		{
-#if CONTAINER_BOUND_TEST
-			this->bound_check(p_index);
-			this->bound_head_check(p_index);
-#endif
-			return &this->Memory.Memory[p_index];
-		};
-
-		inline ElementType get_rv(const size_t p_index)
+		inline ElementType& get(const size_t p_index)
 		{
 #if CONTAINER_BOUND_TEST
 			this->bound_check(p_index);
@@ -72,14 +63,13 @@ namespace v2
 		};
 
 
-
 		inline void clear()
 		{
 			this->Size = 0;
 		};
 
 
-		inline char insert_array_at(const Slice<ElementType>* p_elements, const size_t p_index)
+		inline char insert_array_at(const Slice<ElementType>& p_elements, const size_t p_index)
 		{
 #if CONTAINER_BOUND_TEST
 			this->bound_check(p_index);
@@ -89,14 +79,8 @@ namespace v2
 			return this->insert_array_at_unchecked(p_elements, p_index);
 		};
 
-		inline char insert_array_at_1v(const Slice<ElementType> p_elements, const size_t p_index)
-		{
-			return this->insert_array_at(&p_elements, p_index);
-		};
 
-
-
-		inline char insert_element_at(const ElementType* p_element, const size_t p_index)
+		inline char insert_element_at(const ElementType& p_element, const size_t p_index)
 		{
 #if CONTAINER_BOUND_TEST
 			this->bound_check(p_index);
@@ -106,23 +90,13 @@ namespace v2
 			return this->insert_element_at_unchecked(p_element, p_index);
 		};
 
-		inline char insert_element_at_1v(const ElementType p_element, const size_t p_index)
+		inline char push_back_array(const Slice<ElementType>& p_elements)
 		{
-			return this->insert_element_at(&p_element, p_index);
-		};
-
-		inline char push_back_array(const Slice<ElementType>* p_elements)
-		{
-			this->Memory.resize_until_capacity_met(this->Size + p_elements->Size);
+			this->Memory.resize_until_capacity_met(this->Size + p_elements.Size);
 			this->Memory.copy_memory(this->Size, p_elements);
-			this->Size += p_elements->Size;
+			this->Size += p_elements.Size;
 
 			return 1;
-		};
-
-		inline char push_back_array_1v(const Slice<ElementType> p_elements)
-		{
-			return this->push_back_array(&p_elements);
 		};
 
 		inline char push_back_element_empty()
@@ -132,23 +106,18 @@ namespace v2
 			return 1;
 		};
 
-		inline char push_back_element(const ElementType* p_element)
+		inline char push_back_element(const ElementType& p_element)
 		{
 			this->Memory.resize_until_capacity_met(this->Size + 1);
-			this->Memory.Memory[this->Size] = *p_element;
+			this->Memory.Memory[this->Size] = p_element;
 			this->Size += 1;
 
 			return 1;
 		};
 
-		inline char push_back_element_1v(const ElementType p_element)
-		{
-			return this->push_back_element(&p_element);
-		};
 
 
-
-		inline char insert_array_at_always(const Slice<ElementType>* p_elements, const size_t p_index)
+		inline char insert_array_at_always(const Slice<ElementType>& p_elements, const size_t p_index)
 		{
 #if CONTAINER_BOUND_TEST
 			this->bound_check(p_index);
@@ -164,7 +133,7 @@ namespace v2
 		};
 
 
-		inline char insert_element_at_always(const ElementType* p_element, const size_t p_index)
+		inline char insert_element_at_always(const ElementType& p_element, const size_t p_index)
 		{
 #if CONTAINER_BOUND_TEST
 			this->bound_check(p_index);
@@ -256,23 +225,23 @@ namespace v2
 			this->Memory.move_memory_up(this->Size, p_break_index, p_move_delta);
 		};
 
-		inline char insert_element_at_unchecked(const ElementType* p_element, const size_t p_index)
+		inline char insert_element_at_unchecked(const ElementType& p_element, const size_t p_index)
 		{
 			this->Memory.resize_until_capacity_met(this->Size + 1);
 			this->move_memory_down(p_index, 1);
-			this->Memory.Memory[p_index] = *p_element;
+			this->Memory.Memory[p_index] = p_element;
 			this->Size += 1;
 
 			return 1;
 		};
 
-		inline char insert_array_at_unchecked(const Slice<ElementType>* p_elements, const size_t p_index)
+		inline char insert_array_at_unchecked(const Slice<ElementType>& p_elements, const size_t p_index)
 		{
-			this->Memory.resize_until_capacity_met(this->Size + p_elements->Size);
-			this->move_memory_down(p_index, p_elements->Size);
+			this->Memory.resize_until_capacity_met(this->Size + p_elements.Size);
+			this->move_memory_down(p_index, p_elements.Size);
 			this->Memory.copy_memory(p_index, p_elements);
 
-			this->Size += p_elements->Size;
+			this->Size += p_elements.Size;
 
 			return 1;
 		};

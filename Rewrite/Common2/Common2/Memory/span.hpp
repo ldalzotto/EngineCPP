@@ -68,10 +68,10 @@ struct Span
         *this = Span<ElementType>::build(NULL, 0);
     };
 
-    inline void bound_inside_check(const Slice<ElementType>* p_tested_slice)
+    inline void bound_inside_check(const Slice<ElementType>& p_tested_slice)
     {
 #if CONTAINER_BOUND_TEST
-        if ((p_tested_slice->Begin + p_tested_slice->Size) > (this->Memory + this->Capacity))
+        if ((p_tested_slice.Begin + p_tested_slice.Size) > (this->Memory + this->Capacity))
         {
             abort();
         }
@@ -95,39 +95,34 @@ struct Span
     {
         Slice<ElementType> l_target = Slice<ElementType>::build_memory_offset_elementnb(this->Memory, p_break_index + p_move_delta, p_moved_block_size - p_break_index);
 #if CONTAINER_BOUND_TEST
-        this->bound_inside_check(&l_target);
+        this->bound_inside_check(l_target);
 #endif		
         Slice<ElementType> l_source = Slice<ElementType>::build(this->Memory, p_break_index, p_moved_block_size);
-        slice_memmove(&l_target, &l_source);
+        slice_memmove(l_target, l_source);
     };
 
     inline void move_memory_up(const size_t p_moved_block_size, const size_t p_break_index, const size_t p_move_delta)
     {
         Slice<ElementType> l_target = Slice<ElementType>::build_memory_offset_elementnb(this->Memory, p_break_index, p_moved_block_size - p_break_index);
 #if CONTAINER_BOUND_TEST
-        this->bound_inside_check(&l_target);
+        this->bound_inside_check(l_target);
 #endif		
         Slice<ElementType> l_source = Slice<ElementType>::build(this->Memory, p_break_index + p_move_delta, p_moved_block_size);
-        slice_memmove(&l_target, &l_source);
+        slice_memmove(l_target, l_source);
     };
 
-    inline void copy_memory(const size_t p_copy_index, const Slice<ElementType>* p_elements)
+    inline void copy_memory(const size_t p_copy_index, const Slice<ElementType>& p_elements)
     {
-        Slice<ElementType> l_target = Slice<ElementType>::build_memory_elementnb(this->Memory + p_copy_index, p_elements->Size);
+        Slice<ElementType> l_target = Slice<ElementType>::build_memory_elementnb(this->Memory + p_copy_index, p_elements.Size);
 
 #if CONTAINER_BOUND_TEST
-        this->bound_inside_check(&l_target);
+        this->bound_inside_check(l_target);
 #endif
 
         slice_memcpy(
-            &l_target,
+            l_target,
             p_elements
         );
-    };
-
-    inline void copy_memory_2v(const size_t p_copy_index, const Slice<ElementType> p_elements)
-    {
-        this->copy_memory(p_copy_index, &p_elements);
     };
 };
 

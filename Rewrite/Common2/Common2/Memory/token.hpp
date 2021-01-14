@@ -32,7 +32,7 @@ inline Token<ElementType> token_build_default()
 #define token_t_v(SouceToken) SouceToken.tok
 #define token_t_p(SouceToken) &(SouceToken)->tok
 
-#define token_cast_v(TargetType, SourceToken) *(Token<##TargetType##>*)&(SourceToken)
+#define token_cast_v(TargetType, SourceToken) Token<##TargetType##>{(SourceToken).tok} 
 #define token_cast_p(TargetType, SourceToken) (Token<##TargetType##>*)(SourceToken)
 
 #define Token(ElementType) Token<##ElementType##>

@@ -29,7 +29,7 @@ namespace v2
 				Pool<SliceIndex>::allocate(0),
 				Vector<SliceIndex>::allocate(1),
 				p_heap_size };
-			l_heap.FreeChunks.push_back_element_1v(SliceIndex::build(0, p_heap_size));
+			l_heap.FreeChunks.push_back_element(SliceIndex::build(0, p_heap_size));
 			return l_heap;
 		};
 
@@ -43,7 +43,7 @@ namespace v2
 		inline void resize(const size_t p_newsize)
 		{
 			size_t l_old_size = this->Size;
-			this->FreeChunks.push_back_element_1v(SliceIndex::build(l_old_size, p_newsize - l_old_size));
+			this->FreeChunks.push_back_element(SliceIndex::build(l_old_size, p_newsize - l_old_size));
 			this->Size = p_newsize;
 		};
 
@@ -110,13 +110,13 @@ namespace v2
 
 		inline SliceIndex* get(const Token(SliceIndex)* p_chunk)
 		{
-			return this->AllocatedChunks.get(p_chunk);
+			return &this->AllocatedChunks.get(*p_chunk);
 		};
 
 		inline void release_element(const Token(SliceIndex)* p_chunk)
 		{
-			this->FreeChunks.push_back_element(this->AllocatedChunks.get(p_chunk));
-			this->AllocatedChunks.release_element(p_chunk);
+			this->FreeChunks.push_back_element(this->AllocatedChunks.get(*p_chunk));
+			this->AllocatedChunks.release_element(*p_chunk);
 		};
 
 		inline AllocationState reallocate_element(const Token(SliceIndex)* p_chunk, const size_t p_new_size, AllocatedElementReturn* out_chunk)
@@ -134,16 +134,16 @@ namespace v2
 			if (this->FreeChunks.Size > 0)
 			{
 				sort_linear2_begin(SliceIndex, defragment_sort);
-				return p_left->Begin > p_right->Begin;
+				return p_left.Begin > p_right.Begin;
 				sort_linear2_end(this->FreeChunks.to_slice(), SliceIndex, defragment_sort);
 				
-				SliceIndex* l_compared_chunk = this->FreeChunks.get(0);
+				SliceIndex& l_compared_chunk = this->FreeChunks.get(0);
 				for (loop(i, 1, this->FreeChunks.Size))
 				{
-					SliceIndex* l_chunk = this->FreeChunks.get(i);
-					if ((l_compared_chunk->Begin + l_compared_chunk->Size) == l_chunk->Begin)
+					SliceIndex& l_chunk = this->FreeChunks.get(i);
+					if ((l_compared_chunk.Begin + l_compared_chunk.Size) == l_chunk.Begin)
 					{
-						l_compared_chunk->Size += l_chunk->Size;
+						l_compared_chunk.Size += l_chunk.Size;
 						this->FreeChunks.erase_element_at(i);
 						i -= 1;
 					}
@@ -164,17 +164,17 @@ namespace v2
 
 			for (size_t i = 0; i < this->FreeChunks.Size; i++)
 			{
-				SliceIndex* l_free_chunk = this->FreeChunks.get(i);
-				if (l_free_chunk->Size > p_size)
+				SliceIndex& l_free_chunk = this->FreeChunks.get(i);
+				if (l_free_chunk.Size > p_size)
 				{
 					SliceIndex l_new_allocated_chunk;
-					l_free_chunk->slice_two(l_free_chunk->Begin + p_size, &l_new_allocated_chunk, l_free_chunk);
+					l_free_chunk.slice_two(l_free_chunk.Begin + p_size, &l_new_allocated_chunk, &l_free_chunk);
 					*out_return = _push_chunk(&l_new_allocated_chunk);
 					return true;
 				}
-				else if (l_free_chunk->Size == p_size)
+				else if (l_free_chunk.Size == p_size)
 				{
-					*out_return = _push_chunk(l_free_chunk);
+					*out_return = _push_chunk(&l_free_chunk);
 					this->FreeChunks.erase_element_at(i);
 					return true;
 				}
@@ -190,16 +190,16 @@ namespace v2
 #endif
 			for (size_t i = 0; i < this->FreeChunks.Size; i++)
 			{
-				SliceIndex* l_free_chunk = this->FreeChunks.get(i);
+				SliceIndex& l_free_chunk = this->FreeChunks.get(i);
 
-				if (l_free_chunk->Size > p_size)
+				if (l_free_chunk.Size > p_size)
 				{
-					size_t l_offset_modulo = (l_free_chunk->Begin % p_alignement_modulo);
+					size_t l_offset_modulo = (l_free_chunk.Begin % p_alignement_modulo);
 					if (l_offset_modulo == 0)
 					{
 						// create one free chunk (after)
 						SliceIndex l_new_allocated_chunk;
-						l_free_chunk->slice_two(l_free_chunk->Begin + p_size, &l_new_allocated_chunk, l_free_chunk);
+						l_free_chunk.slice_two(l_free_chunk.Begin + p_size, &l_new_allocated_chunk, &l_free_chunk);
 						*out_chunk = _push_chunk(&l_new_allocated_chunk);
 						return true;
 					}
@@ -207,35 +207,35 @@ namespace v2
 					{
 						size_t l_chunk_offset_delta = p_alignement_modulo - l_offset_modulo;
 						// Does the offsetted new memory is able to be allocated in the chunk ?
-						if (l_free_chunk->Size > (p_size + l_chunk_offset_delta)) //offsetted chunk is in the middle of the free chunk
+						if (l_free_chunk.Size > (p_size + l_chunk_offset_delta)) //offsetted chunk is in the middle of the free chunk
 						{
 							//create two free chunk (before and after)
 
 							SliceIndex l_new_allocated_chunk, l_new_free_chunk, l_tmp_chunk;
-							l_free_chunk->slice_two(l_free_chunk->Begin + l_chunk_offset_delta, l_free_chunk, &l_tmp_chunk);
+							l_free_chunk.slice_two(l_free_chunk.Begin + l_chunk_offset_delta, &l_free_chunk, &l_tmp_chunk);
 							l_tmp_chunk.slice_two(l_tmp_chunk.Begin + p_size, &l_new_allocated_chunk, &l_new_free_chunk);
 							*out_chunk = _push_chunk(&l_new_allocated_chunk);
 
-							this->FreeChunks.push_back_element(&l_new_free_chunk);
+							this->FreeChunks.push_back_element(l_new_free_chunk);
 
 							return true;
 						}
-						else if (l_free_chunk->Size == (p_size + l_chunk_offset_delta)) //offsetted chunk end matches perfectly the end of the free chunk
+						else if (l_free_chunk.Size == (p_size + l_chunk_offset_delta)) //offsetted chunk end matches perfectly the end of the free chunk
 						{
 							SliceIndex l_new_allocated_chunk;
-							l_free_chunk->slice_two(l_free_chunk->Begin + l_chunk_offset_delta, l_free_chunk, &l_new_allocated_chunk);
+							l_free_chunk.slice_two(l_free_chunk.Begin + l_chunk_offset_delta, &l_free_chunk, &l_new_allocated_chunk);
 							*out_chunk = _push_chunk(&l_new_allocated_chunk);
 
 							return true;
 						}
 					}
 				}
-				else if (l_free_chunk->Size == p_size)
+				else if (l_free_chunk.Size == p_size)
 				{
-					size_t l_offset_modulo = (l_free_chunk->Size % p_alignement_modulo);
+					size_t l_offset_modulo = (l_free_chunk.Size % p_alignement_modulo);
 					if (l_offset_modulo == 0)
 					{
-						*out_chunk = _push_chunk(l_free_chunk);
+						*out_chunk = _push_chunk(&l_free_chunk);
 						this->FreeChunks.erase_element_at(i);
 
 						return true;
@@ -249,7 +249,7 @@ namespace v2
 		inline AllocatedElementReturn _push_chunk(SliceIndex* p_chunk)
 		{
 			return AllocatedElementReturn::build(
-				this->AllocatedChunks.alloc_element(p_chunk),
+				this->AllocatedChunks.alloc_element(*p_chunk),
 				p_chunk->Begin
 			);
 		};

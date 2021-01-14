@@ -276,8 +276,8 @@ void update(void* p_engine, float p_delta)
 		printf("collider : %lld", testContext.collider_detector_0.collider.handle);
 		for (size_t i = 0; i < l_0_trigger_events.Size; i++)
 		{
-			printf(" to : %lld, ", l_0_trigger_events.get(i)->other.handle);
-			printf("%ld;", l_0_trigger_events.get(i)->state);
+			printf(" to : %lld, ", l_0_trigger_events.get(i).other.handle);
+			printf("%ld;", l_0_trigger_events.get(i).state);
 		}
 	};
 
@@ -287,8 +287,8 @@ void update(void* p_engine, float p_delta)
 		printf("collider : %lld", testContext.collider_detector_1.collider.handle);
 		for (size_t i = 0; i < l_1_trigger_events.Size; i++)
 		{
-			printf(" to : %lld, ", l_1_trigger_events.get(i)->other.handle);
-			printf("%ld;", l_1_trigger_events.get(i)->state);
+			printf(" to : %lld, ", l_1_trigger_events.get(i).other.handle);
+			printf("%ld;", l_1_trigger_events.get(i).state);
 		}
 		printf("\n");
 	};

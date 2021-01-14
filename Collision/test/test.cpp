@@ -49,10 +49,10 @@ inline void collision_test_01()
 		Slice<Trigger::Event> l_box_collider_1_events = l_box_collider_1_detector_handle.get_collision_events(l_collision);
 
 		assert_true(l_box_collider_1_events.Size == 2);
-		assert_true(l_box_collider_1_events.get(0)->state == Trigger::State::TRIGGER_ENTER);
-		assert_true(l_box_collider_1_events.get(0)->other.handle == l_box_collider_2.handle);
-		assert_true(l_box_collider_1_events.get(1)->state == Trigger::State::TRIGGER_ENTER);
-		assert_true(l_box_collider_1_events.get(1)->other.handle == l_box_collider_3.handle);
+		assert_true(l_box_collider_1_events.get(0).state == Trigger::State::TRIGGER_ENTER);
+		assert_true(l_box_collider_1_events.get(0).other.handle == l_box_collider_2.handle);
+		assert_true(l_box_collider_1_events.get(1).state == Trigger::State::TRIGGER_ENTER);
+		assert_true(l_box_collider_1_events.get(1).other.handle == l_box_collider_3.handle);
 	}
 
 	l_collision.step();
@@ -61,10 +61,10 @@ inline void collision_test_01()
 		Slice<Trigger::Event> l_box_collider_1_events = l_box_collider_1_detector_handle.get_collision_events(l_collision);
 
 		assert_true(l_box_collider_1_events.Size == 2);
-		assert_true(l_box_collider_1_events.get(0)->state == Trigger::State::TRIGGER_STAY);
-		assert_true(l_box_collider_1_events.get(0)->other.handle == l_box_collider_2.handle);
-		assert_true(l_box_collider_1_events.get(1)->state == Trigger::State::TRIGGER_STAY);
-		assert_true(l_box_collider_1_events.get(1)->other.handle == l_box_collider_3.handle);
+		assert_true(l_box_collider_1_events.get(0).state == Trigger::State::TRIGGER_STAY);
+		assert_true(l_box_collider_1_events.get(0).other.handle == l_box_collider_2.handle);
+		assert_true(l_box_collider_1_events.get(1).state == Trigger::State::TRIGGER_STAY);
+		assert_true(l_box_collider_1_events.get(1).other.handle == l_box_collider_3.handle);
 	}
 
 	l_box_collider_1_transform = Math::Transform(Math::vec3f(1000000.0f, 0.0f, 0.0f), Math::QuatConst::IDENTITY, Math::VecConst<float>::ONE);
@@ -76,10 +76,10 @@ inline void collision_test_01()
 		Slice<Trigger::Event> l_box_collider_1_events = l_box_collider_1_detector_handle.get_collision_events(l_collision);
 
 		assert_true(l_box_collider_1_events.Size == 2);
-		assert_true(l_box_collider_1_events.get(0)->state == Trigger::State::TRIGGER_EXIT);
-		assert_true(l_box_collider_1_events.get(0)->other.handle == l_box_collider_2.handle);
-		assert_true(l_box_collider_1_events.get(1)->state == Trigger::State::TRIGGER_EXIT);
-		assert_true(l_box_collider_1_events.get(1)->other.handle == l_box_collider_3.handle);
+		assert_true(l_box_collider_1_events.get(0).state == Trigger::State::TRIGGER_EXIT);
+		assert_true(l_box_collider_1_events.get(0).other.handle == l_box_collider_2.handle);
+		assert_true(l_box_collider_1_events.get(1).state == Trigger::State::TRIGGER_EXIT);
+		assert_true(l_box_collider_1_events.get(1).other.handle == l_box_collider_3.handle);
 	}
 
 	l_collision.step();
@@ -87,10 +87,10 @@ inline void collision_test_01()
 	{
 		Slice<Trigger::Event> l_box_collider_1_events = l_box_collider_1_detector_handle.get_collision_events(l_collision);
 		assert_true(l_box_collider_1_events.Size == 2);
-		assert_true(l_box_collider_1_events.get(0)->state == Trigger::State::NONE);
-		assert_true(l_box_collider_1_events.get(0)->other.handle == l_box_collider_2.handle);
-		assert_true(l_box_collider_1_events.get(1)->state == Trigger::State::NONE);
-		assert_true(l_box_collider_1_events.get(1)->other.handle == l_box_collider_3.handle);
+		assert_true(l_box_collider_1_events.get(0).state == Trigger::State::NONE);
+		assert_true(l_box_collider_1_events.get(0).other.handle == l_box_collider_2.handle);
+		assert_true(l_box_collider_1_events.get(1).state == Trigger::State::NONE);
+		assert_true(l_box_collider_1_events.get(1).other.handle == l_box_collider_3.handle);
 	}
 
 	l_box_collider_1.free(l_collision);
@@ -155,10 +155,10 @@ inline void collision_test_02()
 		Slice<Trigger::Event> l_box_collider_1_events = l_box_collider_1_detector_handle.get_collision_events(l_collision);
 
 		assert_true(l_box_collider_1_events.Size == 2);
-		assert_true(l_box_collider_1_events.get(0)->state == Trigger::State::TRIGGER_EXIT);
-		assert_true(l_box_collider_1_events.get(0)->other.handle == l_box_collider_2.handle);
-		assert_true(l_box_collider_1_events.get(1)->state == Trigger::State::TRIGGER_STAY);
-		assert_true(l_box_collider_1_events.get(1)->other.handle == l_box_collider_3.handle);
+		assert_true(l_box_collider_1_events.get(0).state == Trigger::State::TRIGGER_EXIT);
+		assert_true(l_box_collider_1_events.get(0).other.handle == l_box_collider_2.handle);
+		assert_true(l_box_collider_1_events.get(1).state == Trigger::State::TRIGGER_STAY);
+		assert_true(l_box_collider_1_events.get(1).other.handle == l_box_collider_3.handle);
 	}
 
 	l_collision.step();
@@ -166,10 +166,10 @@ inline void collision_test_02()
 	{
 		Slice<Trigger::Event> l_box_collider_1_events = l_box_collider_1_detector_handle.get_collision_events(l_collision);
 		assert_true(l_box_collider_1_events.Size == 2);
-		assert_true(l_box_collider_1_events.get(0)->state == Trigger::State::NONE);
-		assert_true(l_box_collider_1_events.get(0)->other.handle == l_box_collider_2.handle);
-		assert_true(l_box_collider_1_events.get(1)->state == Trigger::State::TRIGGER_STAY);
-		assert_true(l_box_collider_1_events.get(1)->other.handle == l_box_collider_3.handle);
+		assert_true(l_box_collider_1_events.get(0).state == Trigger::State::NONE);
+		assert_true(l_box_collider_1_events.get(0).other.handle == l_box_collider_2.handle);
+		assert_true(l_box_collider_1_events.get(1).state == Trigger::State::TRIGGER_STAY);
+		assert_true(l_box_collider_1_events.get(1).other.handle == l_box_collider_3.handle);
 	}
 
 	l_box_collider_3.free(l_collision);
@@ -180,10 +180,10 @@ inline void collision_test_02()
 	{
 		Slice<Trigger::Event> l_box_collider_1_events = l_box_collider_1_detector_handle.get_collision_events(l_collision);
 		assert_true(l_box_collider_1_events.Size == 2);
-		assert_true(l_box_collider_1_events.get(0)->state == Trigger::State::NONE);
-		assert_true(l_box_collider_1_events.get(0)->other.handle == l_box_collider_2.handle);
-		assert_true(l_box_collider_1_events.get(1)->state == Trigger::State::TRIGGER_EXIT);
-		assert_true(l_box_collider_1_events.get(1)->other.handle == l_box_collider_3.handle);
+		assert_true(l_box_collider_1_events.get(0).state == Trigger::State::NONE);
+		assert_true(l_box_collider_1_events.get(0).other.handle == l_box_collider_2.handle);
+		assert_true(l_box_collider_1_events.get(1).state == Trigger::State::TRIGGER_EXIT);
+		assert_true(l_box_collider_1_events.get(1).other.handle == l_box_collider_3.handle);
 	}
 
 	l_collision.step();
@@ -191,10 +191,10 @@ inline void collision_test_02()
 	{
 		Slice<Trigger::Event> l_box_collider_1_events = l_box_collider_1_detector_handle.get_collision_events(l_collision);
 		assert_true(l_box_collider_1_events.Size == 2);
-		assert_true(l_box_collider_1_events.get(0)->state == Trigger::State::NONE);
-		assert_true(l_box_collider_1_events.get(0)->other.handle == l_box_collider_2.handle);
-		assert_true(l_box_collider_1_events.get(1)->state == Trigger::State::NONE);
-		assert_true(l_box_collider_1_events.get(1)->other.handle == l_box_collider_3.handle);
+		assert_true(l_box_collider_1_events.get(0).state == Trigger::State::NONE);
+		assert_true(l_box_collider_1_events.get(0).other.handle == l_box_collider_2.handle);
+		assert_true(l_box_collider_1_events.get(1).state == Trigger::State::NONE);
+		assert_true(l_box_collider_1_events.get(1).other.handle == l_box_collider_3.handle);
 	}
 
 	l_box_collider_1.free(l_collision);
@@ -258,28 +258,28 @@ inline void collision_test_03()
 		Slice<Trigger::Event> l_box_collider_1_events = l_box_collider_1_detector_handle.get_collision_events(l_collision);
 
 		assert_true(l_box_collider_1_events.Size == 2);
-		assert_true(l_box_collider_1_events.get(0)->state == Trigger::State::TRIGGER_ENTER);
-		assert_true(l_box_collider_1_events.get(0)->other.handle == l_box_collider_2.handle);
-		assert_true(l_box_collider_1_events.get(1)->state == Trigger::State::TRIGGER_ENTER);
-		assert_true(l_box_collider_1_events.get(1)->other.handle == l_box_collider_3.handle);
+		assert_true(l_box_collider_1_events.get(0).state == Trigger::State::TRIGGER_ENTER);
+		assert_true(l_box_collider_1_events.get(0).other.handle == l_box_collider_2.handle);
+		assert_true(l_box_collider_1_events.get(1).state == Trigger::State::TRIGGER_ENTER);
+		assert_true(l_box_collider_1_events.get(1).other.handle == l_box_collider_3.handle);
 	}
 	{
 		Slice<Trigger::Event> l_box_collider_2_events = l_box_collider_2_detector_handle.get_collision_events(l_collision);
 
 		assert_true(l_box_collider_2_events.Size == 2);
-		assert_true(l_box_collider_2_events.get(0)->state == Trigger::State::TRIGGER_ENTER);
-		assert_true(l_box_collider_2_events.get(0)->other.handle == l_box_collider_1.handle);
-		assert_true(l_box_collider_2_events.get(1)->state == Trigger::State::TRIGGER_ENTER);
-		assert_true(l_box_collider_2_events.get(1)->other.handle == l_box_collider_3.handle);
+		assert_true(l_box_collider_2_events.get(0).state == Trigger::State::TRIGGER_ENTER);
+		assert_true(l_box_collider_2_events.get(0).other.handle == l_box_collider_1.handle);
+		assert_true(l_box_collider_2_events.get(1).state == Trigger::State::TRIGGER_ENTER);
+		assert_true(l_box_collider_2_events.get(1).other.handle == l_box_collider_3.handle);
 	}
 	{
 		Slice<Trigger::Event> l_box_collider_3_events = l_box_collider_3_detector_handle.get_collision_events(l_collision);
 
 		assert_true(l_box_collider_3_events.Size == 2);
-		assert_true(l_box_collider_3_events.get(0)->state == Trigger::State::TRIGGER_ENTER);
-		assert_true(l_box_collider_3_events.get(0)->other.handle == l_box_collider_1.handle);
-		assert_true(l_box_collider_3_events.get(1)->state == Trigger::State::TRIGGER_ENTER);
-		assert_true(l_box_collider_3_events.get(1)->other.handle == l_box_collider_2.handle);
+		assert_true(l_box_collider_3_events.get(0).state == Trigger::State::TRIGGER_ENTER);
+		assert_true(l_box_collider_3_events.get(0).other.handle == l_box_collider_1.handle);
+		assert_true(l_box_collider_3_events.get(1).state == Trigger::State::TRIGGER_ENTER);
+		assert_true(l_box_collider_3_events.get(1).other.handle == l_box_collider_2.handle);
 	}
 
 	l_box_collider_2_transform = Math::Transform(Math::vec3f(1000000.0f, 0.0f, 0.0f), Math::QuatConst::IDENTITY, Math::VecConst<float>::ONE);
@@ -291,28 +291,28 @@ inline void collision_test_03()
 		Slice<Trigger::Event> l_box_collider_1_events = l_box_collider_1_detector_handle.get_collision_events(l_collision);
 
 		assert_true(l_box_collider_1_events.Size == 2);
-		assert_true(l_box_collider_1_events.get(0)->state == Trigger::State::TRIGGER_EXIT);
-		assert_true(l_box_collider_1_events.get(0)->other.handle == l_box_collider_2.handle);
-		assert_true(l_box_collider_1_events.get(1)->state == Trigger::State::TRIGGER_STAY);
-		assert_true(l_box_collider_1_events.get(1)->other.handle == l_box_collider_3.handle);
+		assert_true(l_box_collider_1_events.get(0).state == Trigger::State::TRIGGER_EXIT);
+		assert_true(l_box_collider_1_events.get(0).other.handle == l_box_collider_2.handle);
+		assert_true(l_box_collider_1_events.get(1).state == Trigger::State::TRIGGER_STAY);
+		assert_true(l_box_collider_1_events.get(1).other.handle == l_box_collider_3.handle);
 	}
 	{
 		Slice<Trigger::Event> l_box_collider_2_events = l_box_collider_2_detector_handle.get_collision_events(l_collision);
 
 		assert_true(l_box_collider_2_events.Size == 2);
-		assert_true(l_box_collider_2_events.get(0)->state == Trigger::State::TRIGGER_EXIT);
-		assert_true(l_box_collider_2_events.get(0)->other.handle == l_box_collider_1.handle);
-		assert_true(l_box_collider_2_events.get(1)->state == Trigger::State::TRIGGER_EXIT);
-		assert_true(l_box_collider_2_events.get(1)->other.handle == l_box_collider_3.handle);
+		assert_true(l_box_collider_2_events.get(0).state == Trigger::State::TRIGGER_EXIT);
+		assert_true(l_box_collider_2_events.get(0).other.handle == l_box_collider_1.handle);
+		assert_true(l_box_collider_2_events.get(1).state == Trigger::State::TRIGGER_EXIT);
+		assert_true(l_box_collider_2_events.get(1).other.handle == l_box_collider_3.handle);
 	}
 	{
 		Slice<Trigger::Event> l_box_collider_3_events = l_box_collider_3_detector_handle.get_collision_events(l_collision);
 
 		assert_true(l_box_collider_3_events.Size == 2);
-		assert_true(l_box_collider_3_events.get(0)->state == Trigger::State::TRIGGER_STAY);
-		assert_true(l_box_collider_3_events.get(0)->other.handle == l_box_collider_1.handle);
-		assert_true(l_box_collider_3_events.get(1)->state == Trigger::State::TRIGGER_EXIT);
-		assert_true(l_box_collider_3_events.get(1)->other.handle == l_box_collider_2.handle);
+		assert_true(l_box_collider_3_events.get(0).state == Trigger::State::TRIGGER_STAY);
+		assert_true(l_box_collider_3_events.get(0).other.handle == l_box_collider_1.handle);
+		assert_true(l_box_collider_3_events.get(1).state == Trigger::State::TRIGGER_EXIT);
+		assert_true(l_box_collider_3_events.get(1).other.handle == l_box_collider_2.handle);
 	}
 
 	l_box_collider_1.free(l_collision);
@@ -323,19 +323,19 @@ inline void collision_test_03()
 		Slice<Trigger::Event> l_box_collider_2_events = l_box_collider_2_detector_handle.get_collision_events(l_collision);
 
 		assert_true(l_box_collider_2_events.Size == 2);
-		assert_true(l_box_collider_2_events.get(0)->state == Trigger::State::TRIGGER_EXIT);
-		assert_true(l_box_collider_2_events.get(0)->other.handle == l_box_collider_1.handle);
-		assert_true(l_box_collider_2_events.get(1)->state == Trigger::State::NONE);
-		assert_true(l_box_collider_2_events.get(1)->other.handle == l_box_collider_3.handle);
+		assert_true(l_box_collider_2_events.get(0).state == Trigger::State::TRIGGER_EXIT);
+		assert_true(l_box_collider_2_events.get(0).other.handle == l_box_collider_1.handle);
+		assert_true(l_box_collider_2_events.get(1).state == Trigger::State::NONE);
+		assert_true(l_box_collider_2_events.get(1).other.handle == l_box_collider_3.handle);
 	}
 	{
 		Slice<Trigger::Event> l_box_collider_3_events = l_box_collider_3_detector_handle.get_collision_events(l_collision);
 
 		assert_true(l_box_collider_3_events.Size == 2);
-		assert_true(l_box_collider_3_events.get(0)->state == Trigger::State::TRIGGER_EXIT);
-		assert_true(l_box_collider_3_events.get(0)->other.handle == l_box_collider_1.handle);
-		assert_true(l_box_collider_3_events.get(1)->state == Trigger::State::NONE);
-		assert_true(l_box_collider_3_events.get(1)->other.handle == l_box_collider_2.handle);
+		assert_true(l_box_collider_3_events.get(0).state == Trigger::State::TRIGGER_EXIT);
+		assert_true(l_box_collider_3_events.get(0).other.handle == l_box_collider_1.handle);
+		assert_true(l_box_collider_3_events.get(1).state == Trigger::State::NONE);
+		assert_true(l_box_collider_3_events.get(1).other.handle == l_box_collider_2.handle);
 	}
 
 	l_collision.step();
@@ -344,19 +344,19 @@ inline void collision_test_03()
 		Slice<Trigger::Event> l_box_collider_2_events = l_box_collider_2_detector_handle.get_collision_events(l_collision);
 
 		assert_true(l_box_collider_2_events.Size == 2);
-		assert_true(l_box_collider_2_events.get(0)->state == Trigger::State::NONE);
-		assert_true(l_box_collider_2_events.get(0)->other.handle == l_box_collider_1.handle);
-		assert_true(l_box_collider_2_events.get(1)->state == Trigger::State::NONE);
-		assert_true(l_box_collider_2_events.get(1)->other.handle == l_box_collider_3.handle);
+		assert_true(l_box_collider_2_events.get(0).state == Trigger::State::NONE);
+		assert_true(l_box_collider_2_events.get(0).other.handle == l_box_collider_1.handle);
+		assert_true(l_box_collider_2_events.get(1).state == Trigger::State::NONE);
+		assert_true(l_box_collider_2_events.get(1).other.handle == l_box_collider_3.handle);
 	}
 	{
 		Slice<Trigger::Event> l_box_collider_3_events = l_box_collider_3_detector_handle.get_collision_events(l_collision);
 
 		assert_true(l_box_collider_3_events.Size == 2);
-		assert_true(l_box_collider_3_events.get(0)->state == Trigger::State::NONE);
-		assert_true(l_box_collider_3_events.get(0)->other.handle == l_box_collider_1.handle);
-		assert_true(l_box_collider_3_events.get(1)->state == Trigger::State::NONE);
-		assert_true(l_box_collider_3_events.get(1)->other.handle == l_box_collider_2.handle);
+		assert_true(l_box_collider_3_events.get(0).state == Trigger::State::NONE);
+		assert_true(l_box_collider_3_events.get(0).other.handle == l_box_collider_1.handle);
+		assert_true(l_box_collider_3_events.get(1).state == Trigger::State::NONE);
+		assert_true(l_box_collider_3_events.get(1).other.handle == l_box_collider_2.handle);
 	}
 
 	l_box_collider_2.free(l_collision);
@@ -417,10 +417,10 @@ inline void collision_test_04()
 		Slice<Trigger::Event> l_box_collider_3_events = l_box_collider_3_detector_handle.get_collision_events(l_collision);
 
 		assert_true(l_box_collider_3_events.Size == 2);
-		assert_true(l_box_collider_3_events.get(0)->state == Trigger::State::TRIGGER_EXIT);
-		assert_true(l_box_collider_3_events.get(0)->other.handle == l_box_collider_1.handle);
-		assert_true(l_box_collider_3_events.get(1)->state == Trigger::State::TRIGGER_STAY);
-		assert_true(l_box_collider_3_events.get(1)->other.handle == l_box_collider_2.handle);
+		assert_true(l_box_collider_3_events.get(0).state == Trigger::State::TRIGGER_EXIT);
+		assert_true(l_box_collider_3_events.get(0).other.handle == l_box_collider_1.handle);
+		assert_true(l_box_collider_3_events.get(1).state == Trigger::State::TRIGGER_STAY);
+		assert_true(l_box_collider_3_events.get(1).other.handle == l_box_collider_2.handle);
 	}
 
 
@@ -438,10 +438,10 @@ inline void collision_test_04()
 		Slice<Trigger::Event> l_box_collider_3_events = l_box_collider_3_detector_handle.get_collision_events(l_collision);
 
 		assert_true(l_box_collider_3_events.Size == 2);
-		assert_true(l_box_collider_3_events.get(0)->state == Trigger::State::NONE);
-		assert_true(l_box_collider_3_events.get(0)->other.handle == l_box_collider_1.handle);
-		assert_true(l_box_collider_3_events.get(1)->state == Trigger::State::TRIGGER_STAY);
-		assert_true(l_box_collider_3_events.get(1)->other.handle == l_box_collider_2.handle);
+		assert_true(l_box_collider_3_events.get(0).state == Trigger::State::NONE);
+		assert_true(l_box_collider_3_events.get(0).other.handle == l_box_collider_1.handle);
+		assert_true(l_box_collider_3_events.get(1).state == Trigger::State::TRIGGER_STAY);
+		assert_true(l_box_collider_3_events.get(1).other.handle == l_box_collider_2.handle);
 	}
 
 

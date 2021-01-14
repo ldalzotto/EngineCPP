@@ -29,19 +29,19 @@ namespace v2
 			return this->Memory.has_allocated_elements();
 		};
 
-		inline Token(ElementType) alloc_element(const ElementType* p_element)
+		inline Token(ElementType) alloc_element(const ElementType& p_element)
 		{
 			Token(ElementType) l_token = this->Memory.alloc_element(p_element);
-			this->Indices.push_back_element(&l_token);
+			this->Indices.push_back_element(l_token);
 			return l_token;
 		};
 
-		inline void release_element(const Token(ElementType)* p_element)
+		inline void release_element(const Token(ElementType) p_element)
 		{
 			this->Memory.release_element(p_element);
 			for (vector_loop(&this->Indices, i))
 			{
-				if (this->Indices.get(i)->tok == p_element->tok)
+				if (this->Indices.get(i).tok == p_element.tok)
 				{
 					this->Indices.erase_element_at(i);
 					break;
@@ -49,7 +49,7 @@ namespace v2
 			};
 		};
 
-		inline ElementType* get(const Token(ElementType)* p_element)
+		inline ElementType& get(const Token(ElementType) p_element)
 		{
 			return this->Memory.get(p_element);
 		};

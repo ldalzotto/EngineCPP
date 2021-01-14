@@ -56,7 +56,7 @@ void ColliderDetectorHandle::free(CollisionHandle p_collision)
 
 Slice<Trigger::Event> ColliderDetectorHandle::get_collision_events(CollisionHandle& p_collision)
 {
-	return slice_cast_0v<Trigger::Event>(
+	return slice_cast<Trigger::Event>(
 		cast(Collision2*, p_collision.handle)->collision_heap.get_triggerevents_from_colliderdetector(cast(Token(Collision2::ColliderDetector)*, &this->handle))
 		.build_aschar()
 	);

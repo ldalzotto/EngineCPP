@@ -32,7 +32,7 @@ namespace v2
         {
             Heap::AllocatedElementReturn l_heap_allocated_element;
             this->handle_heap_allocation_state(this->_Heap.allocate_element(p_element_bytes->Size, &l_heap_allocated_element));
-            this->Memory.copy_memory(l_heap_allocated_element.Offset, p_element_bytes);
+            this->Memory.copy_memory(l_heap_allocated_element.Offset, *p_element_bytes);
             return l_heap_allocated_element.token;
         };
 
@@ -74,7 +74,7 @@ namespace v2
         template <class ElementType>
         inline ElementType *get_typed(const Token(SliceIndex) * p_chunk)
         {
-            return slice_cast_singleelement_0v<ElementType>(this->get(p_chunk));
+            return slice_cast_singleelement<ElementType>(this->get(p_chunk));
         };
 
     private:

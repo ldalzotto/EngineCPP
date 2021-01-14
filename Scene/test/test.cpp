@@ -1,4 +1,3 @@
-#include "../Scene/Scene.cpp"
 
 #include "Scene/component_def.hpp"
 #include "Scene/kernel/scene.hpp"

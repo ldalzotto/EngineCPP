@@ -49,7 +49,7 @@ struct Slice
 		return Slice<char>{sizeof(ElementType), cast(char*, p_memory)};
 	};
 
-	inline ElementType* get(const size_t p_index)
+	inline ElementType& get(const size_t p_index)
 	{
 #if CONTAINER_BOUND_TEST
 		if(p_index >= this->Size)
@@ -57,12 +57,7 @@ struct Slice
 			abort();
 		}
 #endif
-		return &this->Begin[p_index];
-	};
-
-	inline ElementType get_rv(const size_t p_index)
-	{
-		return *this->get(p_index);
+		return this->Begin[p_index];
 	};
 
 	inline void slide(const size_t p_offset_index)
@@ -88,46 +83,33 @@ struct Slice
 
 
 template<class CastedType>
-inline Slice<CastedType> slice_cast(Slice<char>* p_slice)
+inline Slice<CastedType> slice_cast(const Slice<char>& p_slice)
 {
 #if CONTAINER_BOUND_TEST
-	if ((p_slice->Size % sizeof(CastedType)) != 0)
+	if ((p_slice.Size % sizeof(CastedType)) != 0)
 	{
 		abort();
 	}
 #endif
 
-	return Slice<CastedType>{ cast(size_t, p_slice->Size / sizeof(CastedType)), cast(CastedType*, p_slice->Begin) };
+	return Slice<CastedType>{ cast(size_t, p_slice.Size / sizeof(CastedType)), cast(CastedType*, p_slice.Begin) };
 };
 
 
-
 template<class CastedType>
-inline Slice<CastedType> slice_cast_0v(Slice<char> p_slice)
-{
-	return slice_cast<CastedType>(&p_slice);
-};
-
-template<class CastedType>
-inline CastedType* slice_cast_singleelement(Slice<char>* p_slice)
+inline CastedType* slice_cast_singleelement(const Slice<char>& p_slice)
 {
 #if CONTAINER_BOUND_TEST
-	if (p_slice->Size < sizeof(CastedType))
+	if (p_slice.Size < sizeof(CastedType))
 	{
 		abort();
 	}
 #endif
-	return cast(CastedType*, p_slice->Begin);
+	return cast(CastedType*, p_slice.Begin);
 };
 
 template<class CastedType>
-inline CastedType* slice_cast_singleelement_0v(Slice<char> p_slice)
-{
-	return slice_cast_singleelement<CastedType>(&p_slice);
-};
-
-template<class CastedType>
-inline Slice<CastedType> slice_cast_fixedelementnb(Slice<char>* p_slice, const size_t p_element_nb)
+inline Slice<CastedType> slice_cast_fixedelementnb(const Slice<char>& p_slice, const size_t p_element_nb)
 {
 #if CONTAINER_BOUND_TEST
 	if (p_slice->Size < (sizeof(CastedType) * p_element_nb))
@@ -139,40 +121,34 @@ inline Slice<CastedType> slice_cast_fixedelementnb(Slice<char>* p_slice, const s
 	return slice_build_memory_elementnb(cast(CastedType*, p_slice->Begin), p_element_nb);
 };
 
-template<class CastedType>
-inline Slice<CastedType> slice_cast_fixedelementnb_0v(Slice<char> p_slice, const size_t p_element_nb)
-{
-	return slice_cast_fixedelementnb<CastedType>(&p_slice, p_element_nb);
-};
-
 
 
 
 
 template<class ElementType>
-inline char* slice_memmove(Slice<ElementType>* p_target, const Slice<ElementType>* p_source)
+inline char* slice_memmove(const Slice<ElementType>& p_target, const Slice<ElementType>& p_source)
 {
 #if STANDARD_ALLOCATION_BOUND_TEST
-	return memory_move_safe(cast(char*, p_target->Begin), p_target->Size * sizeof(ElementType), cast(char*, p_source->Begin), p_source->Size * sizeof(ElementType));
+	return memory_move_safe(cast(char*, p_target.Begin), p_target.Size * sizeof(ElementType), cast(char*, p_source.Begin), p_source.Size * sizeof(ElementType));
 #else
-	return memory_move((char*)p_target->Begin, (char*)p_source->Begin, p_source->Size * sizeof(ElementType));
+	return memory_move((char*)p_target.Begin, (char*)p_source.Begin, p_source.Size * sizeof(ElementType));
 #endif
 };
 
 template<class ElementType>
-inline char* slice_memcpy(Slice<ElementType>* p_target, const Slice<ElementType>* p_source)
+inline char* slice_memcpy(const Slice<ElementType>& p_target, const Slice<ElementType>& p_source)
 {
 #if STANDARD_ALLOCATION_BOUND_TEST
-	return memory_cpy_safe(cast(char*, p_target->Begin), p_target->Size *sizeof(ElementType), cast(char*, p_source->Begin), p_source->Size * sizeof(ElementType));
+	return memory_cpy_safe(cast(char*, p_target.Begin), p_target.Size *sizeof(ElementType), cast(char*, p_source.Begin), p_source.Size * sizeof(ElementType));
 #else
-	return memory_cpy((char*)p_target->Begin, (char*)p_source->Begin, p_source->Size * sizeof(ElementType));
+	return memory_cpy((char*)p_target.Begin, (char*)p_source.Begin, p_source.Size * sizeof(ElementType));
 #endif
 };
 
 template<class ElementType>
-inline char slice_memcompare_element(const Slice<ElementType>* p_target, const Slice<ElementType>* p_compared)
+inline char slice_memcompare_element(const Slice<ElementType>& p_target, const Slice<ElementType>& p_compared)
 {
-	return memory_compare(cast(char*, p_target->Begin), cast(char*, p_target->Begin), p_compared->Size);
+	return memory_compare(cast(char*, p_target.Begin), cast(char*, p_target.Begin), p_compared.Size);
 };
 
 /*
