@@ -29,13 +29,13 @@ inline void collision_test_01()
 
 	BoxColliderHandle l_box_collider_1, l_box_collider_2, l_box_collider_3;
 	{
-		l_box_collider_1.allocate(l_collision, &l_unit_aabb);
-		l_box_collider_2.allocate(l_collision, &l_unit_aabb);
-		l_box_collider_3.allocate(l_collision, &l_unit_aabb);
+		l_box_collider_1.allocate(l_collision, l_unit_aabb);
+		l_box_collider_2.allocate(l_collision, l_unit_aabb);
+		l_box_collider_3.allocate(l_collision, l_unit_aabb);
 
-		l_box_collider_1.on_collider_moved(l_collision, &l_box_collider_1_transform, &Math::QuatConst::IDENTITY);
-		l_box_collider_2.on_collider_moved(l_collision, &l_box_collider_2_transform, &Math::QuatConst::IDENTITY);
-		l_box_collider_3.on_collider_moved(l_collision, &l_box_collider_3_transform, &Math::QuatConst::IDENTITY);
+		l_box_collider_1.on_collider_moved(l_collision, l_box_collider_1_transform, Math::QuatConst::IDENTITY);
+		l_box_collider_2.on_collider_moved(l_collision, l_box_collider_2_transform, Math::QuatConst::IDENTITY);
+		l_box_collider_3.on_collider_moved(l_collision, l_box_collider_3_transform, Math::QuatConst::IDENTITY);
 	}
 
 	ColliderDetectorHandle l_box_collider_1_detector_handle;
@@ -68,7 +68,7 @@ inline void collision_test_01()
 	}
 
 	l_box_collider_1_transform = Math::Transform(Math::vec3f(1000000.0f, 0.0f, 0.0f), Math::QuatConst::IDENTITY, Math::VecConst<float>::ONE);
-	l_box_collider_1.on_collider_moved(l_collision, &l_box_collider_1_transform, &Math::QuatConst::IDENTITY);
+	l_box_collider_1.on_collider_moved(l_collision, l_box_collider_1_transform, Math::QuatConst::IDENTITY);
 
 	l_collision.step();
 
@@ -128,13 +128,13 @@ inline void collision_test_02()
 
 	BoxColliderHandle l_box_collider_1, l_box_collider_2, l_box_collider_3;
 	{
-		l_box_collider_1.allocate(l_collision, &l_unit_aabb);
-		l_box_collider_2.allocate(l_collision, &l_unit_aabb);
-		l_box_collider_3.allocate(l_collision, &l_unit_aabb);
+		l_box_collider_1.allocate(l_collision, l_unit_aabb);
+		l_box_collider_2.allocate(l_collision, l_unit_aabb);
+		l_box_collider_3.allocate(l_collision, l_unit_aabb);
 
-		l_box_collider_1.on_collider_moved(l_collision, &l_box_collider_1_transform, &Math::QuatConst::IDENTITY);
-		l_box_collider_2.on_collider_moved(l_collision, &l_box_collider_2_transform, &Math::QuatConst::IDENTITY);
-		l_box_collider_3.on_collider_moved(l_collision, &l_box_collider_3_transform, &Math::QuatConst::IDENTITY);
+		l_box_collider_1.on_collider_moved(l_collision, l_box_collider_1_transform, Math::QuatConst::IDENTITY);
+		l_box_collider_2.on_collider_moved(l_collision, l_box_collider_2_transform, Math::QuatConst::IDENTITY);
+		l_box_collider_3.on_collider_moved(l_collision, l_box_collider_3_transform, Math::QuatConst::IDENTITY);
 	}
 
 	ColliderDetectorHandle l_box_collider_1_detector_handle;
@@ -147,7 +147,7 @@ inline void collision_test_02()
 	l_collision.step();
 
 	l_box_collider_2_transform = Math::Transform(Math::vec3f(1000000.0f, 0.0f, 0.0f), Math::QuatConst::IDENTITY, Math::VecConst<float>::ONE);
-	l_box_collider_2.on_collider_moved(l_collision, &l_box_collider_2_transform, &Math::QuatConst::IDENTITY);
+	l_box_collider_2.on_collider_moved(l_collision, l_box_collider_2_transform, Math::QuatConst::IDENTITY);
 
 	l_collision.step();
 
@@ -236,13 +236,13 @@ inline void collision_test_03()
 
 	BoxColliderHandle l_box_collider_1, l_box_collider_2, l_box_collider_3;
 	{
-		l_box_collider_1.allocate(l_collision, &l_unit_aabb);
-		l_box_collider_2.allocate(l_collision, &l_unit_aabb);
-		l_box_collider_3.allocate(l_collision, &l_unit_aabb);
+		l_box_collider_1.allocate(l_collision, l_unit_aabb);
+		l_box_collider_2.allocate(l_collision, l_unit_aabb);
+		l_box_collider_3.allocate(l_collision, l_unit_aabb);
 
-		l_box_collider_1.on_collider_moved(l_collision, &l_box_collider_1_transform, &Math::QuatConst::IDENTITY);
-		l_box_collider_2.on_collider_moved(l_collision, &l_box_collider_2_transform, &Math::QuatConst::IDENTITY);
-		l_box_collider_3.on_collider_moved(l_collision, &l_box_collider_3_transform, &Math::QuatConst::IDENTITY);
+		l_box_collider_1.on_collider_moved(l_collision, l_box_collider_1_transform, Math::QuatConst::IDENTITY);
+		l_box_collider_2.on_collider_moved(l_collision, l_box_collider_2_transform, Math::QuatConst::IDENTITY);
+		l_box_collider_3.on_collider_moved(l_collision, l_box_collider_3_transform, Math::QuatConst::IDENTITY);
 	}
 
 	ColliderDetectorHandle l_box_collider_1_detector_handle, l_box_collider_2_detector_handle, l_box_collider_3_detector_handle;
@@ -283,7 +283,7 @@ inline void collision_test_03()
 	}
 
 	l_box_collider_2_transform = Math::Transform(Math::vec3f(1000000.0f, 0.0f, 0.0f), Math::QuatConst::IDENTITY, Math::VecConst<float>::ONE);
-	l_box_collider_2.on_collider_moved(l_collision, &l_box_collider_2_transform, &Math::QuatConst::IDENTITY);
+	l_box_collider_2.on_collider_moved(l_collision, l_box_collider_2_transform, Math::QuatConst::IDENTITY);
 
 	l_collision.step();
 
@@ -390,13 +390,13 @@ inline void collision_test_04()
 
 	BoxColliderHandle l_box_collider_1, l_box_collider_2, l_box_collider_3;
 	{
-		l_box_collider_1.allocate(l_collision, &l_unit_aabb);
-		l_box_collider_2.allocate(l_collision, &l_unit_aabb);
-		l_box_collider_3.allocate(l_collision, &l_unit_aabb);
+		l_box_collider_1.allocate(l_collision, l_unit_aabb);
+		l_box_collider_2.allocate(l_collision, l_unit_aabb);
+		l_box_collider_3.allocate(l_collision, l_unit_aabb);
 
-		l_box_collider_1.on_collider_moved(l_collision, &l_box_collider_1_transform, &Math::QuatConst::IDENTITY);
-		l_box_collider_2.on_collider_moved(l_collision, &l_box_collider_2_transform, &Math::QuatConst::IDENTITY);
-		l_box_collider_3.on_collider_moved(l_collision, &l_box_collider_3_transform, &Math::QuatConst::IDENTITY);
+		l_box_collider_1.on_collider_moved(l_collision, l_box_collider_1_transform, Math::QuatConst::IDENTITY);
+		l_box_collider_2.on_collider_moved(l_collision, l_box_collider_2_transform, Math::QuatConst::IDENTITY);
+		l_box_collider_3.on_collider_moved(l_collision, l_box_collider_3_transform, Math::QuatConst::IDENTITY);
 	}
 
 	ColliderDetectorHandle l_box_collider_1_detector_handle, l_box_collider_2_detector_handle, l_box_collider_3_detector_handle;
@@ -429,7 +429,7 @@ inline void collision_test_04()
 		l_box_collider_4_transform = Math::Transform(Math::vec3f(100000.0f, 100000.0f, 100000.0f), Math::QuatConst::IDENTITY, Math::VecConst<float>::ONE);
 	}
 	BoxColliderHandle l_box_collider_4;
-	l_box_collider_4.allocate(l_collision, &l_unit_aabb);
+	l_box_collider_4.allocate(l_collision, l_unit_aabb);
 
 	l_collision.step();
 
@@ -476,13 +476,13 @@ inline void collision_test_05()
 
 	BoxColliderHandle l_box_collider_1, l_box_collider_2, l_box_collider_3;
 	{
-		l_box_collider_1.allocate(l_collision, &l_unit_aabb);
-		l_box_collider_2.allocate(l_collision, &l_unit_aabb);
-		l_box_collider_3.allocate(l_collision, &l_unit_aabb);
+		l_box_collider_1.allocate(l_collision, l_unit_aabb);
+		l_box_collider_2.allocate(l_collision, l_unit_aabb);
+		l_box_collider_3.allocate(l_collision, l_unit_aabb);
 
-		l_box_collider_1.on_collider_moved(l_collision, &l_box_collider_1_transform, &Math::QuatConst::IDENTITY);
-		l_box_collider_2.on_collider_moved(l_collision, &l_box_collider_2_transform, &Math::QuatConst::IDENTITY);
-		l_box_collider_3.on_collider_moved(l_collision, &l_box_collider_3_transform, &Math::QuatConst::IDENTITY);
+		l_box_collider_1.on_collider_moved(l_collision, l_box_collider_1_transform, Math::QuatConst::IDENTITY);
+		l_box_collider_2.on_collider_moved(l_collision, l_box_collider_2_transform, Math::QuatConst::IDENTITY);
+		l_box_collider_3.on_collider_moved(l_collision, l_box_collider_3_transform, Math::QuatConst::IDENTITY);
 	}
 
 	ColliderDetectorHandle l_box_collider_1_detector_handle, l_box_collider_2_detector_handle, l_box_collider_3_detector_handle;
@@ -499,25 +499,25 @@ inline void collision_test_05()
 		l_box_collider_2.free(l_collision);
 		l_box_collider_3.free(l_collision);
 
-		l_box_collider_1.allocate(l_collision, &l_unit_aabb);
-		l_box_collider_2.allocate(l_collision, &l_unit_aabb);
-		l_box_collider_3.allocate(l_collision, &l_unit_aabb);
+		l_box_collider_1.allocate(l_collision, l_unit_aabb);
+		l_box_collider_2.allocate(l_collision, l_unit_aabb);
+		l_box_collider_3.allocate(l_collision, l_unit_aabb);
 
 		l_box_collider_1_detector_handle.allocate(l_collision, l_box_collider_1);
 		l_box_collider_2_detector_handle.allocate(l_collision, l_box_collider_2);
 		l_box_collider_3_detector_handle.allocate(l_collision, l_box_collider_3);
 
-		l_box_collider_1.on_collider_moved(l_collision, &l_box_collider_1_transform, &Math::QuatConst::IDENTITY);
-		l_box_collider_2.on_collider_moved(l_collision, &l_box_collider_2_transform, &Math::QuatConst::IDENTITY);
-		l_box_collider_3.on_collider_moved(l_collision, &l_box_collider_3_transform, &Math::QuatConst::IDENTITY);
+		l_box_collider_1.on_collider_moved(l_collision, l_box_collider_1_transform, Math::QuatConst::IDENTITY);
+		l_box_collider_2.on_collider_moved(l_collision, l_box_collider_2_transform, Math::QuatConst::IDENTITY);
+		l_box_collider_3.on_collider_moved(l_collision, l_box_collider_3_transform, Math::QuatConst::IDENTITY);
 
 		l_box_collider_1.free(l_collision);
 		l_box_collider_2.free(l_collision);
 		l_box_collider_3.free(l_collision);
 
-		l_box_collider_1.allocate(l_collision, &l_unit_aabb);
+		l_box_collider_1.allocate(l_collision, l_unit_aabb);
 		l_box_collider_1_detector_handle.allocate(l_collision, l_box_collider_1);
-		l_box_collider_1.on_collider_moved(l_collision, &l_box_collider_1_transform, &Math::QuatConst::IDENTITY);
+		l_box_collider_1.on_collider_moved(l_collision, l_box_collider_1_transform, Math::QuatConst::IDENTITY);
 	}
 
 	l_collision.step();

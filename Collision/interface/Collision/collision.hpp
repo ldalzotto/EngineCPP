@@ -26,10 +26,9 @@ struct BoxColliderHandle
 	inline static BoxColliderHandle build_default() { return BoxColliderHandle{ cast(size_t, -1) }; }
 	inline void reset() { *this = build_default(); };
 
-	void allocate(CollisionHandle p_collision, const Math::AABB<float>* p_local_aabb);
+	void allocate(CollisionHandle p_collision, const Math::AABB<float>& p_local_aabb);
 	void free(CollisionHandle p_collision);
-	void on_collider_moved(CollisionHandle p_collision, const Math::Transform* p_transform, const Math::quat* p_local_rotation);
-	void on_collider_moved(CollisionHandle p_collision, const Math::Transform p_transform, const Math::quat p_local_rotation);
+	void on_collider_moved(CollisionHandle p_collision, const Math::Transform& p_transform, const Math::quat& p_local_rotation);
 };
 
 
@@ -71,5 +70,5 @@ struct ColliderDetectorHandle
 	void allocate(CollisionHandle p_collision, BoxColliderHandle p_collider);
 	void free(CollisionHandle p_collision);
 
-	Slice<Trigger::Event> get_collision_events(CollisionHandle& p_collision);
+	Slice<Trigger::Event> get_collision_events(CollisionHandle p_collision);
 };
