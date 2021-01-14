@@ -439,13 +439,6 @@ namespace Math
 	template <class TYPE>
 	inline Quaternion fromEulerAngle(const Vector<3, TYPE>& p_eulerAngle)
 	{
-		/*
-		Quaternion l_return = Quaternion(0.0f, 0.0f, 0.0f, 1.0f);
-		l_return = mul(l_return, rotateAround(VecConst<TYPE>::UP, p_eulerAngle.Points[1])); //yaw
-		l_return = mul(l_return, rotateAround(VecConst<TYPE>::RIGHT, p_eulerAngle.Points[0])); //pitch
-		l_return = mul(l_return, rotateAround(VecConst<TYPE>::FORWARD, p_eulerAngle.Points[2])); //roll
-		*/
-
 		Quaternion l_return;
 
 		Vector<3, TYPE> l_cos = Vector<3, TYPE>(cos(p_eulerAngle.Points[0] * (TYPE)0.5), cos(p_eulerAngle.Points[1] * (TYPE)0.5), cos(p_eulerAngle.Points[2] * (TYPE)0.5));
@@ -490,9 +483,14 @@ namespace Math
 		return l_return;
 	}
 
-
 	template <class TYPE>
 	inline Quaternion fromTo(const Vector<3, TYPE>& p_from, const  Vector<3, TYPE>& p_to)
+	{
+		return fromTo_normalized(normalize(p_from), normalize(p_to));
+	};
+
+	template <class TYPE>
+	inline Quaternion fromTo_normalized(const Vector<3, TYPE>& p_from, const  Vector<3, TYPE>& p_to)
 	{
 		TYPE l_costtheta = dot(p_from, p_to);
 		if (l_costtheta >= One<TYPE>::one - Tolerance<TYPE>::tol)
@@ -815,30 +813,16 @@ namespace Math
 		return l_return;
 	}
 
-	template <class TYPE>
-	inline Matrix<4, TYPE> lookAtView(const Vector<3, TYPE>& p_origin, const Vector<3, TYPE>& p_target, const Vector<3, TYPE>& p_up)
-	{
-		Matrix<4, TYPE> l_return = mat4f_IDENTITYF;
-
-		//WARNING : this is true only for view matrices (camera).
-		l_return.Forward.Vec3 = normalize(min(p_target, p_origin));
-		l_return.Right.Vec3 = mul(normalize(cross(l_return.Forward.Vec3, p_up)), -1.0f);
-		l_return.Up.Vec3 = mul(normalize(cross(l_return.Right.Vec3, l_return.Forward.Vec3)), -1.0f);
-
-		return l_return;
-	}
-
 	template<class TYPE>
 	inline Matrix<4, TYPE> view(const Vector<3, TYPE>& p_world_position, const Vector<3, TYPE>& p_forward, const Vector<3, TYPE>& p_up)
 	{
 		Vector<3, TYPE> l_target = p_forward;
 		l_target = add(p_world_position, l_target);
 
-		Vector<3, TYPE> l_up = mul(p_up, -1.0f);
+		Vector<3, TYPE> l_up = mul(Math::normalize(p_up), -1.0f);
 		Matrix<4, TYPE> l_view = TRS(p_world_position, lookAtRotation_viewmatrix<3, TYPE>(p_world_position, l_target, l_up), VecConst<TYPE>::ONE);
 		return inv(l_view);
 	}
-
 
 
 
