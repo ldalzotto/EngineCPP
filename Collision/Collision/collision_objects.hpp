@@ -25,18 +25,18 @@ void BoxColliderHandle::allocate(CollisionHandle p_collision, const aabb& p_loca
 
 void BoxColliderHandle::free(CollisionHandle p_collision)
 {
-	Collision2Ext::free_collider(cast(Collision2*, p_collision.handle), Token(Collision2::BoxCollider) { this->handle });
+	Collision2Ext::free_collider(cast(Collision2*, p_collision.handle), Token(BoxCollider) { this->handle });
 };
 
 void BoxColliderHandle::on_collider_moved(CollisionHandle p_collision, const transform_pa& p_world_transform)
 {
-	Collision2Ext::on_collider_moved(cast(Collision2*, p_collision.handle), Token(Collision2::BoxCollider) { this->handle }, p_world_transform);
+	Collision2Ext::on_collider_moved(cast(Collision2*, p_collision.handle), Token(BoxCollider) { this->handle }, p_world_transform);
 };
 
 
 void ColliderDetectorHandle::allocate(CollisionHandle p_collision, BoxColliderHandle p_collider)
 {
-	this->handle = Collision2Ext::allocate_colliderdetector(cast(Collision2*, p_collision.handle), Token<Collision2::BoxCollider>{p_collider.handle}).tok;
+	this->handle = Collision2Ext::allocate_colliderdetector(cast(Collision2*, p_collision.handle), Token<BoxCollider>{p_collider.handle}).tok;
 	this->collider = p_collider;
 };
 
@@ -44,14 +44,14 @@ void ColliderDetectorHandle::free(CollisionHandle p_collision)
 {
 	Collision2Ext::free_colliderdetector(
 		cast(Collision2*, p_collision.handle),
-		Token<Collision2::BoxCollider> { this->collider.handle	},
-		Token<Collision2::ColliderDetector> {this->handle});
+		Token<BoxCollider> { this->collider.handle	},
+		Token<ColliderDetector> {this->handle});
 };
 
 Slice<Trigger::Event> ColliderDetectorHandle::get_collision_events(CollisionHandle p_collision)
 {
 	return slice_cast<Trigger::Event>(
-		cast(Collision2*, p_collision.handle)->collision_heap.get_triggerevents_from_colliderdetector(Token<Collision2::ColliderDetector>{this->handle})
+		cast(Collision2*, p_collision.handle)->collision_heap.get_triggerevents_from_colliderdetector(Token<ColliderDetector>{this->handle})
 		.build_aschar()
 		);
 };
