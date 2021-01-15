@@ -121,14 +121,14 @@ inline Slice<TriggerEvent> CollisionHeap2::get_triggerevents_from_boxcollider(co
 	if (this->does_boxcollider_have_colliderdetector(p_box_collider))
 	{
 		Token(ColliderDetector)& l_collider_detextor = this->get_colliderdetector_from_boxcollider(p_box_collider);
-		return this->collider_detectors_events_2.get_vector(this->collider_detectors.get(l_collider_detextor).collision_events).Memory;
+		return this->collider_detectors_events_2.get_vector(this->collider_detectors.get(l_collider_detextor).collision_events);
 	}
 	return Slice<TriggerEvent>::build_default();
 };
 
 inline Slice<TriggerEvent> CollisionHeap2::get_triggerevents_from_colliderdetector(const Token(ColliderDetector) p_collider_detector)
 {
-	return this->collider_detectors_events_2.get_vector(this->collider_detectors.get(p_collider_detector).collision_events).Memory;
+	return this->collider_detectors_events_2.get_vector(this->collider_detectors.get(p_collider_detector).collision_events);
 };
 
 inline char CollisionHeap2::does_boxcollider_have_colliderdetector(const Token(BoxCollider) p_box_collider)
@@ -292,11 +292,11 @@ inline void CollisionDetectionStep::swap_detector_events()
 inline void CollisionDetectionStep::enter_collision(const IntersectionEvent& p_intersection_event)
 {
 	v2::PoolOfVectorToken<TriggerEvent> l_collider_triggerevents_nestedvector = this->heap->collider_detectors.get(p_intersection_event.detector).collision_events;
-	v2::VectorOfVector_Element<TriggerEvent> l_collider_triggerevents = this->heap->collider_detectors_events_2.get_vector(l_collider_triggerevents_nestedvector);
+	Slice<TriggerEvent> l_collider_triggerevents = this->heap->collider_detectors_events_2.get_vector(l_collider_triggerevents_nestedvector);
 	bool l_trigger_event_found = false;
-	for (loop(i, 0, l_collider_triggerevents.Header.Size))
+	for (loop(i, 0, l_collider_triggerevents.Size))
 	{
-		TriggerEvent& l_collider_trigger_event = l_collider_triggerevents.Memory.get(i);
+		TriggerEvent& l_collider_trigger_event = l_collider_triggerevents.get(i);
 		if (l_collider_trigger_event.other.tok == p_intersection_event.other.tok)
 		{
 			l_collider_trigger_event.state = Trigger::State::TRIGGER_STAY;
@@ -320,13 +320,13 @@ inline void CollisionDetectionStep::enter_collision(const IntersectionEvent& p_i
 //if that's the case, then we invalidate the collision
 inline void CollisionDetectionStep::exit_collision(const IntersectionEvent& p_intersection_event)
 {
-	v2::VectorOfVector_Element<TriggerEvent> l_collider_triggerevents = this->heap->collider_detectors_events_2.get_vector(
+	Slice<TriggerEvent> l_collider_triggerevents = this->heap->collider_detectors_events_2.get_vector(
 		this->heap->collider_detectors.get(p_intersection_event.detector).collision_events
 	);
 
-	for (loop(i, 0, l_collider_triggerevents.Header.Size))
+	for (loop(i, 0, l_collider_triggerevents.Size))
 	{
-		TriggerEvent& l_trigger_event = l_collider_triggerevents.Memory.get(i);
+		TriggerEvent& l_trigger_event = l_collider_triggerevents.get(i);
 		if (l_trigger_event.other.tok == p_intersection_event.other.tok)
 		{
 			l_trigger_event.state = Trigger::State::TRIGGER_EXIT;
@@ -591,10 +591,10 @@ inline void CollisionDetectionStep::clear_current_step_events()
 inline void CollisionDetectionStep::set_triggerstate_matchingWith_boxcollider(const Token<ColliderDetector> p_collision_detector, const Token(BoxCollider) p_matched_boxcollider, const Trigger::State p_trigger_state)
 {
 	ColliderDetector& l_collider_detector = this->heap->collider_detectors.get(p_collision_detector);
-	v2::VectorOfVector_Element<TriggerEvent> l_events = this->heap->collider_detectors_events_2.get_vector(l_collider_detector.collision_events);
-	for (loop(i, 0, l_events.Header.Size))
+	Slice<TriggerEvent> l_events = this->heap->collider_detectors_events_2.get_vector(l_collider_detector.collision_events);
+	for (loop(i, 0, l_events.Size))
 	{
-		TriggerEvent& l_trigger_event = l_events.Memory.get(i);
+		TriggerEvent& l_trigger_event = l_events.get(i);
 		if (l_trigger_event.other.tok == p_matched_boxcollider.tok)
 		{
 			l_trigger_event.state = p_trigger_state;

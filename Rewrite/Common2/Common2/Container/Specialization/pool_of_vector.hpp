@@ -7,7 +7,7 @@ namespace v2
 	using PoolOfVectorMemory_t = VectorOfVector<ElementType>;
 
 	template<class ElementType>
-	using PoolOfVectorToken = Token<VectorOfVector_Element<ElementType>>;
+	using PoolOfVectorToken = Token<Slice<ElementType>>;
 
 	template<class ElementType>
 	using PoolOfVectorFreeBlocks_t = Vector<PoolOfVectorToken<ElementType>>;
@@ -97,7 +97,7 @@ namespace v2
 			this->FreeBlocks.push_back_element(p_token);
 		};
 
-		inline VectorOfVector_Element<ElementType> get_vector(const PoolOfVectorToken<ElementType> p_token)
+		inline Slice<ElementType> get_vector(const PoolOfVectorToken<ElementType> p_token)
 		{
 #if CONTAINER_BOUND_TEST
 			this->token_not_free_check(p_token);

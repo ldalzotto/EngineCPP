@@ -86,9 +86,33 @@ namespace v2
 
 		inline Slice<Token(NTreeNode)> get_childs(const NTreeChildsToken p_child_token)
 		{
-			VectorOfVector_Element<Token(NTreeNode)> l_childs = this->Indices_childs.get_vector(p_child_token);
-			return Slice<Token(NTreeNode)>::build_memory_elementnb(l_childs.Memory.Begin, l_childs.Header.Size);
+			return this->Indices_childs.get_vector(p_child_token);
 		};
+
+		inline Slice<Token(NTreeNode)> get_childs_from_node(const Token<NTreeNode> p_node)
+		{
+			return this->get_childs(this->get_from_node(p_node).Node->childs);
+		};
+
+		inline char add_child(const Resolve& p_parent, Resolve& p_new_child)
+		{
+			if (p_parent.Node->index.tok != p_new_child.Node->index.tok)
+			{
+				this->detach_from_tree(p_new_child);
+
+				p_new_child.Node->parent = p_parent.Node->index;
+				this->Indices_childs.element_push_back_element(p_parent.Node->childs, p_new_child.Node->index);
+
+				return 1;
+			}
+			return 0;
+		};
+
+		inline char add_child(const Token<ElementType> p_parent, const Token<ElementType> p_new_child)
+		{
+			return this->add_child(this->get(p_parent), this->get(p_new_child));
+		};
+
 
 		inline Token(ElementType) push_root_value(const ElementType& p_element)
 		{
@@ -114,12 +138,12 @@ namespace v2
 		template<class ForEachFunc>
 		inline void traverse2(const Token(NTreeNode) p_current_node)
 		{
-			Resolve l_node = this->get(token_cast_p(ElementType, p_current_node));
+			Resolve l_node = this->get(token_cast_v(ElementType, p_current_node));
 			ForEachFunc::foreach(l_node);
-			Slice<Token(NTreeNode)> l_childs = this->get_childs(&l_node.Node->childs);
+			Slice<Token(NTreeNode)> l_childs = this->get_childs(l_node.Node->childs);
 			for (size_t i = 0; i < l_childs.Size; i++)
 			{
-				this->traverse2<ForEachFunc>(*l_childs.get(i));
+				this->traverse2<ForEachFunc>(l_childs.get(i));
 			};
 		};
 
@@ -135,16 +159,23 @@ namespace v2
 			};
 		}
 
-		inline void remove_node(const Token(NTreeNode) p_node)
+		//TODO -> having a "Flatten Tree" structure ?
+		inline void get_nodetree_flattened(const Token(NTreeNode) p_start_node, Vector<Resolve>* in_out_nodes)
 		{
-			Vector<Resolve> l_involved_nodes = Vector<Resolve>::allocate(0);
-
 			struct RemoveForEach {
 				Vector<Resolve>* involved_nodes;
 				inline void foreach(const Resolve& p_node) { this->involved_nodes->push_back_element(p_node); }
 			};
-			this->traverse2_stateful(p_node, RemoveForEach{ &l_involved_nodes });
+			this->traverse2_stateful(p_start_node, RemoveForEach{ in_out_nodes });
+		};
 
+		inline void remove_node(const Token(NTreeNode) p_node)
+		{
+			Vector<Resolve> l_involved_nodes = Vector<Resolve>::allocate(0);
+			this->get_nodetree_flattened(p_node, &l_involved_nodes);
+
+			
+			//TODO -> allowing to do this part separately
 			this->detach_from_tree(l_involved_nodes.get(0));
 			for (vector_loop(&l_involved_nodes, i))
 			{
@@ -180,8 +211,8 @@ namespace v2
 			if (p_node.has_parent())
 			{
 				Resolve l_parent = this->get_from_node(p_node.Node->parent);
-				VectorOfVector_Element<Token(NTreeNode)> l_parent_childs = this->Indices_childs.get_vector(l_parent.Node->childs);
-				for (loop(i, 0, l_parent_childs.Header.Size))
+				Slice<Token(NTreeNode)> l_parent_childs = this->Indices_childs.get_vector(l_parent.Node->childs);
+				for (loop(i, 0, l_parent_childs.Size))
 				{
 					if (l_parent_childs.get(i).tok == p_node.Node->index.tok)
 					{

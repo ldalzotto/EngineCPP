@@ -67,26 +67,6 @@ namespace v2
 		};
 	};
 
-
-	/*
-		Interface returned when a nested vector is requested.
-		We can use the Memory field to iterate over the nested vector.
-	*/
-	template<class ElementType>
-	struct VectorOfVector_Element
-	{
-		VectorOfVector_VectorHeader Header;
-		Slice<ElementType> Memory;
-
-		inline ElementType& get(const size_t p_index)
-		{
-#if CONTAINER_BOUND_TEST
-			if (p_index >= this->Header.Size) { abort(); }
-#endif
-			return this->Memory.get(p_index);
-		};
-	};
-
 	/*
 		A VectorOfVector is a chain of resizable Vector allocated on the same memory block.
 		Every nested vectors can be altered with "vectorofvector_element_*" functions.
@@ -125,13 +105,14 @@ namespace v2
 			this->varying_vector.erase_element_at(p_index);
 		};
 
-		inline VectorOfVector_Element<ElementType> get(const size_t p_index)
+		inline Slice<ElementType> get(const size_t p_index)
 		{
 			Slice<char> l_element = this->varying_vector.get(p_index);
-			return VectorOfVector_Element<ElementType>{
-				*(cast(VectorOfVector_VectorHeader*, l_element.Begin)),
-					slice_cast<ElementType>(l_element.slide_rv(VectorOfVector_VectorHeader::get_vector_offset()))
-			};
+			VectorOfVector_VectorHeader* l_header = cast(VectorOfVector_VectorHeader*, l_element.Begin);
+			return Slice<ElementType>::build_memory_elementnb(
+				cast(ElementType*, l_element.slide_rv(VectorOfVector_VectorHeader::get_vector_offset()).Begin),
+				l_header->Size
+			);
 		};
 
 		inline VectorOfVector_VectorHeader* get_vectorheader(const size_t p_index)

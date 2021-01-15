@@ -271,6 +271,15 @@ struct transform
 	v3f scale;
 };
 
+struct transform_const
+{
+	inline static const transform ORIGIN = transform{
+		v3f_const::ZERO,
+		quat_const::IDENTITY,
+		v3f_const::ONE
+	};
+};
+
 struct transform_pa
 {
 	v3f position;

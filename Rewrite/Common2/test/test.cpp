@@ -369,17 +369,15 @@ namespace v2
 			l_vectorofvector_size_t.push_back();
 
 			l_vectorofvector_size_t.push_back_element(l_sizets.slice);
-			VectorOfVector_Element<size_t> l_element =
-				l_vectorofvector_size_t.get(
-					l_vectorofvector_size_t.varying_vector.get_size() - 1
-				);
+			size_t l_requested_index = l_vectorofvector_size_t.varying_vector.get_size() - 1;
+			Slice<size_t> l_element = l_vectorofvector_size_t.get(l_requested_index);
 
 			l_vectorofvector_size_t.push_back();
 
-			assert_true(l_element.Header.Size == l_sizets.Capacity);
+			assert_true(l_vectorofvector_size_t.get_vectorheader(l_requested_index)->Capacity == l_sizets.Capacity);
 			for (loop(i, 0, l_sizets.Capacity))
 			{
-				assert_true(l_element.Memory.get(i) == i);
+				assert_true(l_element.get(i) == i);
 			}
 
 			l_sizets.free();
@@ -395,15 +393,15 @@ namespace v2
 				size_t l_element = 30;
 				l_index = l_vectorofvector_size_t.varying_vector.get_size() - 2;
 				l_vectorofvector_size_t.element_push_back_element(l_index, l_element);
-				VectorOfVector_Element<size_t> l_element_nested = l_vectorofvector_size_t.get(l_index);
-				assert_true(l_element_nested.Header.Size == 1);
-				assert_true(l_element_nested.Memory.get(0) == l_element);
+				Slice<size_t> l_element_nested = l_vectorofvector_size_t.get(l_index);
+				assert_true(l_element_nested.Size == 1);
+				assert_true(l_element_nested.get(0) == l_element);
 
 				l_element = 35;
 				l_vectorofvector_size_t.element_clear(l_index);
 				l_vectorofvector_size_t.element_push_back_element(l_index, l_element);
-				assert_true(l_element_nested.Header.Size == 1);
-				assert_true(l_element_nested.Memory.get(0) == l_element);
+				assert_true(l_element_nested.Size == 1);
+				assert_true(l_element_nested.get(0) == l_element);
 			}
 		}
 
@@ -417,12 +415,12 @@ namespace v2
 			size_t l_inserted_element = 200;
 			l_vectorofvector_size_t.element_insert_element_at(l_index, 1, l_inserted_element);
 
-			VectorOfVector_Element<size_t> l_vector = l_vectorofvector_size_t.get(l_index);
-			assert_true(l_vector.Header.Size == 4);
-			assert_true(l_vector.Memory.get(0) == l_elements[0]);
-			assert_true(l_vector.Memory.get(1) == l_inserted_element);
-			assert_true(l_vector.Memory.get(2) == l_elements[1]);
-			assert_true(l_vector.Memory.get(3) == l_elements[2]);
+			Slice<size_t> l_vector = l_vectorofvector_size_t.get(l_index);
+			assert_true(l_vector.Size == 4);
+			assert_true(l_vector.get(0) == l_elements[0]);
+			assert_true(l_vector.get(1) == l_inserted_element);
+			assert_true(l_vector.get(2) == l_elements[1]);
+			assert_true(l_vector.get(3) == l_elements[2]);
 		}
 
 		// vectorofvector_element_erase_element_at
@@ -434,10 +432,10 @@ namespace v2
 			// size_t l_inserted_element = 200;
 			size_t l_index = l_vectorofvector_size_t.varying_vector.get_size() - 1;
 			l_vectorofvector_size_t.element_erase_element_at(l_index, 1);
-			VectorOfVector_Element<size_t> l_vector = l_vectorofvector_size_t.get(l_index);
-			assert_true(l_vector.Header.Size == 2);
-			assert_true(l_vector.Memory.get(0) == l_elements[0]);
-			assert_true(l_vector.Memory.get(1) == l_elements[2]);
+			Slice<size_t> l_vector = l_vectorofvector_size_t.get(l_index);
+			assert_true(l_vector.Size == 2);
+			assert_true(l_vector.get(0) == l_elements[0]);
+			assert_true(l_vector.get(1) == l_elements[2]);
 		}
 
 		// vectorofvector_element_push_back_array
@@ -455,22 +453,22 @@ namespace v2
 
 			size_t l_old_size = 0;
 			{
-				VectorOfVector_Element<size_t> l_vector_element = l_vectorofvector_size_t.get(l_index);
-				l_old_size = l_vector_element.Header.Size;
+				Slice<size_t> l_vector_element = l_vectorofvector_size_t.get(l_index);
+				l_old_size = l_vector_element.Size;
 			}
 
 			l_vectorofvector_size_t.element_push_back_array(l_index, l_elements_slice);
 
 			{
-				VectorOfVector_Element<size_t> l_vector_element = l_vectorofvector_size_t.get(l_index);
-				assert_true(l_vector_element.Header.Size == l_old_size + 3);
+				Slice<size_t> l_vector_element = l_vectorofvector_size_t.get(l_index);
+				assert_true(l_vector_element.Size == l_old_size + 3);
 				for (loop(i, 0, 3))
 				{
-					assert_true(l_vector_element.Memory.get(i) == l_initial_elements[i]);
+					assert_true(l_vector_element.get(i) == l_initial_elements[i]);
 				}
 				for (loop(i, l_old_size, l_old_size + 3))
 				{
-					assert_true(l_vector_element.Memory.get(i) == l_elements[i - l_old_size]);
+					assert_true(l_vector_element.get(i) == l_elements[i - l_old_size]);
 				}
 			}
 
@@ -479,29 +477,29 @@ namespace v2
 			l_vectorofvector_size_t.element_push_back_array(l_index, l_elements_slice);
 
 			{
-				VectorOfVector_Element<size_t> l_vector_element = l_vectorofvector_size_t.get(l_index);
-				assert_true(l_vector_element.Header.Size == 8);
+				Slice<size_t> l_vector_element = l_vectorofvector_size_t.get(l_index);
+				assert_true(l_vector_element.Size == 8);
 				for (loop(i, 0, 3))
 				{
-					assert_true(l_vector_element.Memory.get(i) == l_initial_elements[i]);
+					assert_true(l_vector_element.get(i) == l_initial_elements[i]);
 				}
 
-				assert_true(l_vector_element.Memory.get(3) == l_elements[0]);
-				assert_true(l_vector_element.Memory.get(4) == l_elements[2]);
-				assert_true(l_vector_element.Memory.get(5) == l_elements[0]);
-				assert_true(l_vector_element.Memory.get(6) == l_elements[1]);
-				assert_true(l_vector_element.Memory.get(7) == l_elements[2]);
+				assert_true(l_vector_element.get(3) == l_elements[0]);
+				assert_true(l_vector_element.get(4) == l_elements[2]);
+				assert_true(l_vector_element.get(5) == l_elements[0]);
+				assert_true(l_vector_element.get(6) == l_elements[1]);
+				assert_true(l_vector_element.get(7) == l_elements[2]);
 			}
 
 			l_vectorofvector_size_t.element_clear(l_index);
 			l_vectorofvector_size_t.element_push_back_array(l_index, l_elements_slice);
 			{
-				VectorOfVector_Element<size_t> l_vector_element = l_vectorofvector_size_t.get(l_index);
-				assert_true(l_vector_element.Header.Size == 3);
-				assert_true(l_vector_element.Header.Capacity == 8);
-				assert_true(l_vector_element.Memory.get(0) == l_elements[0]);
-				assert_true(l_vector_element.Memory.get(1) == l_elements[1]);
-				assert_true(l_vector_element.Memory.get(2) == l_elements[2]);
+				Slice<size_t> l_vector_element = l_vectorofvector_size_t.get(l_index);
+				assert_true(l_vector_element.Size == 3);
+				assert_true(l_vectorofvector_size_t.get_vectorheader(l_index)->Capacity == 8);
+				assert_true(l_vector_element.get(0) == l_elements[0]);
+				assert_true(l_vector_element.get(1) == l_elements[1]);
+				assert_true(l_vector_element.get(2) == l_elements[2]);
 
 			}
 		}
@@ -523,16 +521,16 @@ namespace v2
 			size_t l_element = 100;
 			l_pool_of_vector.element_push_back_element(l_vector_0, l_element);
 
-			VectorOfVector_Element<size_t> l_vector_mem = l_pool_of_vector.get_vector(l_vector_0);
-			assert_true(l_vector_mem.Header.Size == 1);
-			assert_true(l_vector_mem.Memory.get(0) == l_element);
+			Slice<size_t> l_vector_mem = l_pool_of_vector.get_vector(l_vector_0);
+			assert_true(l_vector_mem.Size == 1);
+			assert_true(l_vector_mem.get(0) == l_element);
 
 			l_pool_of_vector.release_vector(l_vector_0);
 
 			PoolOfVectorToken<size_t> l_vector_0_new = l_pool_of_vector.alloc_vector();
 			assert_true(l_vector_0_new.tok == l_vector_0.tok);
 			l_vector_mem = l_pool_of_vector.get_vector(l_vector_0);
-			assert_true(l_vector_mem.Header.Size == 0);
+			assert_true(l_vector_mem.Size == 0);
 		}
 
 		// poolofvector_alloc_vector_with_values
@@ -541,11 +539,11 @@ namespace v2
 			Slice<size_t> l_elements_slice = Slice<size_t>::build_memory_elementnb(l_elements, 3);
 			PoolOfVectorToken<size_t> l_vector_0 = l_pool_of_vector.alloc_vector_with_values(l_elements_slice);
 
-			VectorOfVector_Element<size_t> l_vector_mem = l_pool_of_vector.get_vector(l_vector_0);
-			assert_true(l_vector_mem.Header.Size == 3);
+			Slice<size_t> l_vector_mem = l_pool_of_vector.get_vector(l_vector_0);
+			assert_true(l_vector_mem.Size == 3);
 			for (loop(i, 0, 3))
 			{
-				assert_true(l_vector_mem.Memory.get(i) == l_elements[i]);
+				assert_true(l_vector_mem.get(i) == l_elements[i]);
 			}
 		}
 
@@ -638,6 +636,25 @@ namespace v2
 
 				assert_true(l_counter == 4);
 			}
+		}
+
+		// add_child
+		{
+			l_2_node = l_size_t_tree.push_value(cast(size_t, 2), l_root);
+			Token<size_t> l_2_1_node = l_size_t_tree.push_value(cast(size_t, 3), l_2_node);
+			Token<size_t> l_2_2_node = l_size_t_tree.push_value(cast(size_t, 3), l_2_node);
+
+			assert_true(l_size_t_tree.add_child(l_3_node, l_2_2_node));
+
+			Slice<Token<NTreeNode>> l_2_node_childs = l_size_t_tree.get_childs_from_node(Token<NTreeNode>{l_2_node.tok});
+			assert_true(l_2_node_childs.Size == 1);
+			assert_true(l_2_node_childs.get(0).tok == l_2_1_node.tok);
+
+			Slice<Token<NTreeNode>> l_3_node_childs = l_size_t_tree.get_childs_from_node(Token<NTreeNode>{l_3_node.tok});
+			assert_true(l_3_node_childs.Size == 2);
+			assert_true(l_3_node_childs.get(1).tok == l_2_2_node.tok);
+
+			assert_true(l_size_t_tree.get(l_2_2_node).Node->parent.tok == l_3_node.tok);
 		}
 
 		l_size_t_tree.free();

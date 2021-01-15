@@ -46,5 +46,6 @@ add_subdirectory(CPPTestVS)
 
 add_subdirectory(Rewrite/Common2)
 add_subdirectory(Rewrite/Math2)
+add_subdirectory(Rewrite/Scene2)
 
 add_subdirectory(Test)

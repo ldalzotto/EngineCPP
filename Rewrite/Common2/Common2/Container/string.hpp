@@ -21,12 +21,10 @@ namespace v2
 			l_string.Memory.push_back_element((char)NULL);
 		};
 
-
 		inline void free()
 		{
 			this->Memory.free();
 		};
-
 
 		inline void append(const Slice<char>& p_elements)
 		{
