@@ -60,6 +60,11 @@ struct Slice
 		return this->Begin[p_index];
 	};
 
+	inline const ElementType& get(const size_t p_index) const
+	{
+		return ((Slice<ElementType>*)this)->get(p_index);
+	};
+
 	inline void slide(const size_t p_offset_index)
 	{
 #if CONTAINER_BOUND_TEST

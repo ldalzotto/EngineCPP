@@ -18,7 +18,7 @@ void CollisionHandle::step()
 
 using Collision2Ext = Collision2::ExternalInterface;
 
-void BoxColliderHandle::allocate(CollisionHandle p_collision, const Math::AABB<float>& p_local_aabb)
+void BoxColliderHandle::allocate(CollisionHandle p_collision, const aabb& p_local_aabb)
 {
 	this->handle = Collision2Ext::allocate_boxcollider(cast(Collision2*, p_collision.handle), p_local_aabb).tok;
 };
@@ -28,9 +28,9 @@ void BoxColliderHandle::free(CollisionHandle p_collision)
 	Collision2Ext::free_collider(cast(Collision2*, p_collision.handle), Token(Collision2::BoxCollider) { this->handle });
 };
 
-void BoxColliderHandle::on_collider_moved(CollisionHandle p_collision, const Math::Transform& p_transform, const Math::quat& p_local_rotation)
+void BoxColliderHandle::on_collider_moved(CollisionHandle p_collision, const transform_pa& p_world_transform)
 {
-	Collision2Ext::on_collider_moved(cast(Collision2*, p_collision.handle), Token(Collision2::BoxCollider) { this->handle }, p_transform, p_local_rotation);
+	Collision2Ext::on_collider_moved(cast(Collision2*, p_collision.handle), Token(Collision2::BoxCollider) { this->handle }, p_world_transform);
 };
 
 

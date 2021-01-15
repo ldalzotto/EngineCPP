@@ -248,11 +248,19 @@ void update(void* p_engine, float p_delta)
 		}
 
 	}
+
+	/*
+	SceneNode* l_node = SceneKernel::resolve_node(l_scenehandle, testContext.moving_node).element;
+	SceneKernel::set_localposition(l_node, l_scenehandle, Math::vec3f(-0.2f, 0.0f, 0.0f));
+	SceneKernel::set_worldrotation(l_node, l_scenehandle,
+		Math::mul(SceneKernel::get_localrotation(l_node), Math::rotateAround(Math::VecConst<float>::UP, p_delta)));
+		*/
+	
 	else if (testContext.framecount == 20 || testContext.framecount == 40 || testContext.framecount == 60 || testContext.framecount == 80 || testContext.framecount == 100)
 	{
 		SceneKernel::set_localposition(testContext.moving_node, l_scenehandle, SceneKernel::get_localposition(testContext.moving_node, l_scenehandle) + Math::vec3f(1.0f, 0.0f, 0.0f));
 	}
-
+	
 	if (testContext.framecount == 80)
 	{
 		//TODO

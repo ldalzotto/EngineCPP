@@ -1,44 +1,25 @@
 #pragma once
 
-struct Math
+namespace v2
 {
-	constexpr static const float tol_f = 0.000001f;
-	constexpr static const float zero_f = 0.0f;
-	constexpr static const float one_f = 1.0f;
-	constexpr static const float M_PI = 3.14159265358979323846f;
-	constexpr static const float DEG_TO_RAD = (M_PI / 180.0f);
-	constexpr static const float RAD_TO_DEG = (180.0f / M_PI);
-
-	inline static char equals(const float p_left, const float p_right)
+	struct Math
 	{
-		return fabsf(p_left - p_right) <= tol_f;
-	};
+		constexpr static const float tol_f = 0.000001f;
+		constexpr static const float zero_f = 0.0f;
+		constexpr static const float one_f = 1.0f;
+		constexpr static const float M_PI = 3.14159265358979323846f;
+		constexpr static const float DEG_TO_RAD = (M_PI / 180.0f);
+		constexpr static const float RAD_TO_DEG = (180.0f / M_PI);
 
-	inline short int sign(const float p_value)
-	{
-		if (p_value <= -tol_f)
-		{
-			return -1;
-		}
-		else
-		{
-			return 1;
-		}
+		inline static char equals(const float p_left, const float p_right);
+		inline static char lower_eq(const float p_left, const float p_right);
+		inline static char lower(const float p_left, const float p_right);
+		inline static char greater_eq(const float p_left, const float p_right);
+		inline static char greater(const float p_left, const float p_right);
+		inline static short int sign(const float p_value);
+		inline static float clamp(const float p_value, const float p_left, const float p_right);
 	};
-
-	inline static float clamp(const float p_value, const float p_left, const float p_right)
-	{
-		if (p_value >= (p_right + tol_f))
-		{
-			return p_right;
-		}
-		else if (p_value <= (p_left + tol_f))
-		{
-			return p_left;
-		}
-		return p_value;
-	};
-};
+}
 
 struct v2f;
 struct v3f;
@@ -84,6 +65,7 @@ struct alignas(sizeof(float)) v3f
 	float length() const;
 	v3f normalize() const;
 	v3f project(const v3f& p_projected_on) const;
+	v3f project_normalized(const v3f& p_projected_on) const;
 	float distance(const v3f& p_end) const;
 	float angle_unsigned(const v3f& p_end) const;
 	float angle_unsigned_normalized(const v3f& p_end_normalized) const;
@@ -280,4 +262,17 @@ struct m44f_const
 		v4f{ 0.0f,0.0f,1.0f,0.0f },
 		v4f{ 0.0f,0.0f,0.0f,1.0f }
 	);
+};
+
+struct transform
+{
+	v3f position;
+	quat rotation;
+	v3f scale;
+};
+
+struct transform_pa
+{
+	v3f position;
+	m33f axis;
 };

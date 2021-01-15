@@ -39,11 +39,12 @@ struct CollisionMiddleware
 			NTreeResolve<SceneNode> l_scenenode = SceneKernel::resolve_node(p_scene, l_collision_entry.node);
 			if (l_collision_entry.force_update || l_scenenode.element->state.haschanged_thisframe)
 			{
-				l_collision_entry.box_collider.on_collider_moved(this->collision, Math::Transform(
-					SceneKernel::get_worldposition(l_scenenode.element, p_scene),
-					SceneKernel::get_worldrotation(l_scenenode.element, p_scene),
-					SceneKernel::get_worldscalefactor(l_scenenode.element, p_scene)
-				), SceneKernel::get_localrotation(l_scenenode.element));
+				l_collision_entry.box_collider.on_collider_moved(this->collision,
+					transform_pa{
+						*(v3f*)&SceneKernel::get_worldposition(l_scenenode.element, p_scene),
+						(*(quat*)&SceneKernel::get_worldrotation(l_scenenode.element, p_scene)).to_axis()
+					}
+				);
 				l_collision_entry.force_update = false;
 			}
 		}
@@ -52,7 +53,7 @@ struct CollisionMiddleware
 	inline void push_collider(SceneNodeToken p_node, const BoxCollider& p_box_collider )
 	{
 		BoxColliderHandle l_box_collider;
-		l_box_collider.allocate(this->collision, p_box_collider.local_box);
+		l_box_collider.allocate(this->collision, *(aabb*)&p_box_collider.local_box);
 		CollisionEntry l_entry;
 		l_entry.box_collider = l_box_collider;
 		l_entry.force_update = true;

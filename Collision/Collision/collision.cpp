@@ -1,9 +1,5 @@
 
 #include "Collision/collision.hpp"
-#include "Math/math.hpp"
-#include "Math/transform_def.hpp"
-#include "Math/geometry.hpp"
-
 
 /*
 	The Collision engine provides a way to hook when a 3D geometric shape enters in collision with anoter one.
@@ -18,11 +14,10 @@ struct Collision2
 	struct BoxCollider
 	{
 		char enabled;
-		Math::Transform transform;
-		Math::Matrix<3, float> rotation_axis;
-		Math::AABB<float> local_box;
+		transform_pa transform;
+		aabb local_box;
 
-		inline static BoxCollider build_from_local_aabb(const char p_enabled, const Math::AABB<float>& p_local_box)
+		inline static BoxCollider build_from_local_aabb(const char p_enabled, const aabb& p_local_box)
 		{
 			BoxCollider l_box_collider;
 			l_box_collider.enabled = p_enabled;
@@ -135,11 +130,10 @@ struct Collision2
 			return l_box_collider_index;
 		};
 
-		inline void push_boxcollider_transform(Token<BoxCollider> p_boxcollider, const Math::Transform& p_world_transform, const Math::quat& p_local_rotation)
+		inline void push_boxcollider_transform(Token<BoxCollider> p_boxcollider, const transform_pa& p_world_transform)
 		{
 			BoxCollider& l_boxcollider = this->box_colliders.get(p_boxcollider);
 			l_boxcollider.transform = p_world_transform;
-			l_boxcollider.rotation_axis = Math::extractAxis<float>(p_world_transform.rotation);
 		};
 
 		inline void free_boxcollider(const Token<BoxCollider> p_box_collider)
@@ -529,7 +523,7 @@ struct Collision2
 					BoxCollider& l_left_collider = this->heap->box_colliders.get(l_left_collider_token);
 					if (l_left_collider.enabled)
 					{
-						Math::OBB<float>l_left_projected = Geometry::to_obb(l_left_collider.local_box, l_left_collider.transform, l_left_collider.rotation_axis);
+						obb l_left_projected = l_left_collider.local_box.add_position_rotation(l_left_collider.transform);
 
 						//TODO -> In the future, we want to avoid to query the world
 						poolindexed_foreach_token_2_begin(&this->heap->box_colliders, j, l_right_collider_token);
@@ -540,9 +534,9 @@ struct Collision2
 							BoxCollider& l_right_collider = this->heap->box_colliders.get(l_right_collider_token);
 							if (l_right_collider.enabled)
 							{
-								Math::OBB<float>l_right_projected = Geometry::to_obb(l_right_collider.local_box, l_right_collider.transform, l_right_collider.rotation_axis);
+								obb l_right_projected = l_left_collider.local_box.add_position_rotation(l_right_collider.transform);
 
-								if (Geometry::overlap3(l_left_projected, l_right_projected))
+								if (l_left_projected.overlap2(l_right_projected))
 								{
 									this->currentstep_enter_intersection_events.push_back_element(
 										IntersectionEvent::build(
@@ -594,7 +588,7 @@ struct Collision2
 					BoxCollider& l_left_collider = this->heap->box_colliders.get(l_left_collider_token);
 					if (l_left_collider.enabled)
 					{
-						Math::OBB<float>l_left_projected = Geometry::to_obb(l_left_collider.local_box, l_left_collider.transform, l_left_collider.rotation_axis);
+						obb l_left_projected = l_left_collider.local_box.add_position_rotation(l_left_collider.transform);
 
 						//TODO -> In the future, we want to avoid to query the world
 						poolindexed_foreach_token_2_begin(&this->heap->box_colliders, j, l_right_collider_token)
@@ -605,9 +599,9 @@ struct Collision2
 								Token(ColliderDetector)& l_right_collider_detector = this->heap->get_colliderdetector_from_boxcollider(l_right_collider_token);
 								if (l_right_collider_detector.tok != -1)
 								{
-									Math::OBB<float>l_right_projected = Geometry::to_obb(l_right_collider.local_box, l_right_collider.transform, l_right_collider.rotation_axis);
+									obb l_right_projected = l_left_collider.local_box.add_position_rotation(l_right_collider.transform);
 
-									if (Geometry::overlap3(l_left_projected, l_right_projected))
+									if (l_left_projected.overlap2(l_right_projected))
 									{
 										this->currentstep_enter_intersection_events.push_back_element(
 											IntersectionEvent::build(l_right_collider_detector, l_left_collider_token)
@@ -744,14 +738,14 @@ struct Collision2
 
 	struct ExternalInterface
 	{
-		inline static Token<BoxCollider> allocate_boxcollider(Collision2* thiz, const Math::AABB<float>& p_local_box)
+		inline static Token<BoxCollider> allocate_boxcollider(Collision2* thiz, const aabb& p_local_box)
 		{
 			return thiz->collision_heap.allocate_boxcollider(BoxCollider::build_from_local_aabb(true, p_local_box));
 		};
 
-		inline static void on_collider_moved(Collision2* thiz, const Token<BoxCollider> p_moved_collider, const Math::Transform& p_world_transform, const Math::quat& p_local_rotation)
+		inline static void on_collider_moved(Collision2* thiz, const Token<BoxCollider> p_moved_collider, const transform_pa& p_world_transform)
 		{
-			thiz->collision_heap.push_boxcollider_transform(p_moved_collider, p_world_transform, p_local_rotation);
+			thiz->collision_heap.push_boxcollider_transform(p_moved_collider, p_world_transform);
 			thiz->collision_detection_step.push_collider_for_process(p_moved_collider);
 		};
 

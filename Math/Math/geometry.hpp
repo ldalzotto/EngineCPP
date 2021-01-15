@@ -73,7 +73,7 @@ struct Geometry
 		return AABB<float>(
 			Math::add(p_left.center, Math::add(p_transform.position, Math::mul(p_left.center, p_transform.scale))),
 			Math::mul(p_left.radiuses, p_transform.scale)
-			);
+		);
 	};
 
 	template<class TYPE>

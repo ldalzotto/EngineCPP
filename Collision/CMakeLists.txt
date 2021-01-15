@@ -12,7 +12,7 @@ add_library(Collision ${COLLISION_HEADER} ${COLLISION_SOURCE})
 
 target_include_directories(Collision PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/interface ${CMAKE_CURRENT_SOURCE_DIR}/driver)
 
-target_link_libraries(Collision PUBLIC Math)
+target_link_libraries(Collision PUBLIC Math2)
 target_link_libraries(Collision PUBLIC Common2)
 
 

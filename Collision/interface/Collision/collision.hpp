@@ -1,9 +1,7 @@
 #pragma once
 
 #include "Common2/common2.hpp"
-#include "Math/matrix_def.hpp"
-#include "Math/geometry_def.hpp"
-#include "Math/transform_def.hpp"
+#include "Math2/math.hpp"
 
 struct CollisionHandle
 {
@@ -26,9 +24,9 @@ struct BoxColliderHandle
 	inline static BoxColliderHandle build_default() { return BoxColliderHandle{ cast(size_t, -1) }; }
 	inline void reset() { *this = build_default(); };
 
-	void allocate(CollisionHandle p_collision, const Math::AABB<float>& p_local_aabb);
+	void allocate(CollisionHandle p_collision, const aabb& p_local_aabb);
 	void free(CollisionHandle p_collision);
-	void on_collider_moved(CollisionHandle p_collision, const Math::Transform& p_transform, const Math::quat& p_local_rotation);
+	void on_collider_moved(CollisionHandle p_collision, const transform_pa& p_world_transform);
 };
 
 

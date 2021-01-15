@@ -1,5 +1,60 @@
 #pragma once
 
+namespace v2
+{
+	inline char Math::equals(const float p_left, const float p_right)
+	{
+		return fabsf(p_left - p_right) <= Math::tol_f;
+	};
+
+	inline char Math::lower_eq(const float p_left, const float p_right)
+	{
+		return (p_left - p_right) <= Math::tol_f;
+	};
+
+	inline char Math::lower(const float p_left, const float p_right)
+	{
+		return (p_left - p_right) < Math::tol_f;
+	};
+
+	inline char Math::greater_eq(const float p_left, const float p_right)
+	{
+		return (p_left - p_right) >= Math::tol_f;
+	};
+
+	inline char Math::greater(const float p_left, const float p_right)
+	{
+		return (p_left - p_right) > Math::tol_f;
+	};
+
+	inline short int Math::sign(const float p_value)
+	{
+		if (p_value <= -Math::tol_f)
+		{
+			return -1;
+		}
+		else
+		{
+			return 1;
+		}
+	};
+
+	inline float Math::clamp(const float p_value, const float p_left, const float p_right)
+	{
+		if (p_value >= (p_right + Math::tol_f))
+		{
+			return p_right;
+		}
+		else if (p_value <= (p_left + Math::tol_f))
+		{
+			return p_left;
+		}
+		return p_value;
+	};
+
+}
+
+
 #define math_v2f_foreach_2(Left, Right, Op) \
     v2f { Op((Left)->Points[0], (Right)->Points[0]), Op((Left)->Points[1], (Right)->Points[1]) }
 
@@ -28,8 +83,8 @@
 
 inline char v2f::operator==(const v2f& p_other)
 {
-	return Math::equals(this->Points[0], p_other.Points[0]) &&
-		Math::equals(this->Points[1], p_other.Points[1]);
+	return v2::Math::equals(this->Points[0], p_other.Points[0]) &&
+		v2::Math::equals(this->Points[1], p_other.Points[1]);
 };
 
 inline v2f v2f::operator*(const v2f& p_other)
@@ -39,7 +94,7 @@ inline v2f v2f::operator*(const v2f& p_other)
 
 inline char v3f_assert_is_normalized(const v3f& p_vec)
 {
-	return p_vec.length() <= Math::tol_f;
+	return v2::Math::equals(p_vec.length(), 1.0f);
 };
 
 inline v3f v3f::operator+(const v3f& p_other) const
@@ -64,9 +119,9 @@ inline v3f v3f::operator-(const v3f& p_other) const
 
 inline char v3f::operator==(const v3f& p_other) const
 {
-	return Math::equals(this->Points[0], p_other.Points[0]) &&
-		Math::equals(this->Points[1], p_other.Points[1]) &&
-		Math::equals(this->Points[2], p_other.Points[2]);
+	return v2::Math::equals(this->Points[0], p_other.Points[0]) &&
+		v2::Math::equals(this->Points[1], p_other.Points[1]) &&
+		v2::Math::equals(this->Points[2], p_other.Points[2]);
 };
 
 inline float& v3f::operator[](const char p_index)
@@ -101,7 +156,17 @@ inline v3f v3f::normalize() const
 
 inline v3f v3f::project(const v3f& p_projected_on) const
 {
-	return p_projected_on * (this->dot(p_projected_on) / p_projected_on.length());
+	return this->normalize().project_normalized(p_projected_on.normalize());
+};
+
+inline v3f v3f::project_normalized(const v3f& p_projected_on) const
+{
+#if MATH_NORMALIZATION_TEST
+	assert_true(v3f_assert_is_normalized(*this));
+	assert_true(v3f_assert_is_normalized(p_projected_on));
+#endif
+
+	return p_projected_on * this->dot(p_projected_on);
 };
 
 inline float v3f::distance(const v3f& p_end) const
@@ -116,7 +181,7 @@ inline float v3f::angle_unsigned(const v3f& p_end) const
 
 inline float v3f::angle_unsigned_normalized(const v3f& p_end_normalized) const
 {
-#ifdef MATH_BOUND_TEST
+#ifdef MATH_NORMALIZATION_TEST
 	v3f_assert_is_normalized(*this);
 	v3f_assert_is_normalized(p_end_normalized);
 #endif
@@ -127,7 +192,7 @@ inline float v3f::angle_unsigned_normalized(const v3f& p_end_normalized) const
 inline char v3f::anglesign(const v3f& p_end, const v3f& p_ref_axis) const
 {
 	float l_dot = this->cross(p_end).dot(p_ref_axis);
-	return l_dot >= Math::tol_f ? 1 : -1;
+	return l_dot >= v2::Math::tol_f ? 1 : -1;
 };
 
 inline v3f v3f::rotate(const quat& p_rotation) const
@@ -157,32 +222,32 @@ inline quat v3f::from_to(const v3f& p_to) const
 
 inline quat v3f::from_to_normalized(const v3f& p_to) const
 {
-#ifdef MATH_BOUND_TEST
+#ifdef MATH_NORMALIZATION_TEST
 	v3f_assert_is_normalized(*this);
 	v3f_assert_is_normalized(p_to);
 #endif
 
 	float l_costtheta = this->dot(p_to);
-	if (l_costtheta >= Math::one_f - Math::tol_f)
+	if (l_costtheta >= v2::Math::one_f - v2::Math::tol_f)
 	{
 		return quat_const::IDENTITY;
 	}
 
 	v3f l_rotation_axis;
 
-	if (l_costtheta < -Math::one_f + Math::tol_f)
+	if (l_costtheta < -v2::Math::one_f + v2::Math::tol_f)
 	{
 		l_rotation_axis = v3f_const::FORWARD.cross(*this);
-		if (l_rotation_axis.length() < Math::tol_f)
+		if (l_rotation_axis.length() < v2::Math::tol_f)
 		{
 			l_rotation_axis = v3f_const::RIGHT.cross(*this);
 		}
 		l_rotation_axis = l_rotation_axis.normalize();
-		return quat::rotate_around(l_rotation_axis, Math::M_PI);
+		return quat::rotate_around(l_rotation_axis, v2::Math::M_PI);
 	}
 
 	l_rotation_axis = this->cross(p_to);
-	float l_s = sqrtf((Math::one_f + l_costtheta) * 2.0f);
+	float l_s = sqrtf((v2::Math::one_f + l_costtheta) * 2.0f);
 	float l_invs = 1.0f / l_s;
 
 	return quat{
@@ -195,10 +260,10 @@ inline quat v3f::from_to_normalized(const v3f& p_to) const
 
 inline char v4f::operator==(const v4f& p_other) const
 {
-	return Math::equals(this->Points[0], p_other.Points[0]) &&
-		Math::equals(this->Points[1], p_other.Points[1]) &&
-		Math::equals(this->Points[2], p_other.Points[2]) &&
-		Math::equals(this->Points[3], p_other.Points[3]);
+	return v2::Math::equals(this->Points[0], p_other.Points[0]) &&
+		v2::Math::equals(this->Points[1], p_other.Points[1]) &&
+		v2::Math::equals(this->Points[2], p_other.Points[2]) &&
+		v2::Math::equals(this->Points[3], p_other.Points[3]);
 };
 
 inline v4f v4f::operator*(const float p_other) const
@@ -309,7 +374,7 @@ inline v3f quat::euler() const
 	float l_sinp = 2.0f * (this->y * this->z + this->w * this->x);
 	float l_cosp = this->w * this->w - this->x * this->x - this->y * this->y + this->z * this->z;
 
-	if (Math::equals(l_sinp, Math::zero_f) && Math::equals(l_cosp, Math::zero_f))
+	if (v2::Math::equals(l_sinp, v2::Math::zero_f) && v2::Math::equals(l_cosp, v2::Math::zero_f))
 	{
 		l_return.Points[0] = 2.0f * atan2f(this->x, this->w);
 	}
@@ -320,7 +385,7 @@ inline v3f quat::euler() const
 
 	//yaw
 	l_return.Points[1] =
-		asinf(Math::clamp(-2.0f * (this->x * this->z - this->w * this->y), -1.0f, 1.0f));
+		asinf(v2::Math::clamp(-2.0f * (this->x * this->z - this->w * this->y), -1.0f, 1.0f));
 
 	//roll
 	l_return.Points[2] =
@@ -419,7 +484,7 @@ for (char p_column_index = 0; p_column_index < Dimension; p_column_index++) \
 inline char m33f::operator==(const m33f& p_other) const
 {
 	mat_foreach_element_begin(3)
-		if (!Math::equals(this->Points2D[p_column_index].Points[p_line_index], p_other.Points2D[p_column_index].Points[p_line_index]))
+		if (!v2::Math::equals(this->Points2D[p_column_index].Points[p_line_index], p_other.Points2D[p_column_index].Points[p_line_index]))
 		{
 			return 0;
 		}
@@ -445,7 +510,7 @@ inline float m44f::mul_line_column(const m44f& p_left, const m44f& p_right, cons
 
 inline float m44f::mul_line_vec(const m44f& p_left, const v4f& p_right, const char p_line_index)
 {
-	float l_return = Math::zero_f;
+	float l_return = v2::Math::zero_f;
 	for (short int i = 0; i < 4; i++)
 	{
 		l_return += (p_left.Points2D[i].Points[p_line_index] * p_right.Points[i]);
@@ -493,7 +558,7 @@ inline m44f m44f::operator+(const float p_other) const
 inline char m44f::operator==(const m44f& p_other) const
 {
 	mat_foreach_element_begin(4)
-		if (!Math::equals(this->Points2D[p_column_index].Points[p_line_index], p_other.Points2D[p_column_index].Points[p_line_index]))
+		if (!v2::Math::equals(this->Points2D[p_column_index].Points[p_line_index], p_other.Points2D[p_column_index].Points[p_line_index]))
 		{
 			return 0;
 		};
@@ -653,7 +718,7 @@ inline m44f m44f::view(const v3f& p_world_position, const v3f& p_forward, const 
 
 inline m44f m44f::view_normalized(const v3f& p_world_position, const v3f& p_forward, const v3f& p_up_normalized)
 {
-#ifdef MATH_BOUND_TEST
+#ifdef MATH_NORMALIZATION_TEST
 	v3f_assert_is_normalized(p_up_normalized);
 #endif
 	v3f l_target = p_forward;
