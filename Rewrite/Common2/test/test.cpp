@@ -220,7 +220,8 @@ namespace v2
 		{
 			assert_true(l_varyingvector.memory.Size == 0);
 
-			Slice<char> l_slice = Slice<char>::build_memory_elementnb(cast(char*, &l_varyingvector), 10);
+			char* l_10_element = "abcdefhikl";
+			Slice<char> l_slice = Slice<char>::build_memory_elementnb(l_10_element, 10);
 			l_varyingvector.push_back(l_slice);
 
 			assert_true(l_varyingvector.get_size() == 1);
@@ -773,6 +774,66 @@ namespace v2
 		l_heap_memory.free();
 	};
 
+
+	inline void string_test()
+	{
+		size_t l_initial_string_capacity = 20;
+		String l_str = String::allocate(l_initial_string_capacity);
+
+		assert_true(l_str.get(0) == (char)NULL);
+		assert_true(l_str.get_size() == 1);
+		assert_true(l_str.get_char_nb() == 0);
+
+		// append
+		{
+			l_str.append(slice_char_build_rawstr("ABC"));
+			assert_true(l_str.get_char_nb() == 3);
+			assert_true(l_str.get(0) == 'A');
+			assert_true(l_str.get(1) == 'B');
+			assert_true(l_str.get(2) == 'C');
+		}
+
+		{
+			l_str.insert_array_at(slice_char_build_rawstr("DEA"), 2);
+			assert_true(l_str.get_char_nb() == 6);
+			assert_true(l_str.get(2) == 'D');
+			assert_true(l_str.get(3) == 'E');
+			assert_true(l_str.get(4) == 'A');
+		}
+
+		// remove_chars
+		{
+			l_str.remove_chars('A');
+			assert_true(l_str.get_char_nb() == 4);
+			assert_true(l_str.get(0) == 'B');
+			assert_true(l_str.get(3) == 'C');
+		}
+
+		//to_slice
+		{
+			Slice<char> l_slice = l_str.to_slice();
+			assert_true(l_slice.Size == 4);
+			assert_true(l_slice.get(0) == 'B');
+			assert_true(l_slice.get(3) == 'C');
+		}
+
+		l_str.free();
+		l_str = String::allocate(l_initial_string_capacity);
+		l_str.append(slice_char_build_rawstr("Don't Count Your Chickens Before They Hatch."));
+
+		// find
+		{
+			size_t l_index;
+			assert_true(l_str.to_slice().find(slice_char_build_rawstr("efor"), &l_index) == 1);
+			assert_true(l_index == 27);
+
+			//no found
+			l_index = 0;
+			assert_true(l_str.to_slice().find(slice_char_build_rawstr("eforc"), &l_index) == 0);
+		}
+
+		l_str.free();
+	};
 }
 
 int main()
@@ -787,4 +848,5 @@ int main()
 	v2::sort_test();
 	v2::heap_test();
 	v2::heap_memory_test();
+	v2::string_test();
 }

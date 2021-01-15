@@ -78,12 +78,27 @@ struct Slice
 		this->Size -= p_offset_index;
 	};
 
-	inline Slice<ElementType> slide_rv(const size_t p_offset_index)
+	inline Slice<ElementType> slide_rv(const size_t p_offset_index) const
 	{
 		Slice<ElementType> l_return = *this;
 		l_return.slide(p_offset_index);
 		return l_return;
 	};
+
+	inline char compare(const Slice<ElementType>& p_other) const
+	{
+		return slice_memcompare_element(*this, p_other);
+	};
+
+	inline char find(const Slice<ElementType>& p_other, size_t* out_index) const
+	{
+		return slice_memfind(*this, p_other, out_index);
+	};
+};
+
+inline Slice<char> slice_char_build_rawstr(const char* p_str)
+{
+	return Slice<char>::build_memory_elementnb((char*)p_str, strlen(p_str));
 };
 
 
@@ -153,7 +168,37 @@ inline char* slice_memcpy(const Slice<ElementType>& p_target, const Slice<Elemen
 template<class ElementType>
 inline char slice_memcompare_element(const Slice<ElementType>& p_target, const Slice<ElementType>& p_compared)
 {
-	return memory_compare(cast(char*, p_target.Begin), cast(char*, p_target.Begin), p_compared.Size);
+	return memory_compare(cast(char*, p_target.Begin), cast(char*, p_compared.Begin), p_compared.Size);
+};
+
+template<class ElementType>
+inline char slice_memfind(const Slice<ElementType>& p_target, const Slice<ElementType>& p_compared, size_t* out_index)
+{
+#if CONTAINER_BOUND_TEST
+	if (p_compared.Size > p_target.Size)
+	{
+		abort();
+	}
+#endif
+
+	Slice<ElementType> l_target_slice = p_target;
+	if (slice_memcompare_element(l_target_slice, p_compared))
+	{
+		*out_index = 0;
+		return 1;
+	};
+
+	for (size_t i = 1; i < p_target.Size - p_compared.Size; i++)
+	{
+		l_target_slice.slide(1);
+		if (slice_memcompare_element(l_target_slice, p_compared))
+		{
+			*out_index = i;
+			return 1;
+		};
+	};
+
+	return 0;
 };
 
 /*

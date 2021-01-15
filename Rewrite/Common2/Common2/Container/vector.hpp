@@ -27,6 +27,20 @@ namespace v2
 			return Vector<ElementType>{0, Span<ElementType>::allocate(p_initial_capacity)};
 		};
 
+		inline static Vector<ElementType> allocate_elements(const Slice<ElementType>& p_initial_elements)
+		{
+			Vector<ElementType> l_vector = Vector<ElementType>::allocate(p_initial_elements.Size);
+			l_vector.push_back_array(p_initial_elements);
+			return l_vector;
+		};
+
+		inline static Vector<ElementType> allocate_capacity_elements(const size_t p_inital_capacity, const Slice<ElementType>& p_initial_elements)
+		{
+			Vector<ElementType> l_vector = Vector<ElementType>::allocate(p_inital_capacity);
+			l_vector.push_back_array(p_initial_elements);
+			return l_vector;
+		};
+
 		inline Slice<ElementType> to_slice()
 		{
 			return Slice<ElementType>::build_memory_elementnb(this->Memory.Memory, this->Size);

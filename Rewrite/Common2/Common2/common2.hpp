@@ -16,6 +16,7 @@
 #include "./Container/vector.hpp"
 #include "./Container/pool.hpp"
 #include "./Container/varying_vector.hpp"
+#include "./Container/string.hpp"
 
 #include "./Container/Specialization/vector_of_vector.hpp"
 #include "./Container/Specialization/pool_of_vector.hpp"
