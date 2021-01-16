@@ -63,11 +63,11 @@ namespace v2
 			return this->memory.Size != this->free_blocks.Size;
 		};
 
-		inline char is_element_free(const Token<ElementType> p_token)
+		inline char is_element_free(const Token(ElementType) p_token)
 		{
 			for (vector_loop(&this->free_blocks, i))
 			{
-				if (this->free_blocks.get(i).tok == p_token.tok)
+				if (tk_v(this->free_blocks.get(i)) == tk_v(p_token))
 				{
 					return 1;
 				};
@@ -76,16 +76,16 @@ namespace v2
 			return 0;
 		};
 
-		inline ElementType& get(const Token<ElementType> p_token)
+		inline ElementType& get(const Token(ElementType) p_token)
 		{
 #if CONTAINER_BOUND_TEST
 			this->element_free_check(p_token);
 #endif
 
-			return this->memory.get(p_token.tok);
+			return this->memory.get(tk_v(p_token));
 		};
 
-		inline Token<ElementType> alloc_element_empty()
+		inline Token(ElementType) alloc_element_empty()
 		{
 			if (!this->free_blocks.empty())
 			{
@@ -100,13 +100,13 @@ namespace v2
 			}
 		}
 
-		inline Token<ElementType> alloc_element(const ElementType& p_element)
+		inline Token(ElementType) alloc_element(const ElementType& p_element)
 		{
 			if (!this->free_blocks.empty())
 			{
 				Token(ElementType) l_availble_token = this->free_blocks.get(this->free_blocks.Size - 1);
 				this->free_blocks.pop_back();
-				this->memory.get(l_availble_token.tok) = p_element;
+				this->memory.get(tk_v(l_availble_token)) = p_element;
 				return l_availble_token;
 			}
 			else
@@ -117,7 +117,7 @@ namespace v2
 		};
 
 
-		inline void release_element(const Token<ElementType> p_token)
+		inline void release_element(const Token(ElementType) p_token)
 		{
 #if CONTAINER_BOUND_TEST
 			this->element_not_free_check(p_token);
@@ -126,14 +126,14 @@ namespace v2
 			this->free_blocks.push_back_element(p_token);
 		};
 
-		inline void release_element_1v(const Token<ElementType> p_token)
+		inline void release_element_1v(const Token(ElementType) p_token)
 		{
 			this->release_element(p_token);
 		};
 
 	private:
 
-		inline void element_free_check(const Token<ElementType> p_token)
+		inline void element_free_check(const Token(ElementType) p_token)
 		{
 #if CONTAINER_BOUND_TEST
 			if (this->is_element_free(p_token))
@@ -143,7 +143,7 @@ namespace v2
 #endif
 		};
 
-		inline void element_not_free_check(const Token<ElementType> p_token)
+		inline void element_not_free_check(const Token(ElementType) p_token)
 		{
 #if CONTAINER_BOUND_TEST
 			if (this->is_element_free(p_token))

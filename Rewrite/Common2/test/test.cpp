@@ -171,7 +171,7 @@ namespace v2
 			size_t l_element = 3;
 			Token(size_t) l_token = l_pool_sizet.alloc_element(l_element);
 
-			assert_true(l_token.tok == 0);
+			assert_true(tk_v(l_token) == 0);
 			assert_true(l_pool_sizet.get(l_token) == l_element);
 		}
 
@@ -195,7 +195,7 @@ namespace v2
 			);
 			l_pool_sizet.alloc_element(cast(size_t, 10));
 
-			assert_true(l_token.tok == 0);
+			assert_true(tk_v(l_token) == 0);
 			assert_true(l_pool_sizet.get(l_token) == l_element);
 		}
 
@@ -528,7 +528,7 @@ namespace v2
 			l_pool_of_vector.release_vector(l_vector_0);
 
 			PoolOfVectorToken<size_t> l_vector_0_new = l_pool_of_vector.alloc_vector();
-			assert_true(l_vector_0_new.tok == l_vector_0.tok);
+			assert_true(tk_v(l_vector_0_new) == tk_v(l_vector_0));
 			l_vector_mem = l_pool_of_vector.get_vector(l_vector_0);
 			assert_true(l_vector_mem.Size == 0);
 		}
@@ -554,15 +554,15 @@ namespace v2
 	{
 		NTree<size_t> l_size_t_tree = NTree<size_t>::allocate_default();
 
-		Token<size_t> l_root = l_size_t_tree.push_root_value(cast(size_t, 0));
+		Token(size_t) l_root = l_size_t_tree.push_root_value(cast(size_t, 0));
 		l_size_t_tree.push_value(cast(size_t, 1), l_root);
-		Token<size_t> l_2_node = l_size_t_tree.push_value(cast(size_t, 2), l_root);
-		Token<size_t> l_3_node = l_size_t_tree.push_value(cast(size_t, 3), l_root);
+		Token(size_t) l_2_node = l_size_t_tree.push_value(cast(size_t, 2), l_root);
+		Token(size_t) l_3_node = l_size_t_tree.push_value(cast(size_t, 3), l_root);
 
 		l_size_t_tree.push_value(cast(size_t, 4), l_2_node);
 		l_size_t_tree.push_value(cast(size_t, 5), l_2_node);
 
-		Token<size_t> l_6_node = l_size_t_tree.push_value(cast(size_t, 6), l_3_node);
+		Token(size_t) l_6_node = l_size_t_tree.push_value(cast(size_t, 6), l_3_node);
 
 		{
 			assert_true(l_size_t_tree.Memory.get_size() == 7);
@@ -572,15 +572,15 @@ namespace v2
 			{
 				NTree<size_t>::Resolve l_root_element = l_size_t_tree.get(l_root);
 				assert_true((*l_root_element.Element) == 0);
-				assert_true(l_root_element.Node->parent.tok == -1);
-				assert_true(l_root_element.Node->index.tok == 0);
-				assert_true(l_root_element.Node->childs.tok != -1);
+				assert_true(tk_v(l_root_element.Node->parent)== -1);
+				assert_true(tk_v(l_root_element.Node->index) == 0);
+				assert_true(tk_v(l_root_element.Node->childs) != -1);
 
 				Slice<Token(NTreeNode)> l_childs_indices = l_size_t_tree.get_childs(l_root_element.Node->childs);
 				assert_true(l_childs_indices.Size == 3);
 				for (loop(i, 0, l_childs_indices.Size))
 				{
-					assert_true(l_size_t_tree.get_value(token_cast_v(size_t, l_childs_indices.get(i))) == i + 1);
+					assert_true(l_size_t_tree.get_value(tk_bf(size_t, l_childs_indices.get(i))) == i + 1);
 				}
 			}
 
@@ -588,15 +588,15 @@ namespace v2
 			{
 				NTree<size_t>::Resolve l_2_element = l_size_t_tree.get(l_2_node);
 				assert_true((*l_2_element.Element) == 2);
-				assert_true(l_2_element.Node->parent.tok == 0);
-				assert_true(l_2_element.Node->index.tok == 2);
-				assert_true(l_2_element.Node->childs.tok != -1);
+				assert_true(tk_v(l_2_element.Node->parent) == 0);
+				assert_true(tk_v(l_2_element.Node->index) == 2);
+				assert_true(tk_v(l_2_element.Node->childs) != -1);
 
 				Slice<Token(NTreeNode)> l_childs_indices = l_size_t_tree.get_childs(l_2_element.Node->childs);
 				assert_true(l_childs_indices.Size == 2);
 				for (loop(i, 0, l_childs_indices.Size))
 				{
-					assert_true(l_size_t_tree.get_value(token_cast_v(size_t, l_childs_indices.get(i))) == i + 4);
+					assert_true(l_size_t_tree.get_value(tk_bf(size_t, l_childs_indices.get(i))) == i + 4);
 				}
 			}
 		}
@@ -621,7 +621,7 @@ namespace v2
 
 		// removal test
 		{
-			l_size_t_tree.remove_node(token_cast_v(NTreeNode, l_2_node));
+			l_size_t_tree.remove_node(tk_bf(NTreeNode, l_2_node));
 
 			NTree<size_t>::Resolve l_root_node = l_size_t_tree.get(l_root);
 			Slice<Token(NTreeNode)> l_root_node_childs = l_size_t_tree.get_childs(l_root_node.Node->childs);
@@ -641,20 +641,20 @@ namespace v2
 		// add_child
 		{
 			l_2_node = l_size_t_tree.push_value(cast(size_t, 2), l_root);
-			Token<size_t> l_2_1_node = l_size_t_tree.push_value(cast(size_t, 3), l_2_node);
-			Token<size_t> l_2_2_node = l_size_t_tree.push_value(cast(size_t, 3), l_2_node);
+			Token(size_t) l_2_1_node = l_size_t_tree.push_value(cast(size_t, 3), l_2_node);
+			Token(size_t) l_2_2_node = l_size_t_tree.push_value(cast(size_t, 3), l_2_node);
 
 			assert_true(l_size_t_tree.add_child(l_3_node, l_2_2_node));
 
-			Slice<Token<NTreeNode>> l_2_node_childs = l_size_t_tree.get_childs_from_node(Token<NTreeNode>{l_2_node.tok});
+			Slice<Token(NTreeNode)> l_2_node_childs = l_size_t_tree.get_childs_from_node(tk_bf(NTreeNode, l_2_node));
 			assert_true(l_2_node_childs.Size == 1);
-			assert_true(l_2_node_childs.get(0).tok == l_2_1_node.tok);
+			assert_true(tk_v(l_2_node_childs.get(0)) == tk_v(l_2_1_node));
 
-			Slice<Token<NTreeNode>> l_3_node_childs = l_size_t_tree.get_childs_from_node(Token<NTreeNode>{l_3_node.tok});
+			Slice<Token(NTreeNode)> l_3_node_childs = l_size_t_tree.get_childs_from_node(tk_bf(NTreeNode, l_3_node));
 			assert_true(l_3_node_childs.Size == 2);
-			assert_true(l_3_node_childs.get(1).tok == l_2_2_node.tok);
+			assert_true(tk_v(l_3_node_childs.get(1)) == tk_v(l_2_2_node) );
 
-			assert_true(l_size_t_tree.get(l_2_2_node).Node->parent.tok == l_3_node.tok);
+			assert_true(tk_v(l_size_t_tree.get(l_2_2_node).Node->parent) == tk_v(l_3_node));
 		}
 
 		l_size_t_tree.free();
@@ -705,15 +705,15 @@ namespace v2
 
 			Heap::AllocatedElementReturn l_chunk_1;
 			assert_true((Heap::AllocationState_t)l_heap.allocate_element(10, &l_chunk_1) & (Heap::AllocationState_t)Heap::AllocationState::ALLOCATED);
-			assert_true(l_heap.get(&l_chunk_1.token)->Begin == 0);
-			assert_true(l_heap.get(&l_chunk_1.token)->Size == 10);
+			assert_true(l_heap.get(l_chunk_1.token)->Begin == 0);
+			assert_true(l_heap.get(l_chunk_1.token)->Size == 10);
 			assert_heap_integrity(&l_heap);
 
 
 			Heap::AllocatedElementReturn l_chunk_0;
 			assert_true((Heap::AllocationState_t)l_heap.allocate_element(5, &l_chunk_0) & (Heap::AllocationState_t)Heap::AllocationState::ALLOCATED);
-			assert_true(l_heap.get(&l_chunk_0.token)->Begin == 10);
-			assert_true(l_heap.get(&l_chunk_0.token)->Size == 5);
+			assert_true(l_heap.get(l_chunk_0.token)->Begin == 10);
+			assert_true(l_heap.get(l_chunk_0.token)->Size == 5);
 			assert_heap_integrity(&l_heap);
 
 
@@ -722,8 +722,8 @@ namespace v2
 			assert_heap_integrity(&l_heap);
 
 			// Releasing elements
-			l_heap.release_element(&l_chunk_0.token);
-			l_heap.release_element(&l_chunk_2.token);
+			l_heap.release_element(l_chunk_0.token);
+			l_heap.release_element(l_chunk_2.token);
 			assert_heap_integrity(&l_heap);
 
 			// We try to allocate 10 but there is two chunks size 5 free next to each other
@@ -735,7 +735,7 @@ namespace v2
 			Heap::AllocatedElementReturn l_chunk_3;
 			assert_true((Heap::AllocationState_t)l_heap.allocate_element(50, &l_chunk_3) & (Heap::AllocationState_t)Heap::AllocationState::ALLOCATED_AND_HEAP_RESIZED);
 			assert_true(l_chunk_3.Offset == 20);
-			assert_true(l_heap.get(&l_chunk_3.token)->Size == 50);
+			assert_true(l_heap.get(l_chunk_3.token)->Size == 50);
 			assert_true(l_heap.Size > l_initial_heap_size);
 			assert_heap_integrity(&l_heap);
 
@@ -773,7 +773,7 @@ namespace v2
 		// single allocation
 		{
 			l_sigle_sizet_chunk = l_heap_memory.allocate_element_typed<size_t>(&l_element);
-			size_t* l_st = l_heap_memory.get_typed<size_t>(&l_sigle_sizet_chunk);
+			size_t* l_st = l_heap_memory.get_typed<size_t>(l_sigle_sizet_chunk);
 			assert_true(*l_st == l_element);
 		}
 
@@ -783,7 +783,7 @@ namespace v2
 			Token(SliceIndex) l_chunk = l_heap_memory.allocate_empty_element(30 * sizeof(size_t));
 			assert_true(l_heap_memory.Memory.Capacity != l_initial_heap_size);
 			assert_true(l_heap_memory._Heap.Size != l_initial_heap_size);
-			size_t* l_st = l_heap_memory.get_typed<size_t>(&l_sigle_sizet_chunk);
+			size_t* l_st = l_heap_memory.get_typed<size_t>(l_sigle_sizet_chunk);
 			assert_true(*l_st == l_element);
 		}
 

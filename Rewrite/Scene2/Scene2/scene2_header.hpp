@@ -49,33 +49,33 @@ namespace v2
 			static Heap allocate_default();
 			void free();
 
-			Token<NodeComponentHeader> allocate_component(const Token<Node> p_node, const SceneNodeComponentType& p_component_type, const char* p_initial_value);
-			NodeComponentHeader& get_component(const Token<NodeComponentHeader> p_component_header);
-			void free_component(const Token<NodeComponentHeader> p_component);
+			Token(NodeComponentHeader) allocate_component(const Token(Node) p_node, const SceneNodeComponentType& p_component_type, const char* p_initial_value);
+			NodeComponentHeader& get_component(const Token(NodeComponentHeader) p_component_header);
+			void free_component(const Token(NodeComponentHeader) p_component);
 		};
 
 		Heap heap;
 
 		NTree<Node> node_tree;
-		PoolOfVector<Token<NodeComponentHeader>> node_to_components;
+		PoolOfVector<Token(NodeComponentHeader)> node_to_components;
 
 		//TODO -> event vectors
 
 		static Scene allocate_default();
 		void free();
 
-		Token<Node> add_node(const transform& p_initial_local_transform);
-		NTree<Node>::Resolve get_node_resolve(const Token<Node> p_node);
+		Token(Node) add_node(const transform& p_initial_local_transform);
+		NTree<Node>::Resolve get_node_resolve(const Token(Node) p_node);
 
 
 
 	private:
-		Token<Node> allocate_node(const transform& p_initial_local_transform, const Token<Node> p_parent);
+		Token(Node) allocate_node(const transform& p_initial_local_transform, const Token(Node) p_parent);
 		void add_child(const NTree<Node>::Resolve& p_parent, NTree<Node>::Resolve& p_child);
 		void mark_node_for_recalculation_tree(const NTree<Node>::Resolve& p_node);
 		
 		// Slice<Token<NodeComponentHeader>> get_node_components_token(const Token<Node> p_node);
-		void free_node(const Token<Node> p_node);
+		void free_node(const Token(Node) p_node);
 
 	};
 

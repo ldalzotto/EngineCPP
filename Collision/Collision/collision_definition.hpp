@@ -18,11 +18,11 @@ struct BoxCollider
 	*/
 struct TriggerEvent
 {
-	Token<BoxCollider> other;
+	Token(BoxCollider) other;
 	Trigger::State state;
 
 	static TriggerEvent build_default();
-	static TriggerEvent build(const Token<BoxCollider> p_other, const Trigger::State p_state);
+	static TriggerEvent build(const Token(BoxCollider) p_other, const Trigger::State p_state);
 };
 
 /*
@@ -38,21 +38,21 @@ struct ColliderDetector
 struct CollisionHeap2
 {
 	v2::PoolIndexed<BoxCollider> box_colliders;
-	v2::Pool<Token<ColliderDetector>> box_colliders_to_collider_detector;
+	v2::Pool<Token(ColliderDetector)> box_colliders_to_collider_detector;
 	v2::PoolIndexed<ColliderDetector> collider_detectors;
 	v2::PoolOfVector<TriggerEvent> collider_detectors_events_2;
 
 	static CollisionHeap2 allocate_default();
 	void free();
 
-	Token(ColliderDetector) allocate_colliderdetector(const Token<BoxCollider> p_box_collider);
-	void free_colliderdetector(const Token<BoxCollider> p_box_collider, const Token<ColliderDetector> p_collider_detector);
+	Token(ColliderDetector) allocate_colliderdetector(const Token(BoxCollider) p_box_collider);
+	void free_colliderdetector(const Token(BoxCollider) p_box_collider, const Token(ColliderDetector) p_collider_detector);
 
 	Token(BoxCollider) allocate_boxcollider(const BoxCollider& p_box_collider);
-	void push_boxcollider_transform(Token<BoxCollider> p_boxcollider, const transform_pa& p_world_transform);
-	void free_boxcollider(const Token<BoxCollider> p_box_collider);
+	void push_boxcollider_transform(Token(BoxCollider) p_boxcollider, const transform_pa& p_world_transform);
+	void free_boxcollider(const Token(BoxCollider) p_box_collider);
 
-	Token<ColliderDetector>& get_colliderdetector_from_boxcollider(const Token<BoxCollider> p_box_collider);
+	Token(ColliderDetector)& get_colliderdetector_from_boxcollider(const Token(BoxCollider) p_box_collider);
 
 	Slice<TriggerEvent> get_triggerevents_from_boxcollider(const Token(BoxCollider) p_box_collider);
 	Slice<TriggerEvent> get_triggerevents_from_colliderdetector(const Token(ColliderDetector) p_collider_detector);
@@ -71,19 +71,19 @@ struct CollisionDetectionStep
 	*/
 	struct IntersectionEvent
 	{
-		Token<ColliderDetector> detector;
-		Token<BoxCollider> other;
+		Token(ColliderDetector) detector;
+		Token(BoxCollider) other;
 
-		inline static IntersectionEvent build(const Token<ColliderDetector> p_detector, const Token<BoxCollider> p_other);
+		inline static IntersectionEvent build(const Token(ColliderDetector) p_detector, const Token(BoxCollider) p_other);
 		inline char equals_intersectionevent(const IntersectionEvent& p_other);
 	};
 
 	struct CollisionDetectorDeletionEvent
 	{
-		Token<BoxCollider> collider;
-		Token<ColliderDetector> detector;
+		Token(BoxCollider) collider;
+		Token(ColliderDetector) detector;
 
-		inline static CollisionDetectorDeletionEvent build(const Token<BoxCollider> p_box_collider, const Token<ColliderDetector> p_collider_detector);
+		inline static CollisionDetectorDeletionEvent build(const Token(BoxCollider) p_box_collider, const Token(ColliderDetector) p_collider_detector);
 	};
 
 	CollisionHeap2* heap;
@@ -108,9 +108,9 @@ struct CollisionDetectionStep
 	/* A frame of the Collision engine. */
 	inline void step();
 
-	inline void push_collider_for_process(const Token<BoxCollider> p_moved_collider);
-	inline void push_collider_for_deletion(const Token<BoxCollider> p_collider);
-	inline void push_collider_detector_for_deletion(const Token<BoxCollider> p_collider, const Token<ColliderDetector> p_detector);
+	inline void push_collider_for_process(const Token(BoxCollider) p_moved_collider);
+	inline void push_collider_for_deletion(const Token(BoxCollider) p_collider);
+	inline void push_collider_detector_for_deletion(const Token(BoxCollider) p_collider, const Token(ColliderDetector) p_detector);
 
 private:
 
@@ -155,7 +155,7 @@ private:
 	inline void remove_current_step_event_duplicates();
 	inline void udpate_triggerstate_from_intersectionevents();
 	inline void clear_current_step_events();
-	inline void set_triggerstate_matchingWith_boxcollider(const Token<ColliderDetector> p_collision_detector, const Token(BoxCollider) p_matched_boxcollider, const Trigger::State p_trigger_state);
+	inline void set_triggerstate_matchingWith_boxcollider(const Token(ColliderDetector) p_collision_detector, const Token(BoxCollider) p_matched_boxcollider, const Trigger::State p_trigger_state);
 	inline void udpate_triggerstate_from_lastframe_intersectionevents();
 	inline void free_deleted_colliders();
 };

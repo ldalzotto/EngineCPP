@@ -54,20 +54,22 @@ namespace v2
 		this->component_heap.free();
 	};
 
-	inline Token<Scene::NodeComponentHeader> Scene::Heap::allocate_component(const Token<Node> p_node, const SceneNodeComponentType& p_component_type, const char* p_initial_value)
+	inline Token(Scene::NodeComponentHeader) Scene::Heap::allocate_component(const Token(Node) p_node, const SceneNodeComponentType& p_component_type, const char* p_initial_value)
 	{
-		return token_cast_v(NodeComponentHeader, this->component_heap.allocate_element(Slice<char>::build_memory_elementnb(cast(char*, p_initial_value), p_component_type.size)));
+		return tk_bf(NodeComponentHeader,
+			this->component_heap.allocate_element(Slice<char>::build_memory_elementnb(cast(char*, p_initial_value), p_component_type.size))
+		);
 	};
 
-	inline Scene::NodeComponentHeader& Scene::Heap::get_component(const Token<NodeComponentHeader> p_component_header)
+	inline Scene::NodeComponentHeader& Scene::Heap::get_component(const Token(NodeComponentHeader) p_component_header)
 	{
-		return (Scene::NodeComponentHeader&)*this->component_heap.get(token_cast_p(SliceIndex, &p_component_header)).Begin;
+		return (Scene::NodeComponentHeader&)*this->component_heap.get(tk_bf(SliceIndex, p_component_header)).Begin;
 	};
 
 
-	inline void Scene::Heap::free_component(const Token<NodeComponentHeader> p_component)
+	inline void Scene::Heap::free_component(const Token(NodeComponentHeader) p_component)
 	{
-		this->component_heap.release_element(token_cast_p(SliceIndex, &p_component));
+		this->component_heap.release_element(tk_bf(SliceIndex, p_component));
 	};
 
 
@@ -86,20 +88,20 @@ namespace v2
 	inline void free();
 
 
-	inline Token<Scene::Node> Scene::add_node(const transform& p_initial_local_transform)
+	inline Token(Scene::Node) Scene::add_node(const transform& p_initial_local_transform)
 	{
-		this->allocate_node(p_initial_local_transform, token_build_default<Node>());
+		this->allocate_node(p_initial_local_transform, tk_bd(Node));
 	};
 
-	inline NTree<Scene::Node>::Resolve Scene::get_node_resolve(const Token<Node> p_node)
+	inline NTree<Scene::Node>::Resolve Scene::get_node_resolve(const Token(Node) p_node)
 	{
 		return this->node_tree.get(p_node);
 	};
 
 
-	inline Token<Scene::Node> Scene::allocate_node(const transform& p_initial_local_transform, const Token<Node> p_parent)
+	inline Token(Scene::Node) Scene::allocate_node(const transform& p_initial_local_transform, const Token(Node) p_parent)
 	{
-		Token<Node> l_node = this->node_tree.push_value(
+		Token(Node) l_node = this->node_tree.push_value(
 			Node::build(Node::State::build(1, 1), p_initial_local_transform),
 			p_parent
 		);

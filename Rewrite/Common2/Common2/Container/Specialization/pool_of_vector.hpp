@@ -7,7 +7,7 @@ namespace v2
 	using PoolOfVectorMemory_t = VectorOfVector<ElementType>;
 
 	template<class ElementType>
-	using PoolOfVectorToken = Token<Slice<ElementType>>;
+	using PoolOfVectorToken = Token(Slice<ElementType>);
 
 	template<class ElementType>
 	using PoolOfVectorFreeBlocks_t = Vector<PoolOfVectorToken<ElementType>>;
@@ -43,7 +43,7 @@ namespace v2
 		{
 			for (vector_loop(&this->FreeBlocks, i))
 			{
-				if (this->FreeBlocks.get(i).tok == p_token.tok)
+				if (tk_eq(this->FreeBlocks.get(i), p_token))
 				{
 					return 1;
 				}
@@ -62,7 +62,7 @@ namespace v2
 			{
 				PoolOfVectorToken<ElementType> l_token = this->FreeBlocks.get(this->FreeBlocks.Size - 1);
 				this->FreeBlocks.pop_back();
-				this->Memory.element_push_back_array(l_token.tok, p_initial_elements);
+				this->Memory.element_push_back_array(tk_v(l_token), p_initial_elements);
 				return l_token;
 			}
 			else
@@ -93,7 +93,7 @@ namespace v2
 			this->token_not_free_check(p_token);
 #endif
 
-			this->Memory.element_clear(p_token.tok);
+			this->Memory.element_clear(tk_v(p_token));
 			this->FreeBlocks.push_back_element(p_token);
 		};
 
@@ -103,7 +103,7 @@ namespace v2
 			this->token_not_free_check(p_token);
 #endif
 
-			return this->Memory.get(p_token.tok);
+			return this->Memory.get(tk_v(p_token));
 		};
 
 		inline void element_push_back_element(const PoolOfVectorToken<ElementType> p_token, const ElementType& p_element)
@@ -112,7 +112,7 @@ namespace v2
 			this->token_not_free_check(p_token);
 #endif
 
-			this->Memory.element_push_back_element(p_token.tok, p_element);
+			this->Memory.element_push_back_element(tk_v(p_token), p_element);
 		};
 
 		inline void element_erase_element_at(const PoolOfVectorToken<ElementType> p_token, const size_t p_index)
@@ -120,7 +120,7 @@ namespace v2
 #if CONTAINER_BOUND_TEST
 			this->token_not_free_check(p_token);
 #endif
-			this->Memory.element_erase_element_at(p_token.tok, p_index);
+			this->Memory.element_erase_element_at(tk_v(p_token), p_index);
 		};
 
 		inline void element_erase_element_at_always(const PoolOfVectorToken<ElementType> p_token, const size_t p_index)
@@ -128,7 +128,7 @@ namespace v2
 #if CONTAINER_BOUND_TEST
 			this->token_not_free_check(p_token);
 #endif
-			this->Memory.element_erase_element_at_always(p_token.tok, p_index);
+			this->Memory.element_erase_element_at_always(tk_v(p_token), p_index);
 		};
 
 	private:

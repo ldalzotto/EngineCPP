@@ -108,18 +108,18 @@ namespace v2
 			return AllocationState::ALLOCATED;
 		};
 
-		inline SliceIndex* get(const Token(SliceIndex)* p_chunk)
+		inline SliceIndex* get(const Token(SliceIndex) p_chunk)
 		{
-			return &this->AllocatedChunks.get(*p_chunk);
+			return &this->AllocatedChunks.get(p_chunk);
 		};
 
-		inline void release_element(const Token(SliceIndex)* p_chunk)
+		inline void release_element(const Token(SliceIndex) p_chunk)
 		{
-			this->FreeChunks.push_back_element(this->AllocatedChunks.get(*p_chunk));
-			this->AllocatedChunks.release_element(*p_chunk);
+			this->FreeChunks.push_back_element(this->AllocatedChunks.get(p_chunk));
+			this->AllocatedChunks.release_element(p_chunk);
 		};
 
-		inline AllocationState reallocate_element(const Token(SliceIndex)* p_chunk, const size_t p_new_size, AllocatedElementReturn* out_chunk)
+		inline AllocationState reallocate_element(const Token(SliceIndex) p_chunk, const size_t p_new_size, AllocatedElementReturn* out_chunk)
 		{
 			AllocationState l_allocation = this->allocate_element(p_new_size, out_chunk);
 			if ((AllocationState_t)l_allocation & (AllocationState_t)AllocationState::ALLOCATED)

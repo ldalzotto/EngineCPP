@@ -16,7 +16,7 @@ namespace v2
 
 		inline static NTreeNode build_index_childs(const Token(NTreeNode) p_index, const  PoolOfVectorToken<Token(NTreeNode)> p_childs)
 		{
-			return NTreeNode{ p_index, token_build_default<NTreeNode>(), p_childs };
+			return NTreeNode{ p_index, tk_bd(NTreeNode), p_childs };
 		};
 	};
 
@@ -44,7 +44,7 @@ namespace v2
 
 			inline char has_parent() const
 			{
-				return this->Node->parent.tok != -1;
+				return tk_v(this->Node->parent) != -1;
 			};
 		};
 
@@ -70,13 +70,13 @@ namespace v2
 		{
 			return Resolve::build(
 				&this->Memory.get(p_token),
-				&this->Indices.get(token_cast_v(NTreeNode, p_token))
+				&this->Indices.get(tk_bf(NTreeNode, p_token))
 			);
 		};
 
 		inline Resolve get_from_node(const Token(NTreeNode) p_token)
 		{
-			return this->get(token_cast_v(ElementType, p_token));
+			return this->get(tk_bf(ElementType, p_token));
 		};
 
 		inline ElementType& get_value(const Token(ElementType) p_token)
@@ -89,14 +89,14 @@ namespace v2
 			return this->Indices_childs.get_vector(p_child_token);
 		};
 
-		inline Slice<Token(NTreeNode)> get_childs_from_node(const Token<NTreeNode> p_node)
+		inline Slice<Token(NTreeNode)> get_childs_from_node(const Token(NTreeNode) p_node)
 		{
 			return this->get_childs(this->get_from_node(p_node).Node->childs);
 		};
 
 		inline char add_child(const Resolve& p_parent, Resolve& p_new_child)
 		{
-			if (p_parent.Node->index.tok != p_new_child.Node->index.tok)
+			if (!tk_eq(p_parent.Node->index, p_new_child.Node->index))
 			{
 				this->detach_from_tree(p_new_child);
 
@@ -108,7 +108,7 @@ namespace v2
 			return 0;
 		};
 
-		inline char add_child(const Token<ElementType> p_parent, const Token<ElementType> p_new_child)
+		inline char add_child(const Token(ElementType) p_parent, const Token(ElementType) p_new_child)
 		{
 			return this->add_child(this->get(p_parent), this->get(p_new_child));
 		};
@@ -131,14 +131,14 @@ namespace v2
 			Token(ElementType) l_element;
 			Token(NTreeNode) l_node;
 			NTreeChildsToken l_childs;
-			this->allocate_node(token_cast_v(NTreeNode, p_parent), p_element, &l_element, &l_node, &l_childs);
+			this->allocate_node(tk_bf(NTreeNode, p_parent), p_element, &l_element, &l_node, &l_childs);
 			return l_element;
 		};
 
 		template<class ForEachFunc>
 		inline void traverse2(const Token(NTreeNode) p_current_node)
 		{
-			Resolve l_node = this->get(token_cast_v(ElementType, p_current_node));
+			Resolve l_node = this->get(tk_bf(ElementType, p_current_node));
 			ForEachFunc::foreach(l_node);
 			Slice<Token(NTreeNode)> l_childs = this->get_childs(l_node.Node->childs);
 			for (size_t i = 0; i < l_childs.Size; i++)
@@ -150,7 +150,7 @@ namespace v2
 		template<class ForEachObj>
 		inline void traverse2_stateful(const Token(NTreeNode) p_current_node, ForEachObj& p_foreach_obj)
 		{
-			Resolve l_node = this->get(token_cast_v(ElementType, p_current_node));
+			Resolve l_node = this->get(tk_bf(ElementType, p_current_node));
 			p_foreach_obj.foreach(l_node);
 			Slice<Token(NTreeNode)> l_childs = this->get_childs(l_node.Node->childs);
 			for (size_t i = 0; i < l_childs.Size; i++)
@@ -180,7 +180,7 @@ namespace v2
 			for (vector_loop(&l_involved_nodes, i))
 			{
 				Resolve& l_removed_node = l_involved_nodes.get(i);
-				this->Memory.release_element(token_cast_v(ElementType, l_removed_node.Node->index));
+				this->Memory.release_element(tk_bf(ElementType, l_removed_node.Node->index));
 				this->Indices.release_element(l_removed_node.Node->index);
 				this->Indices_childs.release_vector(l_removed_node.Node->childs);
 			}
@@ -194,7 +194,7 @@ namespace v2
 		{
 			*out_created_element = this->Memory.alloc_element(p_element);
 			*out_created_childs = this->Indices_childs.alloc_vector();
-			*out_created_index = this->Indices.alloc_element(NTreeNode::build(token_cast_v(NTreeNode, *out_created_element), p_parent, *out_created_childs));
+			*out_created_index = this->Indices.alloc_element(NTreeNode::build(tk_bf(NTreeNode, *out_created_element), p_parent, *out_created_childs));
 
 			this->Indices_childs.element_push_back_element(this->get_from_node(p_parent).Node->childs, *out_created_index);
 		};
@@ -203,7 +203,7 @@ namespace v2
 		{
 			*out_created_element = this->Memory.alloc_element(p_element);
 			*out_created_childs = this->Indices_childs.alloc_vector();
-			*out_created_index = this->Indices.alloc_element(NTreeNode::build_index_childs(token_cast_v(NTreeNode, *out_created_element), *out_created_childs));
+			*out_created_index = this->Indices.alloc_element(NTreeNode::build_index_childs(tk_bf(NTreeNode, *out_created_element), *out_created_childs));
 		};
 
 		inline void detach_from_tree(Resolve& p_node)
@@ -214,14 +214,14 @@ namespace v2
 				Slice<Token(NTreeNode)> l_parent_childs = this->Indices_childs.get_vector(l_parent.Node->childs);
 				for (loop(i, 0, l_parent_childs.Size))
 				{
-					if (l_parent_childs.get(i).tok == p_node.Node->index.tok)
+					if (tk_eq(l_parent_childs.get(i), p_node.Node->index))
 					{
 						this->Indices_childs.element_erase_element_at_always(l_parent.Node->childs, i);
 						break;
 					}
 				}
 			}
-			p_node.Node->parent = token_build_default<NTreeNode>();
+			p_node.Node->parent = tk_bd(NTreeNode);
 		};
 
 	};

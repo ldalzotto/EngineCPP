@@ -60,19 +60,19 @@ namespace v2
             return this->allocate_element_typed(&p_element);
         };
 
-        inline void release_element(const Token(SliceIndex) * p_chunk)
+        inline void release_element(const Token(SliceIndex) p_chunk)
         {
             this->_Heap.release_element(p_chunk);
         };
 
-        inline Slice<char> get(const Token(SliceIndex) * p_chunk)
+        inline Slice<char> get(const Token(SliceIndex) p_chunk)
         {
             SliceIndex *l_chunk_slice = this->_Heap.get(p_chunk);
             return Slice<char>::build_memory_offset_elementnb(this->Memory.Memory, l_chunk_slice->Begin, l_chunk_slice->Size);
         };
 
         template <class ElementType>
-        inline ElementType *get_typed(const Token(SliceIndex) * p_chunk)
+        inline ElementType *get_typed(const Token(SliceIndex) p_chunk)
         {
             return slice_cast_singleelement<ElementType>(this->get(p_chunk));
         };
