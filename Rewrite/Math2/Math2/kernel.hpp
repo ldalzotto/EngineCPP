@@ -755,3 +755,11 @@ inline m44f m44f::perspective(const float p_fov, const float p_aspect, const flo
 
 	return l_return;
 };
+
+
+inline char transform::operator==(const transform& p_other)
+{
+	return (this->position == p_other.position)
+		& (this->rotation == p_other.rotation)
+		& (this->scale == p_other.scale);
+};

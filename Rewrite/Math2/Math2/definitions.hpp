@@ -269,6 +269,8 @@ struct transform
 	v3f position;
 	quat rotation;
 	v3f scale;
+
+	char operator==(const transform& p_other);
 };
 
 struct transform_const

@@ -52,7 +52,7 @@ struct Slice
 	inline ElementType& get(const size_t p_index)
 	{
 #if CONTAINER_BOUND_TEST
-		if(p_index >= this->Size)
+		if (p_index >= this->Size)
 		{
 			abort();
 		}
@@ -141,6 +141,12 @@ inline Slice<CastedType> slice_cast_fixedelementnb(const Slice<char>& p_slice, c
 	return slice_build_memory_elementnb(cast(CastedType*, p_slice.Begin), p_element_nb);
 };
 
+#if TOKEN_TYPE_SAFETY
+#define sliceoftoken_cast(CastedType, SourceSlice) Slice<Token(CastedType)>{(SourceSlice).Size, (Token(CastedType)*)(SourceSlice).Begin}
+#else
+#define sliceoftoken_cast(CastedType, SourceSlice) SourceSlice
+#endif
+
 
 
 
@@ -159,7 +165,7 @@ template<class ElementType>
 inline char* slice_memcpy(const Slice<ElementType>& p_target, const Slice<ElementType>& p_source)
 {
 #if STANDARD_ALLOCATION_BOUND_TEST
-	return memory_cpy_safe(cast(char*, p_target.Begin), p_target.Size *sizeof(ElementType), cast(char*, p_source.Begin), p_source.Size * sizeof(ElementType));
+	return memory_cpy_safe(cast(char*, p_target.Begin), p_target.Size * sizeof(ElementType), cast(char*, p_source.Begin), p_source.Size * sizeof(ElementType));
 #else
 	return memory_cpy((char*)p_target.Begin, (char*)p_source.Begin, p_source.Size * sizeof(ElementType));
 #endif
