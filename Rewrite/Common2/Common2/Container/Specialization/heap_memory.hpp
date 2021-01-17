@@ -43,6 +43,14 @@ namespace v2
             return l_heap_allocated_element.token;
         };
 
+        inline Token(SliceIndex) allocate_empty_element_return_chunk(const size_t p_element_size, Slice<char>* out_chunk)
+        {
+            Heap::AllocatedElementReturn l_heap_allocated_element;
+            this->handle_heap_allocation_state(this->_Heap.allocate_element(p_element_size, &l_heap_allocated_element));
+            *out_chunk = Slice<char>::build_memory_elementnb(&this->Memory.Memory[l_heap_allocated_element.Offset], p_element_size);
+            return l_heap_allocated_element.token;
+        };
+
         inline Token(SliceIndex) allocate_element(const Slice<char> p_element_bytes)
         {
             return this->allocate_element(&p_element_bytes);

@@ -94,7 +94,7 @@ namespace v2
 			return this->get_childs(this->get_from_node(p_node).Node->childs);
 		};
 
-		inline char add_child(const Resolve& p_parent, Resolve& p_new_child)
+		inline char add_child(const Resolve& p_parent, const  Resolve& p_new_child)
 		{
 			if (!tk_eq(p_parent.Node->index, p_new_child.Node->index))
 			{
@@ -199,6 +199,11 @@ namespace v2
 			this->remove_nodes(p_removed_nodes);
 		};
 
+		inline void make_node_orphan(Resolve& p_node)
+		{
+			this->detach_from_tree(p_node);
+		};
+
 	private:
 
 		inline void allocate_node(const Token(NTreeNode) p_parent, const ElementType& p_element, Token(ElementType)* out_created_element, Token(NTreeNode)* out_created_index, NTreeChildsToken* out_created_childs)
@@ -217,7 +222,7 @@ namespace v2
 			*out_created_index = this->Indices.alloc_element(NTreeNode::build_index_childs(tk_bf(NTreeNode, *out_created_element), *out_created_childs));
 		};
 
-		inline void detach_from_tree(Resolve& p_node)
+		inline void detach_from_tree(const Resolve& p_node)
 		{
 			if (p_node.has_parent())
 			{

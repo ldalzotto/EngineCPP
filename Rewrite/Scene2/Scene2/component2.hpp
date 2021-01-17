@@ -7,7 +7,7 @@ namespace v2
 		size_t id;
 		size_t size;
 
-		inline static SceneNodeComponentType build(const size_t p_id, const size_t p_size)
+		inline static constexpr SceneNodeComponentType build(const size_t p_id, const size_t p_size)
 		{
 			return SceneNodeComponentType{ p_id,p_size };
 		};

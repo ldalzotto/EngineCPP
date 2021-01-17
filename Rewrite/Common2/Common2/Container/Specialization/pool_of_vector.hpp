@@ -131,6 +131,15 @@ namespace v2
 			this->Memory.element_erase_element_at_always(tk_v(p_token), p_index);
 		};
 
+		inline void element_clear(const PoolOfVectorToken<ElementType> p_token)
+		{
+
+#if CONTAINER_BOUND_TEST
+			this->token_not_free_check(p_token);
+#endif
+			this->Memory.element_clear(tk_v(p_token));
+		};
+
 	private:
 		inline void token_not_free_check(const PoolOfVectorToken<ElementType> p_token)
 		{
