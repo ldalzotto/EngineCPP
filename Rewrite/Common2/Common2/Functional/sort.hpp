@@ -33,5 +33,6 @@ struct StructName\
 #define sort_linear2_end(SliceVariable, ElementType, StructName) \
 	};\
 };\
-Sort::Linear2<ElementType, StructName>((SliceVariable), 0);
+auto l_slice_variable_##StructName = (SliceVariable); \
+Sort::Linear2<ElementType, StructName>(l_slice_variable_##StructName, 0);
 

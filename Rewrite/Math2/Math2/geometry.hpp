@@ -168,9 +168,9 @@ inline char obb::overlap2(const obb& p_other) const
 	m33f l_radii, l_radii_abs;
 	v3f l_t;
 
-	for (char i = 0; i < 3; i++)
+	for (unsigned char i = 0; i < 3; i++)
 	{
-		for (char j = 0; j < 3; j++)
+		for (unsigned char j = 0; j < 3; j++)
 		{
 			l_radii.Points2D[i].Points[j] = this->axis.Points2D[i].dot(p_other.axis.Points2D[j]);
 			l_radii_abs.Points2D[i].Points[j] = fabsf(l_radii.Points2D[i].Points[j]) + v2::Math::tol_f;
@@ -180,14 +180,14 @@ inline char obb::overlap2(const obb& p_other) const
 	l_t = p_other.box.center - this->box.center;
 	l_t = v3f{ l_t.dot(this->axis.Points2D[0]), l_t.dot(this->axis.Points2D[1]), l_t.dot(this->axis.Points2D[2]) };
 
-	for (char i = 0; i < 3; i++)
+	for (unsigned char i = 0; i < 3; i++)
 	{
 		l_left_radii_projected = this->box.radiuses.Points[i];
 		l_right_radii_projected = (p_other.box.radiuses.Points[0] * l_radii_abs.Points2D[i].Points[0]) + (p_other.box.radiuses.Points[1] * l_radii_abs.Points2D[i].Points[1]) + (p_other.box.radiuses.Points[2] * l_radii_abs.Points2D[i].Points[2]);
 		if (fabsf(l_t.Points[i]) > (l_left_radii_projected + l_right_radii_projected)) return false;
 	}
 
-	for (char i = 0; i < 3; i++)
+	for (unsigned char i = 0; i < 3; i++)
 	{
 		l_left_radii_projected = (this->box.radiuses.Points[0] * l_radii_abs.Points2D[0].Points[i]) + (this->box.radiuses.Points[1] * l_radii_abs.Points2D[1].Points[i]) + (this->box.radiuses.Points[2] * l_radii_abs.Points2D[2].Points[i]);
 		l_right_radii_projected = p_other.box.radiuses.Points[i];

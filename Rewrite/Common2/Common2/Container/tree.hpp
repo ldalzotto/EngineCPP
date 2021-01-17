@@ -108,9 +108,11 @@ namespace v2
 			return 0;
 		};
 
+
 		inline char add_child(const Token(ElementType) p_parent, const Token(ElementType) p_new_child)
 		{
-			return this->add_child(this->get(p_parent), this->get(p_new_child));
+			Resolve l_new_child_value = this->get(p_new_child);
+			return this->add_child(this->get(p_parent), l_new_child_value);
 		};
 
 
@@ -159,33 +161,42 @@ namespace v2
 			};
 		}
 
-		//TODO -> having a "Flatten Tree" structure ?
-		inline void get_nodetree_flattened(const Token(NTreeNode) p_start_node, Vector<Resolve>* in_out_nodes)
+		inline void get_nodes(const Token(NTreeNode) p_start_node_included, Vector<Resolve>* in_out_nodes)
 		{
 			struct RemoveForEach {
 				Vector<Resolve>* involved_nodes;
 				inline void foreach(const Resolve& p_node) { this->involved_nodes->push_back_element(p_node); }
 			};
-			this->traverse2_stateful(p_start_node, RemoveForEach{ in_out_nodes });
+			RemoveForEach l_remove_foreach = RemoveForEach {in_out_nodes};
+			this->traverse2_stateful(p_start_node_included, l_remove_foreach);
 		};
 
-		inline void remove_node(const Token(NTreeNode) p_node)
+		inline void remove_node_recursively(const Token(NTreeNode) p_node)
 		{
 			Vector<Resolve> l_involved_nodes = Vector<Resolve>::allocate(0);
-			this->get_nodetree_flattened(p_node, &l_involved_nodes);
+			this->get_nodes(p_node, &l_involved_nodes);
 
-			
-			//TODO -> allowing to do this part separately
-			this->detach_from_tree(l_involved_nodes.get(0));
-			for (vector_loop(&l_involved_nodes, i))
+			Slice<Resolve> l_involved_nodes_slice = l_involved_nodes.to_slice();
+			this->remove_nodes_and_detach(l_involved_nodes_slice);
+
+			l_involved_nodes.free();
+		};
+
+		inline void remove_nodes(const Slice<Resolve>& p_removed_nodes)
+		{
+			for (loop(i, 0, p_removed_nodes.Size))
 			{
-				Resolve& l_removed_node = l_involved_nodes.get(i);
+				const Resolve& l_removed_node = p_removed_nodes.get(i);
 				this->Memory.release_element(tk_bf(ElementType, l_removed_node.Node->index));
 				this->Indices.release_element(l_removed_node.Node->index);
 				this->Indices_childs.release_vector(l_removed_node.Node->childs);
 			}
+		};
 
-			l_involved_nodes.free();
+		inline void remove_nodes_and_detach(Slice<Resolve>& p_removed_nodes)
+		{
+			this->detach_from_tree(p_removed_nodes.get(0));
+			this->remove_nodes(p_removed_nodes);
 		};
 
 	private:
@@ -235,21 +246,22 @@ namespace v2
 struct ForEachObjStructName\
 {\
 	StateParameters; \
-	inline void foreach(const NTree<##ElementType##>::Resolve& p_node) \
+	inline void foreach(const NTree<ElementType>::Resolve& p_node) \
 	{
 
 #define tree_traverse2_stateful_end(ElementType, TreeVariable, StartToken, StateParameterValues, ForEachObjStructName) \
 	};\
 };\
-(TreeVariable)->traverse2_stateful((StartToken), ForEachObjStructName{ StateParameterValues });
+auto l_foreach_obj_##ForEachObjStructName = ForEachObjStructName{ StateParameterValues }; \
+(TreeVariable)->traverse2_stateful((StartToken), l_foreach_obj_##ForEachObjStructName);
 
 #define tree_traverse2_begin(ElementType, ForEachObjStructName) \
 struct ForEachObjStructName\
 {\
-	inline static void foreach(const NTree<##ElementType##>::Resolve& p_node) \
+	inline static void foreach(const NTree<ElementType>::Resolve& p_node) \
 	{
 
 #define tree_traverse2_end(ElementType, TreeVariable, StartToken, ForEachObjStructName) \
 	};\
 };\
-(TreeVariable)->traverse2<##ForEachObjStructName##>((StartToken));
+(TreeVariable)->traverse2<ForEachObjStructName>((StartToken));

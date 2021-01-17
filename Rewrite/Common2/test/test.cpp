@@ -201,7 +201,7 @@ namespace v2
 
 		for (pool_loop(&l_pool_sizet, i))
 		{
-			size_t l_element = l_pool_sizet.get(Token(size_t) { i });
+			l_pool_sizet.get(Token(size_t) { i });
 		}
 
 		{
@@ -220,8 +220,8 @@ namespace v2
 		{
 			assert_true(l_varyingvector.memory.Size == 0);
 
-			char* l_10_element = "abcdefhikl";
-			Slice<char> l_slice = Slice<char>::build_memory_elementnb(l_10_element, 10);
+			const char* l_10_element = "abcdefhikl";
+			Slice<char> l_slice = Slice<char>::build_memory_elementnb((char*)l_10_element, 10);
 			l_varyingvector.push_back(l_slice);
 
 			assert_true(l_varyingvector.get_size() == 1);
@@ -604,7 +604,6 @@ namespace v2
 		// traversing test
 		{
 			size_t l_counter = 0;
-			size_t l_counter_2 = 1;
 
 			tree_traverse2_stateful_begin(size_t, size_t * l_counter, CounterForEach);
 			*this->l_counter += 1;
@@ -621,7 +620,7 @@ namespace v2
 
 		// removal test
 		{
-			l_size_t_tree.remove_node(tk_bf(NTreeNode, l_2_node));
+			l_size_t_tree.remove_node_recursively(tk_bf(NTreeNode, l_2_node));
 
 			NTree<size_t>::Resolve l_root_node = l_size_t_tree.get(l_root);
 			Slice<Token(NTreeNode)> l_root_node_childs = l_size_t_tree.get_childs(l_root_node.Node->childs);
@@ -780,7 +779,7 @@ namespace v2
 		// resize
 		{
 			size_t l_initial_heap_size = l_heap_memory.Memory.Capacity;
-			Token(SliceIndex) l_chunk = l_heap_memory.allocate_empty_element(30 * sizeof(size_t));
+			l_heap_memory.allocate_empty_element(30 * sizeof(size_t));
 			assert_true(l_heap_memory.Memory.Capacity != l_initial_heap_size);
 			assert_true(l_heap_memory._Heap.Size != l_initial_heap_size);
 			size_t* l_st = l_heap_memory.get_typed<size_t>(l_sigle_sizet_chunk);

@@ -59,7 +59,7 @@ struct alignas(sizeof(float)) v3f
 	v3f operator*(const v3f& p_other) const;
 	v3f operator-(const v3f& p_other) const;
 	char operator==(const v3f& p_other) const;
-	float& operator[](const char p_index);
+	float& operator[](const unsigned char p_index);
 	float dot(const v3f& p_other) const;
 	v3f cross(const v3f& p_other) const;
 	float length() const;
@@ -109,7 +109,7 @@ struct alignas(sizeof(float)) v4f
 	char operator==(const v4f& p_other) const;
 	v4f operator*(const float p_other) const;
 	v4f operator*(const v4f& p_other) const;
-	float& operator[](const char p_index);
+	float& operator[](const unsigned char p_index);
 	float length() const;
 };
 
@@ -185,7 +185,7 @@ struct alignas(sizeof(float)) m33f
 	};
 
 	char operator==(const m33f& p_other) const;
-	v3f& operator[](const char p_index);
+	v3f& operator[](const unsigned char p_index);
 	quat to_rotation() const; // Converts a 3D axis matrix to rotation as quaternion
 };
 
@@ -220,18 +220,18 @@ struct alignas(sizeof(float)) m44f
 		};
 	};
 
-	static float mul_line_column(const m44f& p_left, const m44f& p_right, const char p_column_index, const char p_line_index);
-	static float mul_line_vec(const m44f& p_left, const v4f& p_right, const char p_line_index);
+	static float mul_line_column(const m44f& p_left, const m44f& p_right, const unsigned char p_column_index, const unsigned char p_line_index);
+	static float mul_line_vec(const m44f& p_left, const v4f& p_right, const unsigned char p_line_index);
 
 	m44f operator*(const m44f& p_other) const;
 	v4f operator*(const v4f& p_other) const;
 	m44f operator*(const float p_other) const;
 	m44f operator+(const float p_other) const;
 	char operator==(const m44f& p_other) const;
-	v4f& operator[](const char p_index);
-	const v4f& operator[](const char p_index) const;
+	v4f& operator[](const unsigned char p_index);
+	const v4f& operator[](const unsigned char p_index) const;
 
-	float det(const char p_column_index, const char p_line_index) const;
+	float det(const unsigned char p_column_index, const unsigned char p_line_index) const;
 	m44f inv() const;
 
 	static m44f build_translation(const v3f& p_translation);

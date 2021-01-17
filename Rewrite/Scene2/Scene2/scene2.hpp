@@ -90,7 +90,7 @@ namespace v2
 
 	inline Token(Scene::Node) Scene::add_node(const transform& p_initial_local_transform)
 	{
-		this->allocate_node(p_initial_local_transform, tk_bd(Node));
+		return this->allocate_node(p_initial_local_transform, tk_bd(Node));
 	};
 
 	inline NTree<Scene::Node>::Resolve Scene::get_node_resolve(const Token(Node) p_node)
@@ -109,7 +109,7 @@ namespace v2
 		return l_node;
 	};
 
-	inline void Scene::add_child(const NTree<Node>::Resolve& p_parent, NTree<Node>::Resolve& p_child)
+	inline void Scene::add_child(const NodeEntry& p_parent, NodeEntry& p_child)
 	{
 		if (this->node_tree.add_child(p_parent, p_child))
 		{
@@ -117,7 +117,7 @@ namespace v2
 		}
 	};
 
-	inline void Scene::mark_node_for_recalculation_tree(const NTree<Node>::Resolve& p_node)
+	inline void Scene::mark_node_for_recalculation_tree(const NodeEntry& p_node)
 	{
 		tree_traverse2_begin(Node, Foreach)
 			p_node.Element->mark_for_recaluclation();
@@ -131,9 +131,24 @@ namespace v2
 		return this->node_to_components.get_vector(PoolOfVectorToken<Token<NodeComponentHeader>>{p_node.tok});
 	};
 	*/
-	/*
-	inline void Scene::free_node(const Token<Node> p_node)
+
+	inline void Scene::free_node_recurvise(const NodeEntry& p_node)
 	{
+		/*
+		Vector<NodeEntry> l_deleted_nodes = Vector<NodeEntry>::allocate(0);
+		this->node_tree.get_nodes(tk_bf(NTreeNode, p_node), &l_deleted_nodes);
+		
+		//TODO -> foreach nodes
+		for (loop(i, 0, l_deleted_nodes.Size))
+		{
+			this->free_node(l_deleted_nodes.get(i));
+		}
+
+		this->node_tree.remove_nodes_and_detach(l_deleted_nodes.to_slice());
+		l_deleted_nodes.free();
+		*/
+
+		/*
 		Slice<Token<Scene::NodeComponentHeader>> l_node_components = this->get_components_token(p_node);
 		for (loop(i, 0, l_node_components.Size))
 		{
@@ -141,6 +156,12 @@ namespace v2
 		}
 		this->node_to_components.release_vector(PoolOfVectorToken<Token<NodeComponentHeader>>{p_node.tok});
 		this->node_tree.remove_node(token_cast_v(NTreeNode, p_node));
+		*/
 	};
-	*/
+
+
+	inline void Scene::free_node(const NTree<Node>::Resolve& p_node)
+	{
+		//TODO
+	};
 }

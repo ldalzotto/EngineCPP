@@ -8,6 +8,7 @@ namespace v2
 {
 	struct Scene
 	{
+
 		struct Node
 		{
 			struct State
@@ -30,6 +31,8 @@ namespace v2
 
 			void mark_for_recaluclation();
 		};
+
+		using NodeEntry = NTree<Node>::Resolve;
 
 		/* The header of every components allocated on the heap. */
 		struct NodeComponentHeader
@@ -71,12 +74,12 @@ namespace v2
 
 	private:
 		Token(Node) allocate_node(const transform& p_initial_local_transform, const Token(Node) p_parent);
-		void add_child(const NTree<Node>::Resolve& p_parent, NTree<Node>::Resolve& p_child);
-		void mark_node_for_recalculation_tree(const NTree<Node>::Resolve& p_node);
+		void add_child(const NodeEntry& p_parent, NodeEntry& p_child);
+		void mark_node_for_recalculation_tree(const NodeEntry& p_node);
 		
 		// Slice<Token<NodeComponentHeader>> get_node_components_token(const Token<Node> p_node);
-		void free_node(const Token(Node) p_node);
-
+		void free_node_recurvise(const NodeEntry& p_node);
+		void free_node(const NodeEntry& p_node);
 	};
 
 }

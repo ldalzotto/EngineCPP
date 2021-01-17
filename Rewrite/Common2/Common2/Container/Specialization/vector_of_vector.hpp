@@ -78,7 +78,7 @@ namespace v2
 
 		inline static VectorOfVector<ElementType> allocate_default()
 		{
-			return castv(VectorOfVector<ElementType>, VaryingVector::allocate_default());
+			return VectorOfVector<ElementType>{VaryingVector::allocate_default()};
 		};
 
 		inline void free()

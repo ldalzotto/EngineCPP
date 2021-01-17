@@ -19,6 +19,7 @@ namespace v2
 		{
 			String l_string = String{ Vector<char>::allocate_capacity_elements(p_initial_elements.Size + 1, p_initial_elements) };
 			l_string.Memory.push_back_element((char)NULL);
+			return l_string;
 		};
 
 		inline void free()

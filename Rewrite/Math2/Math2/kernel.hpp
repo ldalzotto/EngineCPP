@@ -124,7 +124,7 @@ inline char v3f::operator==(const v3f& p_other) const
 		v2::Math::equals(this->Points[2], p_other.Points[2]);
 };
 
-inline float& v3f::operator[](const char p_index)
+inline float& v3f::operator[](const unsigned char p_index)
 {
 	return this->Points[p_index];
 };
@@ -276,7 +276,7 @@ inline v4f v4f::operator*(const v4f& p_other) const
 	return math_v4f_foreach_2(this, &p_other, math_mul_op);
 };
 
-inline float& v4f::operator[](const char p_index)
+inline float& v4f::operator[](const unsigned char p_index)
 {
 	return this->Points[p_index];
 };
@@ -472,9 +472,9 @@ inline quat m33f::to_rotation() const
 }
 
 #define mat_foreach_element_begin(Dimension) \
-for (char p_column_index = 0; p_column_index < Dimension; p_column_index++) \
+for (unsigned char p_column_index = 0; p_column_index < Dimension; p_column_index++) \
 {\
-    for (char p_line_index = 0; p_line_index < Dimension; p_line_index++)\
+    for (unsigned  char p_line_index = 0; p_line_index < Dimension; p_line_index++)\
     {
 
 #define mat_foreach_element_end() \
@@ -492,13 +492,13 @@ inline char m33f::operator==(const m33f& p_other) const
 	return 1;
 };
 
-inline v3f& m33f::operator[](const char p_index)
+inline v3f& m33f::operator[](const unsigned char p_index)
 {
 	return this->Points2D[p_index];
 };
 
 
-inline float m44f::mul_line_column(const m44f& p_left, const m44f& p_right, const char p_column_index, const char p_line_index)
+inline float m44f::mul_line_column(const m44f& p_left, const m44f& p_right, const unsigned char p_column_index, const unsigned char p_line_index)
 {
 	float l_return = 0;
 	for (short int i = 0; i < 4; i++)
@@ -508,7 +508,7 @@ inline float m44f::mul_line_column(const m44f& p_left, const m44f& p_right, cons
 	return l_return;
 };
 
-inline float m44f::mul_line_vec(const m44f& p_left, const v4f& p_right, const char p_line_index)
+inline float m44f::mul_line_vec(const m44f& p_left, const v4f& p_right, const unsigned char p_line_index)
 {
 	float l_return = v2::Math::zero_f;
 	for (short int i = 0; i < 4; i++)
@@ -567,29 +567,29 @@ inline char m44f::operator==(const m44f& p_other) const
 	return 1;
 };
 
-inline v4f& m44f::operator[](const char p_index)
+inline v4f& m44f::operator[](const unsigned char p_index)
 {
 	return this->Points2D[p_index];
 };
 
-inline const v4f& m44f::operator[](const char p_index) const
+inline const v4f& m44f::operator[](const unsigned char p_index) const
 {
 	return this->Points2D[p_index];
 };
 
 
-inline float m44f::det(const char p_column_index, const char p_line_index) const
+inline float m44f::det(const unsigned char p_column_index, const unsigned char p_line_index) const
 {
 	m33f l_matDet;
-	char l_matDet_column_counter = 0;
-	char l_matDet_line_counter = 0;
+	unsigned char l_matDet_column_counter = 0;
+	unsigned char l_matDet_line_counter = 0;
 
-	for (short int l_column_index = 0; l_column_index < 4; l_column_index++)
+	for (unsigned char l_column_index = 0; l_column_index < 4; l_column_index++)
 	{
 		if (l_column_index != p_column_index)
 		{
 			l_matDet_line_counter = 0;
-			for (short int l_line_index = 0; l_line_index < 4; l_line_index++)
+			for (unsigned char l_line_index = 0; l_line_index < 4; l_line_index++)
 			{
 				if (l_line_index != p_line_index)
 				{

@@ -138,7 +138,7 @@ inline Slice<CastedType> slice_cast_fixedelementnb(const Slice<char>& p_slice, c
 	}
 #endif
 
-	return slice_build_memory_elementnb(cast(CastedType*, p_slice->Begin), p_element_nb);
+	return slice_build_memory_elementnb(cast(CastedType*, p_slice.Begin), p_element_nb);
 };
 
 
