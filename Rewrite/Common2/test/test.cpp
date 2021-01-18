@@ -572,7 +572,7 @@ namespace v2
 			{
 				NTree<size_t>::Resolve l_root_element = l_size_t_tree.get(l_root);
 				assert_true((*l_root_element.Element) == 0);
-				assert_true(tk_v(l_root_element.Node->parent)== -1);
+				assert_true(tk_v(l_root_element.Node->parent) == -1);
 				assert_true(tk_v(l_root_element.Node->index) == 0);
 				assert_true(tk_v(l_root_element.Node->childs) != -1);
 
@@ -651,7 +651,7 @@ namespace v2
 
 			Slice<Token(NTreeNode)> l_3_node_childs = l_size_t_tree.get_childs_from_node(tk_bf(NTreeNode, l_3_node));
 			assert_true(l_3_node_childs.Size == 2);
-			assert_true(tk_v(l_3_node_childs.get(1)) == tk_v(l_2_2_node) );
+			assert_true(tk_v(l_3_node_childs.get(1)) == tk_v(l_2_2_node));
 
 			assert_true(tk_v(l_size_t_tree.get(l_2_2_node).Node->parent) == tk_v(l_3_node));
 		}
@@ -850,6 +850,143 @@ namespace v2
 
 		l_str.free();
 	};
+
+	inline void deserialize_test()
+	{
+		{
+			const char* l_json =
+				"{"
+				"\"local_position\":{"
+				"\"x\":  \"16.550000\","
+				"\"y\" : \"16.650000\","
+				"\"z\" : \"16.750000\""
+				"},"
+				"\"local_position2\":{"
+				"\"x\":\"  17.550000\","
+				"\"y\" : \"17.650000\","
+				"\"z\" : \"17.750000\""
+				"},"
+				"\"nodes\" : ["
+				"{"
+				"\"local_position\":{"
+				"\"x\":\"  10.550000\","
+				"\"y\" : \"10.650000\","
+				"\"z\" : \"10.750000\""
+				"}"
+				"},"
+				"{"
+				"\"local_position\":{"
+				"\"x\":\"  11.550000\","
+				"\"y\" : \"11.650000\","
+				"\"z\" : \"11.750000\""
+				"}"
+				"},"
+				"{"
+				"\"local_position\":{"
+				"\"x\":\"  12.550000\","
+				"\"y\" : \"12.650000\","
+				"\"z\" : \"12.750000\""
+				"}"
+				"}"
+				"]"
+				"}";
+
+			JSONDeserializer l_deserialized = JSONDeserializer::start(String::allocate_elements(slice_char_build_rawstr(l_json)));
+
+			JSONDeserializer l_v3;
+			l_deserialized.next_object("local_position", &l_v3);
+
+			l_v3.next_field("x");
+			assert_true(FromString::afloat(l_v3.get_currentfield().value) == 16.550000f);
+			l_v3.next_field("y");
+			assert_true(FromString::afloat(l_v3.get_currentfield().value) == 16.650000f);
+			l_v3.next_field("z");
+			assert_true(FromString::afloat(l_v3.get_currentfield().value) == 16.750000f);
+
+			l_deserialized.next_object("local_position2", &l_v3);
+
+
+			l_v3.next_field("x");
+			assert_true(FromString::afloat(l_v3.get_currentfield().value) == 17.550000f);
+			l_v3.next_field("y");
+			assert_true(FromString::afloat(l_v3.get_currentfield().value) == 17.650000f);
+			l_v3.next_field("z");
+			assert_true(FromString::afloat(l_v3.get_currentfield().value) == 17.750000f);
+
+			JSONDeserializer l_array = JSONDeserializer::allocate_default(), l_object = JSONDeserializer::allocate_default();
+			l_deserialized.next_array("nodes", &l_array);
+
+
+			float l_delta = 0.0f;
+			while (l_array.next_array_object(&l_object))
+			{
+				l_object.next_object("local_position", &l_v3);
+				l_v3.next_field("x");
+				assert_true(FromString::afloat(l_v3.get_currentfield().value) == 10.550000f + l_delta);
+				l_v3.next_field("y");
+				assert_true(FromString::afloat(l_v3.get_currentfield().value) == 10.650000f + l_delta);
+				l_v3.next_field("z");
+				assert_true(FromString::afloat(l_v3.get_currentfield().value) == 10.750000f + l_delta);
+				l_delta += 1;
+			}
+		
+			l_deserialized.free();
+		}
+		
+
+		// empty array
+		{
+			const char* l_json =
+				"{"
+				"\"nodes\":[]}";
+
+			JSONDeserializer l_deserialized = JSONDeserializer::start(String::allocate_elements(slice_char_build_rawstr(l_json)));
+
+			JSONDeserializer l_array = JSONDeserializer::allocate_default(), l_object = JSONDeserializer::allocate_default();
+			l_deserialized.next_array("nodes", &l_array);
+			l_array.next_array_object(&l_object);
+			l_deserialized.free();
+		}
+
+		// missed field
+		{
+			const char* l_json =
+				"{"
+				"\"local_position\":{"
+				"\"x\":\"16.506252\","
+				"\"y\" : \"16.604988\","
+				"\"z\" : \"16.705424\""
+				"}";
+
+			JSONDeserializer l_deserialized = JSONDeserializer::start(String::allocate_elements(slice_char_build_rawstr(l_json)));
+			JSONDeserializer l_v3;
+			l_deserialized.next_object("local_position", &l_v3);
+			l_v3.next_field("x");
+			l_v3.next_field("y");
+			l_v3.next_field("zz");
+			l_v3.next_field("z");
+			assert_true(FromString::afloat(l_v3.get_currentfield().value) == 16.705424f);
+		}
+
+		// only fields
+		{
+			const char* l_json =
+				"{"
+				"\"x\":\"16.506252\","
+				"\"y\" : \"16.604988\","
+				"\"z\" : \"16.705424\""
+				"}";
+
+
+			JSONDeserializer l_deserialized = JSONDeserializer::start(String::allocate_elements(slice_char_build_rawstr(l_json)));
+			l_deserialized.next_field("x");
+			assert_true(FromString::afloat(l_deserialized.get_currentfield().value) == 16.506252f);
+			l_deserialized.next_field("y");
+			assert_true(FromString::afloat(l_deserialized.get_currentfield().value) == 16.604988f);
+			l_deserialized.next_field("z");
+			assert_true(FromString::afloat(l_deserialized.get_currentfield().value) == 16.705424f);
+		}
+	};
 }
 
 int main()
@@ -865,4 +1002,5 @@ int main()
 	v2::heap_test();
 	v2::heap_memory_test();
 	v2::string_test();
+	v2::deserialize_test();
 }

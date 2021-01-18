@@ -194,7 +194,7 @@ inline char slice_memfind(const Slice<ElementType>& p_target, const Slice<Elemen
 		return 1;
 	};
 
-	for (size_t i = 1; i < p_target.Size - p_compared.Size; i++)
+	for (size_t i = 1; i < p_target.Size - p_compared.Size + 1; i++)
 	{
 		l_target_slice.slide(1);
 		if (slice_memcompare_element(l_target_slice, p_compared))

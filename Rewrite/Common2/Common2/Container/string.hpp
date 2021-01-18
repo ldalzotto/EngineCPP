@@ -48,6 +48,11 @@ namespace v2
 			return ((String*)this)->Memory.get(p_index);
 		};
 
+		inline char* get_memory()
+		{
+			return this->Memory.get_memory();
+		};
+
 		inline size_t get_size() const
 		{
 			return this->Memory.Size;

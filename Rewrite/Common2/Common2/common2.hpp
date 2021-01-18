@@ -2,6 +2,7 @@
 
 #include <stdlib.h>
 #include <string.h>
+#include <math.h>
 
 #include "./Functional/assert.hpp"
 #include "./Macros/macros.hpp"
@@ -26,5 +27,9 @@
 #include "./Container/tree.hpp"
 
 #include "./Container/Specialization/heap_memory.hpp"
+
+#include "./Functional/string_functions.hpp"
+
+#include "./Serialization/json.hpp"
 
 #include "./Functional/container_iteration.hpp"
