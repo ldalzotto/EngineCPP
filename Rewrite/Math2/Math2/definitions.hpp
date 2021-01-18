@@ -12,6 +12,7 @@ namespace v2
 		constexpr static const float RAD_TO_DEG = (180.0f / M_PI);
 
 		inline static char equals(const float p_left, const float p_right);
+		inline static char nequals(const float p_left, const float p_right);
 		inline static char lower_eq(const float p_left, const float p_right);
 		inline static char lower(const float p_left, const float p_right);
 		inline static char greater_eq(const float p_left, const float p_right);
@@ -59,11 +60,13 @@ struct alignas(sizeof(float)) v3f
 	v3f operator*(const v3f& p_other) const;
 	v3f operator-(const v3f& p_other) const;
 	char operator==(const v3f& p_other) const;
+	char operator!=(const v3f& p_other) const;
 	float& operator[](const unsigned char p_index);
 	float dot(const v3f& p_other) const;
 	v3f cross(const v3f& p_other) const;
 	float length() const;
 	v3f normalize() const;
+	v3f inv() const;
 	v3f project(const v3f& p_projected_on) const;
 	v3f project_normalized(const v3f& p_projected_on) const;
 	float distance(const v3f& p_end) const;
@@ -107,6 +110,7 @@ struct alignas(sizeof(float)) v4f
 	};
 
 	char operator==(const v4f& p_other) const;
+	char operator!=(const v4f& p_other) const;
 	v4f operator*(const float p_other) const;
 	v4f operator*(const v4f& p_other) const;
 	float& operator[](const unsigned char p_index);
@@ -143,6 +147,7 @@ struct quat
 	static quat rotate_around(const v3f& p_axis, const float p_angle);
 
 	char operator==(const quat& p_other) const;
+	char operator!=(const quat& p_other) const;
 	quat operator*(const quat& p_other) const;
 	quat normalize() const;
 	quat inv() const;
@@ -233,6 +238,8 @@ struct alignas(sizeof(float)) m44f
 
 	float det(const unsigned char p_column_index, const unsigned char p_line_index) const;
 	m44f inv() const;
+
+	const v3f& get_translation() const;
 
 	static m44f build_translation(const v3f& p_translation);
 	static m44f build_rotation(const m33f& p_axis);

@@ -7,6 +7,11 @@ namespace v2
 		return fabsf(p_left - p_right) <= Math::tol_f;
 	};
 
+	inline char Math::nequals(const float p_left, const float p_right)
+	{
+		return fabsf(p_left - p_right) > Math::tol_f;
+	};
+
 	inline char Math::lower_eq(const float p_left, const float p_right)
 	{
 		return (p_left - p_right) <= Math::tol_f;
@@ -79,7 +84,8 @@ namespace v2
 #define math_mul_op(Left, Right) Left *Right
 #define math_add_op(Left, Right) Left + Right
 #define math_min_op(Left, Right) Left - Right
-#define math_square_op(Left) Left *Left
+#define math_square_op(Left) Left * Left
+#define math_inv_op(Left) 1.0f / Left
 
 inline char v2f::operator==(const v2f& p_other)
 {
@@ -124,6 +130,13 @@ inline char v3f::operator==(const v3f& p_other) const
 		v2::Math::equals(this->Points[2], p_other.Points[2]);
 };
 
+inline char v3f::operator!=(const v3f& p_other) const
+{
+	return v2::Math::nequals(this->Points[0], p_other.Points[0]) ||
+		v2::Math::nequals(this->Points[1], p_other.Points[1]) ||
+		v2::Math::nequals(this->Points[2], p_other.Points[2]);
+};
+
 inline float& v3f::operator[](const unsigned char p_index)
 {
 	return this->Points[p_index];
@@ -152,6 +165,11 @@ inline float v3f::length() const
 inline v3f v3f::normalize() const
 {
 	return this->operator*(1.0f / this->length());
+};
+
+inline v3f v3f::inv() const
+{
+	return math_v3f_foreach(this, math_inv_op);
 };
 
 inline v3f v3f::project(const v3f& p_projected_on) const
@@ -266,6 +284,14 @@ inline char v4f::operator==(const v4f& p_other) const
 		v2::Math::equals(this->Points[3], p_other.Points[3]);
 };
 
+inline char v4f::operator!=(const v4f& p_other) const
+{
+	return v2::Math::nequals(this->Points[0], p_other.Points[0]) ||
+		v2::Math::nequals(this->Points[1], p_other.Points[1]) ||
+		v2::Math::nequals(this->Points[2], p_other.Points[2]) ||
+		v2::Math::nequals(this->Points[3], p_other.Points[3]);
+};
+
 inline v4f v4f::operator*(const float p_other) const
 {
 	return v4f{ this->Points[0] * p_other, this->Points[1] * p_other, this->Points[2] * p_other, this->Points[3] * p_other };
@@ -296,6 +322,11 @@ inline quat quat::rotate_around(const v3f& p_axis, const float p_angle)
 inline char quat::operator==(const quat& p_other) const
 {
 	return this->Points == p_other.Points;
+};
+
+inline char quat::operator!=(const quat& p_other) const
+{
+	return this->Points != p_other.Points;
 };
 
 inline quat quat::operator*(const quat& p_other) const
@@ -638,6 +669,11 @@ inline m44f m44f::inv() const
 	}
 
 	return l_return * (1.0f / l_det);
+};
+
+inline const v3f& m44f::get_translation() const
+{
+	return this->Col3.Vec3;
 };
 
 inline m44f m44f::build_translation(const v3f& p_translation)

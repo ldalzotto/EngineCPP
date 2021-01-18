@@ -76,11 +76,30 @@ namespace v2
 		Slice<Token(NodeComponentHeader)> get_node_components_token(const Token(Node) p_node);
 		char get_node_component(const Token(Node) p_node, const Token(NodeComponentHeader) p_component, NodeComponentHeader** out_component);
 		char get_node_component_by_type(const Token(Node) p_node, const SceneNodeComponentType& p_type, NodeComponentHeader** out_component);
+
 		// char remove_node_component(const Token(Node) p_node, const Token(NodeComponentHeader) p_component);
 		// char remove_node_component_by_type(const Token(Node) p_node, const SceneNodeComponentType& p_type);
 		void detach_all_node_components(const Token(Node) p_node);
 		char detach_node_component_by_type(const Token(Node) p_node, const SceneNodeComponentType& p_type, Token(NodeComponentHeader)* out_component);
 		void free_component(const Token(NodeComponentHeader) p_component);
+
+		v3f& get_localposition(const NodeEntry& p_node);
+		quat& get_localrotation(const NodeEntry& p_node);
+		v3f& get_localscale(const NodeEntry& p_node);
+
+		void set_localposition(const NodeEntry& p_node, const v3f& p_local_position);
+		void set_localrotation(const NodeEntry& p_node, const quat& p_local_rotation);
+		void set_localscale(const NodeEntry& p_node, const v3f& p_local_scale);
+		void set_worldposition(const NodeEntry& p_node, const v3f& p_world_position);
+		void set_worldrotation(const NodeEntry& p_node, const quat& p_world_rotation);
+		void set_worldscale(const NodeEntry& p_node, const v3f& p_world_scale);
+
+		v3f get_worldposition(const NodeEntry& p_node);
+		quat get_worldrotation(const NodeEntry& p_node);
+		v3f get_worldscalefactor(const NodeEntry& p_node);
+		m44f& get_localtoworld(const NodeEntry& p_node);
+		m44f get_worldtolocal(const NodeEntry& p_node);
+
 
 		void clear_nodes_state();
 
@@ -88,6 +107,7 @@ namespace v2
 		Token(Node) allocate_node(const transform& p_initial_local_transform, const Token(Node) p_parent);
 		Token(Node) allocate_root_node();
 		void mark_node_for_recalculation_recursive(const NodeEntry& p_node);
+		void updatematrices_if_necessary(const NodeEntry& p_node);
 		
 		void free_node_recurvise(const NodeEntry& p_node);
 		void free_node_single(const NodeEntry& p_node);
@@ -109,13 +129,20 @@ namespace v2
 
 		SceneTree tree;
 		Vector<Token(Node)> orphan_nodes;
+		Vector<Token(Node)> node_that_will_be_destroyed;
 		Vector<ComponentEvent> component_events;
 
 		static Scene allocate_default();
 		void free();
 
-		void step_begin();
-		void step_end();
+		template<class ComponentEventCallbackFunc>
+		void consume_component_events();
+
+		template<class ComponentEventCallbackObj>
+		void consume_component_events_stateful(ComponentEventCallbackObj& p_closure);
+
+		void step();
+
 
 		Token(Node) add_node(const transform& p_initial_local_transform, const Token(Node) p_parent);
 		NodeEntry get_node(const Token(Node) p_node);
@@ -139,10 +166,9 @@ namespace v2
 
 	private:
 
-		void remove_node_component(const Token(Node) p_node, const Token(NodeComponentHeader) p_component);
-
 		void step_destroy_resource_only();
 		void destroy_orphan_nodes();
+
 		void destroy_component_events();
 	};
 

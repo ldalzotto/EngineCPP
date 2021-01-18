@@ -240,6 +240,130 @@ namespace v2
 		this->heap.free_component(p_component);
 	};
 
+
+	inline v3f& SceneTree::get_localposition(const NodeEntry& p_node)
+	{
+		return p_node.Element->local_transform.position;
+	};
+
+	inline quat& SceneTree::get_localrotation(const NodeEntry& p_node)
+	{
+		return p_node.Element->local_transform.rotation;
+	};
+	
+	inline v3f& SceneTree::get_localscale(const NodeEntry& p_node)
+	{
+		return p_node.Element->local_transform.scale;
+	};
+
+	inline void SceneTree::set_localposition(const NodeEntry& p_node, const v3f& p_local_position)
+	{
+		if (p_node.Element->local_transform.position != p_local_position)
+		{
+			this->mark_node_for_recalculation_recursive(p_node);
+			p_node.Element->local_transform.position = p_local_position;
+		}
+	};
+
+	inline void SceneTree::set_localrotation(const NodeEntry& p_node, const quat& p_local_rotation)
+	{
+		if (p_node.Element->local_transform.rotation != p_local_rotation)
+		{
+			this->mark_node_for_recalculation_recursive(p_node);
+			p_node.Element->local_transform.rotation = p_local_rotation;
+		}
+	};
+
+	inline void SceneTree::set_localscale(const NodeEntry& p_node, const v3f& p_local_scale)
+	{
+		if (p_node.Element->local_transform.scale != p_local_scale)
+		{
+			this->mark_node_for_recalculation_recursive(p_node);
+			p_node.Element->local_transform.scale = p_local_scale;
+		}
+	};
+
+	inline void SceneTree::set_worldposition(const NodeEntry& p_node, const v3f& p_world_position)
+	{
+		if (!p_node.has_parent())
+		{
+			this->set_localposition(p_node, p_world_position);
+		}
+		else
+		{
+			NodeEntry l_parent = this->get_node(tk_bf(Node, p_node.Node->parent));
+			this->set_localposition(p_node, (this->get_worldtolocal(l_parent) * v4f::build_v3f_s(p_world_position, 1.0f)).Vec3);
+		}
+	};
+
+	inline void SceneTree::set_worldrotation(const NodeEntry& p_node, const quat& p_world_rotation)
+	{
+		if (!p_node.has_parent())
+		{
+			this->set_localrotation(p_node, p_world_rotation);
+		}
+		else
+		{
+			NodeEntry l_parent = this->get_node(tk_bf(Node, p_node.Node->parent));
+			this->set_localrotation(p_node, this->get_worldrotation(l_parent).inv() * p_world_rotation);
+		}
+	};
+
+	inline void SceneTree::set_worldscale(const NodeEntry& p_node, const v3f& p_world_scale)
+	{
+		if (!p_node.has_parent())
+		{
+			set_localscale(p_node, p_world_scale);
+		}
+		else
+		{
+			NodeEntry l_parent = this->get_node(tk_bf(Node, p_node.Node->parent));
+			set_localscale(p_node, p_world_scale * this->get_worldscalefactor(l_parent).inv());
+		}
+	};
+
+	inline v3f SceneTree::get_worldposition(const NodeEntry& p_node)
+	{
+		return this->get_localtoworld(p_node).get_translation();
+	};
+
+	inline quat SceneTree::get_worldrotation(const NodeEntry& p_node)
+	{
+		if (!p_node.has_parent())
+		{
+			return p_node.Element->local_transform.rotation;
+		}
+		else
+		{
+			NodeEntry l_parent = this->get_node(tk_bf(Node, p_node.Node->parent));
+			return this->get_worldrotation(l_parent) * p_node.Element->local_transform.rotation;
+		}
+	};
+
+	inline v3f SceneTree::get_worldscalefactor(const NodeEntry& p_node)
+	{
+		if (!p_node.has_parent())
+		{
+			return p_node.Element->local_transform.scale;
+		}
+		else
+		{
+			NodeEntry l_parent = this->get_node(tk_bf(Node, p_node.Node->parent));
+			return this->get_worldscalefactor(l_parent) * p_node.Element->local_transform.scale;
+		}
+	};
+
+	inline m44f& SceneTree::get_localtoworld(const NodeEntry& p_node)
+	{
+		this->updatematrices_if_necessary(p_node);
+		return p_node.Element->localtoworld;
+	};
+
+	inline m44f SceneTree::get_worldtolocal(const NodeEntry& p_node)
+	{
+		return this->get_localtoworld(p_node).inv();
+	};
+
 	inline void SceneTree::clear_nodes_state()
 	{
 		tree_traverse2_begin(Node, Foreach)
@@ -271,6 +395,21 @@ namespace v2
 		tree_traverse2_begin(Node, Foreach)
 			p_node.Element->mark_for_recaluclation();
 		tree_traverse2_end(Node, &this->node_tree, p_node.Node->index, Foreach)
+	};
+
+	inline void SceneTree::updatematrices_if_necessary(const NodeEntry& p_node)
+	{
+		if (p_node.Element->state.matrices_mustBe_recalculated)
+		{
+			p_node.Element->localtoworld = m44f::trs(p_node.Element->local_transform.position, p_node.Element->local_transform.rotation.to_axis(), p_node.Element->local_transform.scale);
+
+			if (p_node.has_parent())
+			{
+				NodeEntry l_parent = this->get_node(tk_bf(Node, p_node.Node->parent));
+				p_node.Element->localtoworld = this->get_localtoworld(l_parent) * p_node.Element->localtoworld;
+			}
+			p_node.Element->state.matrices_mustBe_recalculated = false;
+		}
 	};
 
 	inline void SceneTree::free_node_recurvise(const NodeEntry& p_node)
@@ -309,6 +448,7 @@ namespace v2
 		return Scene{
 			SceneTree::allocate_default(),
 			Vector<Token(Node)>::allocate(0),
+			Vector<Token(Node)>::allocate(0),
 			Vector<ComponentEvent>::allocate(0)
 		};
 	};
@@ -319,10 +459,55 @@ namespace v2
 
 		this->tree.free();
 		this->orphan_nodes.free();
+		this->node_that_will_be_destroyed.free();
 		this->component_events.free();
 	};
 
-	inline void Scene::step_end()
+	template<class ComponentEventCallbackFunc>
+	inline void Scene::consume_component_events()
+	{
+		for (vector_loop(&this->component_events, i))
+		{
+			ComponentEvent& l_component_event = this->component_events.get(i);
+
+			if (l_component_event.state == ComponentEvent::State::REMOVED)
+			{
+				ComponentEventCallbackFunc::on_component_removed(this, this->get_node(l_component_event.node), this->tree.heap.get_component(l_component_event.component));
+				this->tree.free_component(l_component_event.component);
+			}
+			else
+			{
+				NodeComponentHeader* l_node_component;
+				this->tree.get_node_component(l_component_event.node, l_component_event.component, &l_node_component);
+				ComponentEventCallbackFunc::on_component_added(this, this->get_node(l_component_event.node), l_node_component);
+			};
+		};
+		this->component_events.clear();
+	};
+
+	template<class ComponentEventCallbackObj>
+	inline void Scene::consume_component_events_stateful(ComponentEventCallbackObj& p_closure)
+	{
+		for (vector_loop(&this->component_events, i))
+		{
+			ComponentEvent& l_component_event = this->component_events.get(i);
+
+			if (l_component_event.state == ComponentEvent::State::REMOVED)
+			{
+				p_closure.on_component_removed(this, this->get_node(l_component_event.node), this->tree.heap.get_component(l_component_event.component));
+				this->tree.free_component(l_component_event.component);
+			}
+			else
+			{
+				NodeComponentHeader* l_node_component;
+				this->tree.get_node_component(l_component_event.node, l_component_event.component, &l_node_component);
+				p_closure.on_component_added(this, this->get_node(l_component_event.node), l_node_component);
+			};
+		};
+		this->component_events.clear();
+	};
+
+	inline void Scene::step()
 	{
 		this->destroy_orphan_nodes();
 		this->destroy_component_events();
@@ -363,6 +548,10 @@ namespace v2
 		NodeEntry l_node_copy = p_node;
 		this->tree.node_tree.make_node_orphan(l_node_copy);
 		this->orphan_nodes.push_back_element(tk_bf(Node, p_node.Node->index));
+
+		tree_traverse2_stateful_begin(Node, Vector<Token(Node)>*p_node_that_will_be_destroyed, GetAllNodes)
+			p_node_that_will_be_destroyed->push_back_element(tk_bf(Node, p_node.Node->index));
+		tree_traverse2_stateful_end(Node, &this->tree.node_tree, p_node.Node->index, &this->node_that_will_be_destroyed ,GetAllNodes)
 	};
 
 	template<class ComponentType>
@@ -382,13 +571,13 @@ namespace v2
 		if (!this->tree.get_node_component_by_type(p_node, ComponentType::Type, &l_component_header))
 		{
 			abort();
-		};
+	};
 #else
 		this->tree.get_node_component_by_type(p_node, ComponentType::Type, &l_component_header);
 #endif
 
 		return l_component_header->cast_to_object<ComponentType>();
-	};
+};
 
 	template<class ComponentType>
 	inline ComponentType* Scene::get_component_from_token_typed(const Token(NodeComponentHeader) p_component)
@@ -407,11 +596,6 @@ namespace v2
 		this->component_events.push_back_element(ComponentEvent{ ComponentEvent::State::REMOVED, p_node, l_detached_component });
 	};
 
-	inline void Scene::remove_node_component(const Token(Node) p_node, const Token(NodeComponentHeader) p_component)
-	{
-		// this->tree.detach_node_component_by_type()
-	};
-
 
 	inline void Scene::step_destroy_resource_only()
 	{
@@ -426,6 +610,7 @@ namespace v2
 			this->tree.remove_node(this->tree.get_node(this->orphan_nodes.get(i)));
 		}
 		this->orphan_nodes.clear();
+		this->node_that_will_be_destroyed.clear();
 	};
 
 	inline void Scene::destroy_component_events()

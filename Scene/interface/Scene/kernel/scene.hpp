@@ -663,6 +663,11 @@ struct SceneKernel
 		}
 	};
 
+	inline static void set_localrotation(SceneNodeToken p_node, Scene* p_scene, const Math::quat& p_rotation)
+	{
+		set_localrotation(resolve_node(p_scene, p_node).element, p_scene, p_rotation);
+	};
+
 	inline static void set_localscale(NodeKernel_InputParams, const Math::vec3f& p_scale)
 	{
 		if (!Math::EqualsVec(thiz->transform.scale, p_scale))
@@ -670,6 +675,11 @@ struct SceneKernel
 			mark_for_recalculation(NodeKernel_InputValues);
 			thiz->transform.scale = p_scale;
 		}
+	};
+
+	inline static void set_localscale(SceneNodeToken p_node, Scene* p_scene, const Math::vec3f& p_scale)
+	{
+		set_localscale(SceneKernel::resolve_node(p_scene, p_node).element, p_scene, p_scale);
 	};
 
 	inline static void set_worldposition(NodeKernel_InputParams, const Math::vec3f& p_worldposition)
@@ -722,6 +732,11 @@ struct SceneKernel
 			NTreeResolve<SceneNode> l_parent = SceneKernel::resolve_node(p_scene, l_current.node->parent.val);
 			set_localscale(NodeKernel_InputValues, Math::mul(p_worldscale, Math::inv(get_worldscalefactor(l_parent.element, p_scene))));
 		}
+	};
+
+	inline static void set_worldscale(SceneNodeToken p_node, Scene* p_scene, const Math::vec3f& p_worldscale)
+	{
+		set_worldscale(resolve_node(p_scene, p_node).element, p_scene, p_worldscale);
 	};
 
 	inline static Math::vec3f get_worldposition(NodeKernel_InputParams)

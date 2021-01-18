@@ -56,30 +56,63 @@ int main()
 		Callback<void, ComponentAssetPushParameter>(nullptr, component_asset_push_cb)
 	);
 
-	SceneNodeToken l_node = SceneKernel::add_node(&l_scene, Math::Transform());
-	
-	for (size_t i = 0; i < 100; i++)
-	{
-		SceneKernel::add_component<ComponentTest>(&l_scene, l_node, ComponentTest());
-		SceneKernel::add_component<ComponentTest>(&l_scene, l_node, ComponentTest());
-		SceneKernel::add_component<ComponentTest>(&l_scene, l_node, ComponentTest());
-		SceneKernel::add_component<ComponentTest>(&l_scene, l_node, ComponentTest());
-		SceneKernel::add_component<ComponentTest>(&l_scene, l_node, ComponentTest());
-		SceneKernel::add_component<ComponentTest>(&l_scene, l_node, ComponentTest());
-		SceneKernel::add_component<ComponentTest>(&l_scene, l_node, ComponentTest());
-		SceneKernel::add_component<ComponentTest>(&l_scene, l_node, ComponentTest());
-		SceneKernel::add_component<ComponentTest>(&l_scene, l_node, ComponentTest());
+	SceneNodeToken l_node_1 = SceneKernel::add_node(&l_scene, Math::Transform());
+	SceneNodeToken l_node_2 = SceneKernel::add_node(&l_scene, l_node_1, Math::Transform(Math::vec3f(1.0f,1.0f, 1.0f), Math::QuatConst::IDENTITY, Math::VecConst<float>::ONE));
+	SceneNodeToken l_node_3 = SceneKernel::add_node(&l_scene, l_node_1, Math::Transform(Math::vec3f(-1.0f, -1.0f, -1.0f), Math::QuatConst::IDENTITY, Math::VecConst<float>::ONE));
 
-		SceneKernel::remove_component<ComponentTest>(&l_scene, l_node);
-		SceneKernel::remove_component<ComponentTest>(&l_scene, l_node);
-		SceneKernel::remove_component<ComponentTest>(&l_scene, l_node);
-		SceneKernel::remove_component<ComponentTest>(&l_scene, l_node);
-		SceneKernel::remove_component<ComponentTest>(&l_scene, l_node);
-		SceneKernel::remove_component<ComponentTest>(&l_scene, l_node);
-		SceneKernel::remove_component<ComponentTest>(&l_scene, l_node);
-		SceneKernel::remove_component<ComponentTest>(&l_scene, l_node);
-		SceneKernel::remove_component<ComponentTest>(&l_scene, l_node);
+	// Position
+	{
+		SceneKernel::set_localposition(l_node_1, &l_scene, Math::vec3f(1.0f, 1.0f, 1.0f));
+		Math::vec3f l_result_v3f = SceneKernel::get_localposition(l_node_1, &l_scene);
+		l_result_v3f = SceneKernel::get_worldposition(SceneKernel::resolve_node(&l_scene, l_node_2), &l_scene);
+		l_result_v3f = SceneKernel::get_worldposition(SceneKernel::resolve_node(&l_scene, l_node_3), &l_scene);
+
+		SceneKernel::set_localposition(l_node_2, &l_scene, Math::vec3f(1.0f, 2.0f, 3.0f));
+		l_result_v3f = SceneKernel::get_localposition(l_node_2, &l_scene);
+		l_result_v3f = SceneKernel::get_worldposition(SceneKernel::resolve_node(&l_scene, l_node_2), &l_scene);
+
+		SceneKernel::set_worldposition(l_node_3, &l_scene, Math::vec3f(-1.0f, -2.0f, 3.0f));
+		l_result_v3f = SceneKernel::get_localposition(l_node_3, &l_scene);
+		l_result_v3f = SceneKernel::get_worldposition(SceneKernel::resolve_node(&l_scene, l_node_3), &l_scene);
+
+		int zd = 1;
 	}
-	
+
+	// Rotations
+	{
+		SceneKernel::set_localrotation(l_node_1, &l_scene, Math::fromEulerAngle(Math::vec3f(0.32f, 0.9f, 0.7f)));
+		Math::quat l_result_quat = SceneKernel::get_localrotation(l_node_1, &l_scene);
+		l_result_quat = SceneKernel::get_worldrotation(SceneKernel::resolve_node(&l_scene, l_node_2), &l_scene);
+		l_result_quat = SceneKernel::get_worldrotation(SceneKernel::resolve_node(&l_scene, l_node_3), &l_scene);
+
+		SceneKernel::set_localrotation(l_node_2, &l_scene, Math::fromEulerAngle(Math::vec3f(0.32f, -0.9f, -0.7f)));
+		l_result_quat = SceneKernel::get_localrotation(l_node_2, &l_scene);
+		l_result_quat = SceneKernel::get_worldrotation(SceneKernel::resolve_node(&l_scene, l_node_2), &l_scene);
+
+		SceneKernel::set_worldrotation(l_node_3, &l_scene, Math::fromEulerAngle(Math::vec3f(-1.0f, -2.0f, 3.0f)));
+		l_result_quat = SceneKernel::get_localrotation(l_node_3, &l_scene);
+		l_result_quat = SceneKernel::get_worldrotation(SceneKernel::resolve_node(&l_scene, l_node_3), &l_scene);
+
+		int zd = 1;
+	}
+
+	// Scale
+	{
+		SceneKernel::set_localscale(l_node_1, &l_scene, Math::vec3f(2.0f, 0.5f, 1.0f));
+		Math::vec3f l_result_v3f = SceneKernel::get_localscale(l_node_1, &l_scene);
+		l_result_v3f = SceneKernel::get_worldscalefactor(SceneKernel::resolve_node(&l_scene, l_node_2).element, &l_scene);
+		l_result_v3f = SceneKernel::get_worldscalefactor(SceneKernel::resolve_node(&l_scene, l_node_3).element, &l_scene);
+
+		SceneKernel::set_localscale(l_node_2, &l_scene, Math::vec3f(1.0f, 2.0f, 3.0f));
+		l_result_v3f = SceneKernel::get_localscale(l_node_2, &l_scene);
+		l_result_v3f = SceneKernel::get_worldscalefactor(SceneKernel::resolve_node(&l_scene, l_node_2).element, &l_scene);
+
+		SceneKernel::set_worldscale(l_node_3, &l_scene, Math::vec3f(-1.0f, -2.0f, 3.0f));
+		l_result_v3f = SceneKernel::get_localscale(l_node_3, &l_scene);
+		l_result_v3f = SceneKernel::get_worldscalefactor(SceneKernel::resolve_node(&l_scene, l_node_3).element, &l_scene);
+
+		int zd = 1;
+	}
+
 	SceneKernel::free_scene(&l_scene);
 }
