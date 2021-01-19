@@ -3,27 +3,27 @@
 //TODO -> delete when common2 migration is complete
 namespace v2
 {
-	using VaryingVectorMemory_t = Vector<char>;
-	using VaryingVectorChunks_t = Vector<SliceIndex>;
-
 	/*
 		A VaryingVector is a Vector which elements can have different sizes.
-		Elements are accessed vie the VaryingVectorChunks_t lookup table.
+		Elements are accessed vie the Chunks_t lookup table.
 		Memory is continuous.
 	*/
 	struct VaryingVector
 	{
-		VaryingVectorMemory_t memory;
-		VaryingVectorChunks_t chunks;
+		using Memory_t = Vector<int8>;
+		using Chunks_t = Vector<SliceIndex>;
 
-		inline static  VaryingVector build(const VaryingVectorMemory_t& p_memory, const VaryingVectorChunks_t& p_chunks)
+		Memory_t memory;
+		Chunks_t chunks;
+
+		inline static  VaryingVector build(const Memory_t& p_memory, const Chunks_t& p_chunks)
 		{
 			return VaryingVector{ p_memory, p_chunks };
 		};
 
-		inline static VaryingVector allocate(const size_t p_memory_array_initial_capacity, const size_t p_chunk_array_initial_capacity)
+		inline static VaryingVector allocate(const uimax p_memory_array_initial_capacity, const uimax p_chunk_array_initial_capacity)
 		{
-			return build(Vector<char>::allocate(p_memory_array_initial_capacity), Vector<SliceIndex>::allocate(p_chunk_array_initial_capacity));
+			return build(Memory_t::allocate(p_memory_array_initial_capacity), Chunks_t::allocate(p_chunk_array_initial_capacity));
 		};
 
 		inline static VaryingVector allocate_default()
@@ -38,12 +38,12 @@ namespace v2
 			this->chunks.free();
 		};
 
-		inline size_t get_size()
+		inline uimax get_size()
 		{
 			return this->chunks.Size;
 		};
 
-		inline void push_back(const Slice<char>& p_bytes)
+		inline void push_back(const Slice<int8>& p_bytes)
 		{
 			SliceIndex l_chunk = SliceIndex::build(this->memory.Size, p_bytes.Size);
 			this->memory.push_back_array(p_bytes);
@@ -53,7 +53,7 @@ namespace v2
 		template<class ElementType>
 		inline void push_back_element(const ElementType& p_element)
 		{
-			this->push_back(Slice<char>::build_memory_elementnb(cast(char*, &p_element), sizeof(ElementType)));
+			this->push_back(Slice<int8>::build_memory_elementnb(cast(int8*, &p_element), sizeof(ElementType)));
 		};
 
 		inline void pop_back()
@@ -64,7 +64,7 @@ namespace v2
 			this->chunks.pop_back();
 		};
 
-		inline void insert_at(const Slice<char>& p_bytes, const size_t p_index)
+		inline void insert_at(const Slice<int8>& p_bytes, const uimax p_index)
 		{
 			SliceIndex& l_break_chunk = this->chunks.get(p_index);
 			this->memory.insert_array_at(p_bytes, l_break_chunk.Begin);
@@ -76,7 +76,7 @@ namespace v2
 			}
 		};
 
-		inline void erase_element_at(const size_t p_index)
+		inline void erase_element_at(const uimax p_index)
 		{
 			SliceIndex& l_chunk = this->chunks.get(p_index);
 			this->memory.erase_array_at(
@@ -92,7 +92,7 @@ namespace v2
 			this->chunks.erase_element_at(p_index);
 		};
 
-		inline void erase_array_at(const size_t p_index, const size_t p_element_nb)
+		inline void erase_array_at(const uimax p_index, const uimax p_element_nb)
 		{
 #if CONTAINER_BOUND_TEST
 			assert_true(p_element_nb != 0);
@@ -123,7 +123,7 @@ namespace v2
 
 
 
-		inline void element_expand(const size_t p_index, const size_t p_expansion_size)
+		inline void element_expand(const uimax p_index, const uimax p_expansion_size)
 		{
 			SliceIndex& l_updated_chunk = this->chunks.get(p_index);
 
@@ -131,7 +131,7 @@ namespace v2
 			assert_true(p_expansion_size != 0);
 #endif
 
-			size_t l_new_varyingvector_size = this->memory.Size + p_expansion_size;
+			uimax l_new_varyingvector_size = this->memory.Size + p_expansion_size;
 
 			this->memory.Memory.resize_until_capacity_met(l_new_varyingvector_size);
 			l_updated_chunk.Size += p_expansion_size;
@@ -142,7 +142,7 @@ namespace v2
 			}
 		};
 
-		inline void element_expand_with_value(const size_t p_index, const Slice<char>& p_pushed_element)
+		inline void element_expand_with_value(const uimax p_index, const Slice<int8>& p_pushed_element)
 		{
 			SliceIndex& l_updated_chunk = this->chunks.get(p_index);
 
@@ -150,8 +150,8 @@ namespace v2
 			assert_true(p_pushed_element.Size != 0);
 #endif
 
-			size_t l_size_delta = p_pushed_element.Size;
-			size_t l_new_varyingvector_size = this->memory.Size + l_size_delta;
+			uimax l_size_delta = p_pushed_element.Size;
+			uimax l_new_varyingvector_size = this->memory.Size + l_size_delta;
 
 			this->memory.Memory.resize_until_capacity_met(l_new_varyingvector_size);
 
@@ -164,7 +164,7 @@ namespace v2
 			}
 		};
 
-		inline void element_shrink(const size_t p_index, const size_t p_size_delta)
+		inline void element_shrink(const uimax p_index, const uimax p_size_delta)
 		{
 			SliceIndex& l_updated_chunk = this->chunks.get(p_index);
 
@@ -182,27 +182,27 @@ namespace v2
 			}
 		};
 
-		inline void element_writeto(const size_t p_index, const size_t p_insertion_offset, const Slice<char>& p_inserted_element)
+		inline void element_writeto(const uimax p_index, const uimax p_insertion_offset, const Slice<int8>& p_inserted_element)
 		{
 			SliceIndex& l_updated_chunk = this->chunks.get(p_index);
-			Slice<char> l_updated_chunk_slice = Slice<char>::build_aschar_memory_elementnb(this->memory.get_memory() + l_updated_chunk.Begin, l_updated_chunk.Size).slide_rv(p_insertion_offset);
+			Slice<int8> l_updated_chunk_slice = Slice<int8>::build_asint8_memory_elementnb(this->memory.get_memory() + l_updated_chunk.Begin, l_updated_chunk.Size).slide_rv(p_insertion_offset);
 
 			slice_memcpy(l_updated_chunk_slice, p_inserted_element);
 		};
 
-		inline void element_movememory(const size_t p_index, const size_t p_insertion_offset, const Slice<char>& p_inserted_element)
+		inline void element_movememory(const uimax p_index, const uimax p_insertion_offset, const Slice<int8>& p_inserted_element)
 		{
 			SliceIndex& l_updated_chunk = this->chunks.get(p_index);
-			Slice<char> l_updated_chunk_slice = Slice<char>::build_aschar_memory_elementnb(this->memory.get_memory() + l_updated_chunk.Begin, l_updated_chunk.Size).slide_rv(p_insertion_offset);
+			Slice<int8> l_updated_chunk_slice = Slice<int8>::build_asint8_memory_elementnb(this->memory.get_memory() + l_updated_chunk.Begin, l_updated_chunk.Size).slide_rv(p_insertion_offset);
 
 			slice_memmove(l_updated_chunk_slice, p_inserted_element);
 		};
 
 
-		inline Slice<char> get(const size_t p_index)
+		inline Slice<int8> get(const uimax p_index)
 		{
 			SliceIndex& l_chunk = this->chunks.get(p_index);
-			return Slice<char>::build_memory_offset_elementnb(
+			return Slice<int8>::build_memory_offset_elementnb(
 				this->memory.get_memory(),
 				l_chunk.Begin,
 				l_chunk.Size
@@ -210,18 +210,13 @@ namespace v2
 		};
 
 		template<class ElementType>
-		inline Slice<ElementType> get_element(const size_t p_index)
+		inline Slice<ElementType> get_element(const uimax p_index)
 		{
 			return slice_cast<ElementType>(
 				this->get(p_index)
-			);
+				);
 		};
 
 	};
-
-
-
-
 }
 
-#define varyingvector_loop(VaryingVectorVariable, Iteratorname) size_t Iteratorname = 0; Iteratorname < (VaryingVectorVariable)->get_size(); Iteratorname++

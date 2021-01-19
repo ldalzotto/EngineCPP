@@ -39,7 +39,7 @@ namespace v2
 		};
 
 
-		inline char is_token_free(const PoolOfVectorToken<ElementType> p_token)
+		inline int8 is_token_free(const PoolOfVectorToken<ElementType> p_token)
 		{
 			for (vector_loop(&this->FreeBlocks, i))
 			{
@@ -51,7 +51,7 @@ namespace v2
 			return 0;
 		};
 
-		inline char has_allocated_elements()
+		inline int8 has_allocated_elements()
 		{
 			return this->Memory.varying_vector.get_size() != this->FreeBlocks.Size;
 		}
@@ -115,7 +115,7 @@ namespace v2
 			this->Memory.element_push_back_element(tk_v(p_token), p_element);
 		};
 
-		inline void element_erase_element_at(const PoolOfVectorToken<ElementType> p_token, const size_t p_index)
+		inline void element_erase_element_at(const PoolOfVectorToken<ElementType> p_token, const uimax p_index)
 		{
 #if CONTAINER_BOUND_TEST
 			this->token_not_free_check(p_token);
@@ -123,7 +123,7 @@ namespace v2
 			this->Memory.element_erase_element_at(tk_v(p_token), p_index);
 		};
 
-		inline void element_erase_element_at_always(const PoolOfVectorToken<ElementType> p_token, const size_t p_index)
+		inline void element_erase_element_at_always(const PoolOfVectorToken<ElementType> p_token, const uimax p_index)
 		{
 #if CONTAINER_BOUND_TEST
 			this->token_not_free_check(p_token);

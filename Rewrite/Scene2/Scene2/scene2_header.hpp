@@ -1,8 +1,8 @@
 #pragma once
 
-#include "./component2.hpp"
-
 #include "Math2/math.hpp"
+
+#include "./component2.hpp"
 
 namespace v2
 {
@@ -10,10 +10,10 @@ namespace v2
 	{
 		struct State
 		{
-			char matrices_mustBe_recalculated; /* = true;*/
-			char haschanged_thisframe; /* = false; */
+			int8 matrices_mustBe_recalculated; /* = true;*/
+			int8 haschanged_thisframe; /* = false; */
 
-			static State build(const char p_matrices_must_be_recalculated, const char p_haschanged_thisframe);
+			static State build(const int8 p_matrices_must_be_recalculated, const int8 p_haschanged_thisframe);
 
 		} state;
 
@@ -39,7 +39,7 @@ namespace v2
 		template<class ComponentType>
 		ComponentType* cast_to_object();
 
-		char* get_component_object();
+		int8* get_component_object();
 	};
 
 	struct SceneTree
@@ -51,7 +51,7 @@ namespace v2
 			static Heap allocate_default();
 			void free();
 
-			Token(NodeComponentHeader) allocate_component(const Token(Node) p_node, const SceneNodeComponentType& p_component_type, const char* p_initial_value);
+			Token(NodeComponentHeader) allocate_component(const Token(Node) p_node, const SceneNodeComponentType& p_component_type, const int8* p_initial_value);
 			NodeComponentHeader* get_component(const Token(NodeComponentHeader) p_component_header);
 			void free_component(const Token(NodeComponentHeader) p_component);
 		};
@@ -66,21 +66,21 @@ namespace v2
 		Token(Node) add_node(const transform& p_initial_local_transform, const Token(Node) p_parent);
 		NodeEntry get_node(const Token(Node) p_node);
 		NodeEntry get_node_parent(const NodeEntry& p_node);
-		
+
 		Slice<Token(Node)> get_node_childs(const NodeEntry& p_node);
 		void add_child(const NodeEntry& p_parent, const  NodeEntry& p_child);
-		
+
 		void remove_node(const NodeEntry& p_node);
 
-		Token(NodeComponentHeader) add_node_component(const Token(Node) p_node, const SceneNodeComponentType& p_type, const char* p_initial_value);
+		Token(NodeComponentHeader) add_node_component(const Token(Node) p_node, const SceneNodeComponentType& p_type, const int8* p_initial_value);
 		Slice<Token(NodeComponentHeader)> get_node_components_token(const Token(Node) p_node);
-		char get_node_component(const Token(Node) p_node, const Token(NodeComponentHeader) p_component, NodeComponentHeader** out_component);
-		char get_node_component_by_type(const Token(Node) p_node, const SceneNodeComponentType& p_type, NodeComponentHeader** out_component);
+		int8 get_node_component(const Token(Node) p_node, const Token(NodeComponentHeader) p_component, NodeComponentHeader** out_component);
+		int8 get_node_component_by_type(const Token(Node) p_node, const SceneNodeComponentType& p_type, NodeComponentHeader** out_component);
 
-		// char remove_node_component(const Token(Node) p_node, const Token(NodeComponentHeader) p_component);
-		// char remove_node_component_by_type(const Token(Node) p_node, const SceneNodeComponentType& p_type);
+		// int8 remove_node_component(const Token(Node) p_node, const Token(NodeComponentHeader) p_component);
+		// int8 remove_node_component_by_type(const Token(Node) p_node, const SceneNodeComponentType& p_type);
 		void detach_all_node_components(const Token(Node) p_node);
-		char detach_node_component_by_type(const Token(Node) p_node, const SceneNodeComponentType& p_type, Token(NodeComponentHeader)* out_component);
+		int8 detach_node_component_by_type(const Token(Node) p_node, const SceneNodeComponentType& p_type, Token(NodeComponentHeader)* out_component);
 		void free_component(const Token(NodeComponentHeader) p_component);
 
 		v3f& get_localposition(const NodeEntry& p_node);
@@ -108,7 +108,7 @@ namespace v2
 		Token(Node) allocate_root_node();
 		void mark_node_for_recalculation_recursive(const NodeEntry& p_node);
 		void updatematrices_if_necessary(const NodeEntry& p_node);
-		
+
 		void free_node_recurvise(const NodeEntry& p_node);
 		void free_node_single(const NodeEntry& p_node);
 	};
@@ -122,7 +122,7 @@ namespace v2
 	{
 		struct ComponentEvent
 		{
-			enum class State : char {ADDED = 0, REMOVED = 1} state;
+			enum class State : int8 { ADDED = 0, REMOVED = 1 } state;
 			Token(Node) node;
 			Token(NodeComponentHeader) component;
 		};
@@ -151,7 +151,7 @@ namespace v2
 		void remove_node(const NodeEntry& p_node);
 
 
-		// Token(NodeComponentHeader) add_node_component(const Token(Node) p_node, const SceneNodeComponentType& p_type, const char* p_initial_value);
+		// Token(NodeComponentHeader) add_node_component(const Token(Node) p_node, const SceneNodeComponentType& p_type, const int8* p_initial_value);
 		template<class ComponentType>
 		Token(NodeComponentHeader) add_node_component_typed(const Token(Node) p_node, const ComponentType& p_intial_value);
 

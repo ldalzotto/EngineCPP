@@ -4,12 +4,12 @@ struct Sort
 {
 	//TODO ->Implement Quick sort
 	template<class ElementType, class CompareFunc>
-	inline static void Linear2(Slice<ElementType>& p_slice, const size_t p_start_index)
+	inline static void Linear2(Slice<ElementType>& p_slice, const uimax p_start_index)
 	{
-		for (size_t i = p_start_index; i < p_slice.Size; i++)
+		for (loop(i, p_start_index, p_slice.Size))
 		{
 			ElementType& l_left = p_slice.get(i);
-			for (size_t j = i; j < p_slice.Size; j++)
+			for (loop(j, i, p_slice.Size))
 			{
 				ElementType& l_right = p_slice.get(j);
 				if (CompareFunc::compare(l_left, l_right))
@@ -27,7 +27,7 @@ struct Sort
 #define sort_linear2_begin(ElementType, StructName) \
 struct StructName\
 { \
-	inline static char compare(const ElementType& p_left, const ElementType& p_right)\
+	inline static int8 compare(const ElementType& p_left, const ElementType& p_right)\
 	{
 
 #define sort_linear2_end(SliceVariable, ElementType, StructName) \

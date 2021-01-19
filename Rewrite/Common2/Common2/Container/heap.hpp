@@ -17,13 +17,13 @@ namespace v2
 			ALLOCATED_AND_HEAP_RESIZED = ALLOCATED | HEAP_RESIZED
 		};
 
-		using AllocationState_t = unsigned char;
+		using AllocationState_t = uint8;
 
 		Pool<SliceIndex> AllocatedChunks;
 		Vector<SliceIndex> FreeChunks;
-		size_t Size;
+		uimax Size;
 
-		inline static Heap allocate(const size_t p_heap_size)
+		inline static Heap allocate(const uimax p_heap_size)
 		{
 			Heap l_heap = Heap{
 				Pool<SliceIndex>::allocate(0),
@@ -40,9 +40,9 @@ namespace v2
 			this->Size = 0;
 		};
 
-		inline void resize(const size_t p_newsize)
+		inline void resize(const uimax p_newsize)
 		{
-			size_t l_old_size = this->Size;
+			uimax l_old_size = this->Size;
 			this->FreeChunks.push_back_element(SliceIndex::build(l_old_size, p_newsize - l_old_size));
 			this->Size = p_newsize;
 		};
@@ -50,15 +50,15 @@ namespace v2
 		struct AllocatedElementReturn
 		{
 			Token(SliceIndex) token;
-			size_t Offset;
+			uimax Offset;
 
-			inline static AllocatedElementReturn build(const Token(SliceIndex) p_token, const size_t p_offset)
+			inline static AllocatedElementReturn build(const Token(SliceIndex) p_token, const uimax p_offset)
 			{
 				return AllocatedElementReturn{ p_token, p_offset };
 			};
 		};
 
-		inline AllocationState allocate_element(const size_t p_size, AllocatedElementReturn* out_chunk)
+		inline AllocationState allocate_element(const uimax p_size, AllocatedElementReturn* out_chunk)
 		{
 			if (!_allocate_element(p_size, out_chunk))
 			{
@@ -83,7 +83,7 @@ namespace v2
 			return AllocationState::ALLOCATED;
 		};
 
-		inline AllocationState allocate_element_with_alignment(const size_t p_size, const size_t p_alignement_modulo, AllocatedElementReturn* out_chunk)
+		inline AllocationState allocate_element_with_alignment(const uimax p_size, const uimax p_alignement_modulo, AllocatedElementReturn* out_chunk)
 		{
 			if (!_allocate_element_with_alignment(p_size, p_alignement_modulo, out_chunk))
 			{
@@ -119,7 +119,7 @@ namespace v2
 			this->AllocatedChunks.release_element(p_chunk);
 		};
 
-		inline AllocationState reallocate_element(const Token(SliceIndex) p_chunk, const size_t p_new_size, AllocatedElementReturn* out_chunk)
+		inline AllocationState reallocate_element(const Token(SliceIndex) p_chunk, const uimax p_new_size, AllocatedElementReturn* out_chunk)
 		{
 			AllocationState l_allocation = this->allocate_element(p_new_size, out_chunk);
 			if ((AllocationState_t)l_allocation & (AllocationState_t)AllocationState::ALLOCATED)
@@ -156,13 +156,13 @@ namespace v2
 		};
 
 	private:
-		inline char _allocate_element(const size_t p_size, AllocatedElementReturn* out_return)
+		inline int8 _allocate_element(const uimax p_size, AllocatedElementReturn* out_return)
 		{
 #if CONTAINER_BOUND_TEST
 			assert_true(p_size != 0);
 #endif
 
-			for (size_t i = 0; i < this->FreeChunks.Size; i++)
+			for (uimax i = 0; i < this->FreeChunks.Size; i++)
 			{
 				SliceIndex& l_free_chunk = this->FreeChunks.get(i);
 				if (l_free_chunk.Size > p_size)
@@ -183,18 +183,18 @@ namespace v2
 			return false;
 		};
 
-		inline char _allocate_element_with_alignment(const size_t p_size, const size_t p_alignement_modulo, AllocatedElementReturn* out_chunk)
+		inline int8 _allocate_element_with_alignment(const uimax p_size, const uimax p_alignement_modulo, AllocatedElementReturn* out_chunk)
 		{
 #if CONTAINER_BOUND_TEST
 			assert_true(p_size != 0);
 #endif
-			for (size_t i = 0; i < this->FreeChunks.Size; i++)
+			for (uimax i = 0; i < this->FreeChunks.Size; i++)
 			{
 				SliceIndex& l_free_chunk = this->FreeChunks.get(i);
 
 				if (l_free_chunk.Size > p_size)
 				{
-					size_t l_offset_modulo = (l_free_chunk.Begin % p_alignement_modulo);
+					uimax l_offset_modulo = (l_free_chunk.Begin % p_alignement_modulo);
 					if (l_offset_modulo == 0)
 					{
 						// create one free chunk (after)
@@ -205,7 +205,7 @@ namespace v2
 					}
 					else
 					{
-						size_t l_chunk_offset_delta = p_alignement_modulo - l_offset_modulo;
+						uimax l_chunk_offset_delta = p_alignement_modulo - l_offset_modulo;
 						// Does the offsetted new memory is able to be allocated in the chunk ?
 						if (l_free_chunk.Size > (p_size + l_chunk_offset_delta)) //offsetted chunk is in the middle of the free chunk
 						{
@@ -232,7 +232,7 @@ namespace v2
 				}
 				else if (l_free_chunk.Size == p_size)
 				{
-					size_t l_offset_modulo = (l_free_chunk.Size % p_alignement_modulo);
+					uimax l_offset_modulo = (l_free_chunk.Size % p_alignement_modulo);
 					if (l_offset_modulo == 0)
 					{
 						*out_chunk = _push_chunk(&l_free_chunk);

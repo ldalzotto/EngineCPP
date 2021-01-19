@@ -14,15 +14,15 @@ namespace v2
 	template<class ElementType>
 	struct Vector
 	{
-		size_t Size;
+		uimax Size;
 		Span<ElementType> Memory;
 
-		inline static Vector<ElementType> build(ElementType* p_memory, const size_t p_initial_capacity)
+		inline static Vector<ElementType> build(ElementType* p_memory, const uimax p_initial_capacity)
 		{
 			return Vector<ElementType>{0, Span<ElementType>::build(p_memory, p_initial_capacity)};
 		};
 
-		inline static Vector<ElementType> allocate(const size_t p_initial_capacity)
+		inline static Vector<ElementType> allocate(const uimax p_initial_capacity)
 		{
 			return Vector<ElementType>{0, Span<ElementType>::allocate(p_initial_capacity)};
 		};
@@ -34,7 +34,7 @@ namespace v2
 			return l_vector;
 		};
 
-		inline static Vector<ElementType> allocate_capacity_elements(const size_t p_inital_capacity, const Slice<ElementType>& p_initial_elements)
+		inline static Vector<ElementType> allocate_capacity_elements(const uimax p_inital_capacity, const Slice<ElementType>& p_initial_elements)
 		{
 			Vector<ElementType> l_vector = Vector<ElementType>::allocate(p_inital_capacity);
 			l_vector.push_back_array(p_initial_elements);
@@ -57,17 +57,17 @@ namespace v2
 			return this->Memory.Memory;
 		};
 
-		inline size_t get_capacity()
+		inline uimax get_capacity()
 		{
 			return this->Memory.Capacity;
 		};
 
-		inline char empty()
+		inline int8 empty()
 		{
 			return this->Size == 0;
 		};
 
-		inline ElementType& get(const size_t p_index)
+		inline ElementType& get(const uimax p_index)
 		{
 #if CONTAINER_BOUND_TEST
 			this->bound_check(p_index);
@@ -83,7 +83,7 @@ namespace v2
 		};
 
 
-		inline char insert_array_at(const Slice<ElementType>& p_elements, const size_t p_index)
+		inline int8 insert_array_at(const Slice<ElementType>& p_elements, const uimax p_index)
 		{
 #if CONTAINER_BOUND_TEST
 			this->bound_check(p_index);
@@ -94,7 +94,7 @@ namespace v2
 		};
 
 
-		inline char insert_element_at(const ElementType& p_element, const size_t p_index)
+		inline int8 insert_element_at(const ElementType& p_element, const uimax p_index)
 		{
 #if CONTAINER_BOUND_TEST
 			this->bound_check(p_index);
@@ -104,7 +104,7 @@ namespace v2
 			return this->insert_element_at_unchecked(p_element, p_index);
 		};
 
-		inline char push_back_array(const Slice<ElementType>& p_elements)
+		inline int8 push_back_array(const Slice<ElementType>& p_elements)
 		{
 			this->Memory.resize_until_capacity_met(this->Size + p_elements.Size);
 			this->Memory.copy_memory(this->Size, p_elements);
@@ -113,14 +113,14 @@ namespace v2
 			return 1;
 		};
 
-		inline char push_back_element_empty()
+		inline int8 push_back_element_empty()
 		{
 			this->Memory.resize_until_capacity_met(this->Size + 1);
 			this->Size += 1;
 			return 1;
 		};
 
-		inline char push_back_element(const ElementType& p_element)
+		inline int8 push_back_element(const ElementType& p_element)
 		{
 			this->Memory.resize_until_capacity_met(this->Size + 1);
 			this->Memory.Memory[this->Size] = p_element;
@@ -131,7 +131,7 @@ namespace v2
 
 
 
-		inline char insert_array_at_always(const Slice<ElementType>& p_elements, const size_t p_index)
+		inline int8 insert_array_at_always(const Slice<ElementType>& p_elements, const uimax p_index)
 		{
 #if CONTAINER_BOUND_TEST
 			this->bound_check(p_index);
@@ -147,7 +147,7 @@ namespace v2
 		};
 
 
-		inline char insert_element_at_always(const ElementType& p_element, const size_t p_index)
+		inline int8 insert_element_at_always(const ElementType& p_element, const uimax p_index)
 		{
 #if CONTAINER_BOUND_TEST
 			this->bound_check(p_index);
@@ -164,7 +164,7 @@ namespace v2
 		};
 
 
-		inline char erase_array_at(const size_t p_index, const size_t p_element_nb)
+		inline int8 erase_array_at(const uimax p_index, const uimax p_element_nb)
 		{
 
 #if CONTAINER_BOUND_TEST
@@ -179,7 +179,7 @@ namespace v2
 			return 1;
 		};
 
-		inline char erase_element_at(const size_t p_index)
+		inline int8 erase_element_at(const uimax p_index)
 		{
 #if CONTAINER_BOUND_TEST
 			this->bound_check(p_index);
@@ -193,13 +193,13 @@ namespace v2
 		};
 
 
-		inline char pop_back_array(const size_t p_element_nb)
+		inline int8 pop_back_array(const uimax p_element_nb)
 		{
 			this->Size -= p_element_nb;
 			return 1;
 		};
 
-		inline char pop_back()
+		inline int8 pop_back()
 		{
 			this->Size -= 1;
 			return 1;
@@ -208,7 +208,7 @@ namespace v2
 
 	private:
 
-		inline void bound_check(const size_t p_index)
+		inline void bound_check(const uimax p_index)
 		{
 #if CONTAINER_BOUND_TEST
 			if (p_index > this->Size)
@@ -218,7 +218,7 @@ namespace v2
 #endif
 		};
 
-		inline void bound_head_check(const size_t p_index)
+		inline void bound_head_check(const uimax p_index)
 		{
 #if CONTAINER_BOUND_TEST
 			if (p_index == this->Size)
@@ -229,17 +229,17 @@ namespace v2
 		};
 
 
-		inline void move_memory_down(const size_t p_break_index, const size_t p_move_delta)
+		inline void move_memory_down(const uimax p_break_index, const uimax p_move_delta)
 		{
 			this->Memory.move_memory_down(this->Size, p_break_index, p_move_delta);
 		};
 
-		inline void move_memory_up(const size_t p_break_index, const size_t p_move_delta)
+		inline void move_memory_up(const uimax p_break_index, const uimax p_move_delta)
 		{
 			this->Memory.move_memory_up(this->Size, p_break_index, p_move_delta);
 		};
 
-		inline char insert_element_at_unchecked(const ElementType& p_element, const size_t p_index)
+		inline int8 insert_element_at_unchecked(const ElementType& p_element, const uimax p_index)
 		{
 			this->Memory.resize_until_capacity_met(this->Size + 1);
 			this->move_memory_down(p_index, 1);
@@ -249,7 +249,7 @@ namespace v2
 			return 1;
 		};
 
-		inline char insert_array_at_unchecked(const Slice<ElementType>& p_elements, const size_t p_index)
+		inline int8 insert_array_at_unchecked(const Slice<ElementType>& p_elements, const uimax p_index)
 		{
 			this->Memory.resize_until_capacity_met(this->Size + p_elements.Size);
 			this->move_memory_down(p_index, p_elements.Size);
@@ -263,7 +263,4 @@ namespace v2
 	};
 
 }
-
-#define vector_loop(VectorVariable, Iteratorname) size_t Iteratorname = 0; Iteratorname < (VectorVariable)->Size; Iteratorname++
-#define vector_loop_reverse(VectorVariable, Iteratorname) size_t Iteratorname = (VectorVariable)->Size - 1; Iteratorname != -1; --Iteratorname
 

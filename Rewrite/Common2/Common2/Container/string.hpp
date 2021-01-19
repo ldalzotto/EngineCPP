@@ -3,22 +3,22 @@
 namespace v2
 {
 	/*
-		A String is a vector of char that always have a NULL character at it's last element.
+		A String is a vector of int8 that always have a NULL int8acter at it's last element.
 	*/
 	struct String
 	{
-		Vector<char> Memory;
+		Vector<int8> Memory;
 
-		inline static String allocate(const size_t p_initial_capacity)
+		inline static String allocate(const uimax p_initial_capacity)
 		{
-			char l_null_char = (char)NULL;
-			return String{ Vector<char>::allocate_capacity_elements(p_initial_capacity + 1, Slice<char>::build_aschar_memory_elementnb(&l_null_char, 1)) };
+			int8 l_null_int8 = (int8)NULL;
+			return String{ Vector<int8>::allocate_capacity_elements(p_initial_capacity + 1, Slice<int8>::build_asint8_memory_elementnb(&l_null_int8, 1)) };
 		};
 
-		inline static String allocate_elements(const Slice<char>& p_initial_elements)
+		inline static String allocate_elements(const Slice<int8>& p_initial_elements)
 		{
-			String l_string = String{ Vector<char>::allocate_capacity_elements(p_initial_elements.Size + 1, p_initial_elements) };
-			l_string.Memory.push_back_element((char)NULL);
+			String l_string = String{ Vector<int8>::allocate_capacity_elements(p_initial_elements.Size + 1, p_initial_elements) };
+			l_string.Memory.push_back_element((int8)NULL);
 			return l_string;
 		};
 
@@ -27,38 +27,38 @@ namespace v2
 			this->Memory.free();
 		};
 
-		inline void append(const Slice<char>& p_elements)
+		inline void append(const Slice<int8>& p_elements)
 		{
 			this->Memory.insert_array_at(p_elements, this->Memory.Size - 1);
 		};
 
-		inline void insert_array_at(const Slice<char>& p_elements, const size_t p_index)
+		inline void insert_array_at(const Slice<int8>& p_elements, const uimax p_index)
 		{
 			// The insert_array_at will fail if p_index == this->get_size();
 			this->Memory.insert_array_at(p_elements, p_index);
 		};
 
-		inline char& get(const size_t p_index)
+		inline int8& get(const uimax p_index)
 		{
 			return this->Memory.get(p_index);
 		};
 
-		inline const char& get(const size_t p_index) const
+		inline const int8& get(const uimax p_index) const
 		{
 			return ((String*)this)->Memory.get(p_index);
 		};
 
-		inline char* get_memory()
+		inline int8* get_memory()
 		{
 			return this->Memory.get_memory();
 		};
 
-		inline size_t get_size() const
+		inline uimax get_size() const
 		{
 			return this->Memory.Size;
 		};
 
-		inline size_t get_char_nb() const
+		inline uimax get_int8_nb() const
 		{
 			return this->Memory.Size - 1;
 		};
@@ -66,19 +66,19 @@ namespace v2
 		inline void clear()
 		{
 			this->Memory.clear();
-			this->Memory.push_back_element((char)NULL);
+			this->Memory.push_back_element((int8)NULL);
 		};
 
-		inline Slice<char> to_slice()
+		inline Slice<int8> to_slice()
 		{
-			return Slice<char>::build_memory_elementnb(this->Memory.Memory.Memory, this->Memory.Size - 1);
+			return Slice<int8>::build_memory_elementnb(this->Memory.Memory.Memory, this->Memory.Size - 1);
 		};
 
-		inline void remove_chars(const char p_char)
+		inline void remove_int8s(const int8 p_int8)
 		{
-			for (size_t i = this->Memory.Size - 1; i != -1; --i)
+			for (vector_loop_reverse(&this->Memory, i))
 			{
-				if (this->Memory.get(i) == p_char)
+				if (this->Memory.get(i) == p_int8)
 				{
 					this->Memory.erase_element_at(i);
 				}

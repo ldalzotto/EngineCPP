@@ -6,7 +6,7 @@
 template<class ElementType>
 struct Slice
 {
-	size_t Size;
+	uimax Size;
 	ElementType* Begin;
 
 	inline static Slice<ElementType> build_default()
@@ -14,42 +14,42 @@ struct Slice
 		return Slice<ElementType>{0, NULL};
 	};
 
-	inline static Slice<ElementType> build(ElementType* p_memory, const size_t p_begin, const size_t p_end)
+	inline static Slice<ElementType> build(ElementType* p_memory, const uimax p_begin, const uimax p_end)
 	{
 		return Slice<ElementType>{p_end - p_begin, p_memory + p_begin};
 	};
 
-	inline static Slice<ElementType> build_memory_elementnb(ElementType* p_memory, const size_t p_element_nb)
+	inline static Slice<ElementType> build_memory_elementnb(ElementType* p_memory, const uimax p_element_nb)
 	{
 		return Slice<ElementType>{p_element_nb, p_memory};
 	};
 
-	inline static Slice<ElementType> build_memory_offset_elementnb(ElementType* p_memory, const size_t p_offset, const size_t p_element_nb)
+	inline static Slice<ElementType> build_memory_offset_elementnb(ElementType* p_memory, const uimax p_offset, const uimax p_element_nb)
 	{
 		return Slice<ElementType>{p_element_nb, p_memory + p_offset};
 	};
 
-	inline static Slice<char> build_aschar(ElementType* p_memory, const size_t p_begin, const size_t p_end)
+	inline static Slice<int8> build_asint8(ElementType* p_memory, const uimax p_begin, const uimax p_end)
 	{
-		return Slice<char>{sizeof(ElementType)* (p_end - p_begin), cast(char*, (p_memory + p_begin))};
+		return Slice<int8>{sizeof(ElementType)* (p_end - p_begin), cast(int8*, (p_memory + p_begin))};
 	};
 
-	inline Slice<char> build_aschar() const
+	inline Slice<int8> build_asint8() const
 	{
-		return Slice<char>{sizeof(ElementType)* this->Size, cast(char*, this->Begin)};
+		return Slice<int8>{sizeof(ElementType)* this->Size, cast(int8*, this->Begin)};
 	};
 
-	inline static Slice<char> build_aschar_memory_elementnb(const ElementType* p_memory, const size_t p_element_nb)
+	inline static Slice<int8> build_asint8_memory_elementnb(const ElementType* p_memory, const uimax p_element_nb)
 	{
-		return Slice<char>{sizeof(ElementType)* p_element_nb, cast(char*, p_memory)};
+		return Slice<int8>{sizeof(ElementType)* p_element_nb, cast(int8*, p_memory)};
 	};
 
-	inline static Slice<char> build_aschar_memory_singleelement(const ElementType* p_memory)
+	inline static Slice<int8> build_asint8_memory_singleelement(const ElementType* p_memory)
 	{
-		return Slice<char>{sizeof(ElementType), cast(char*, p_memory)};
+		return Slice<int8>{sizeof(ElementType), cast(int8*, p_memory)};
 	};
 
-	inline ElementType& get(const size_t p_index)
+	inline ElementType& get(const uimax p_index)
 	{
 #if CONTAINER_BOUND_TEST
 		if (p_index >= this->Size)
@@ -60,12 +60,12 @@ struct Slice
 		return this->Begin[p_index];
 	};
 
-	inline const ElementType& get(const size_t p_index) const
+	inline const ElementType& get(const uimax p_index) const
 	{
 		return ((Slice<ElementType>*)this)->get(p_index);
 	};
 
-	inline void slide(const size_t p_offset_index)
+	inline void slide(const uimax p_offset_index)
 	{
 #if CONTAINER_BOUND_TEST
 		if (p_offset_index > this->Size)
@@ -78,32 +78,32 @@ struct Slice
 		this->Size -= p_offset_index;
 	};
 
-	inline Slice<ElementType> slide_rv(const size_t p_offset_index) const
+	inline Slice<ElementType> slide_rv(const uimax p_offset_index) const
 	{
 		Slice<ElementType> l_return = *this;
 		l_return.slide(p_offset_index);
 		return l_return;
 	};
 
-	inline char compare(const Slice<ElementType>& p_other) const
+	inline int8 compare(const Slice<ElementType>& p_other) const
 	{
 		return slice_memcompare_element(*this, p_other);
 	};
 
-	inline char find(const Slice<ElementType>& p_other, size_t* out_index) const
+	inline int8 find(const Slice<ElementType>& p_other, uimax* out_index) const
 	{
 		return slice_memfind(*this, p_other, out_index);
 	};
 };
 
-inline Slice<char> slice_char_build_rawstr(const char* p_str)
+inline Slice<int8> slice_int8_build_rawstr(const int8* p_str)
 {
-	return Slice<char>::build_memory_elementnb((char*)p_str, strlen(p_str));
+	return Slice<int8>::build_memory_elementnb((int8*)p_str, strlen(p_str));
 };
 
 
 template<class CastedType>
-inline Slice<CastedType> slice_cast(const Slice<char>& p_slice)
+inline Slice<CastedType> slice_cast(const Slice<int8>& p_slice)
 {
 #if CONTAINER_BOUND_TEST
 	if ((p_slice.Size % sizeof(CastedType)) != 0)
@@ -112,12 +112,12 @@ inline Slice<CastedType> slice_cast(const Slice<char>& p_slice)
 	}
 #endif
 
-	return Slice<CastedType>{ cast(size_t, p_slice.Size / sizeof(CastedType)), cast(CastedType*, p_slice.Begin) };
+	return Slice<CastedType>{ cast(uimax, p_slice.Size / sizeof(CastedType)), cast(CastedType*, p_slice.Begin) };
 };
 
 
 template<class CastedType>
-inline CastedType* slice_cast_singleelement(const Slice<char>& p_slice)
+inline CastedType* slice_cast_singleelement(const Slice<int8>& p_slice)
 {
 #if CONTAINER_BOUND_TEST
 	if (p_slice.Size < sizeof(CastedType))
@@ -129,7 +129,7 @@ inline CastedType* slice_cast_singleelement(const Slice<char>& p_slice)
 };
 
 template<class CastedType>
-inline Slice<CastedType> slice_cast_fixedelementnb(const Slice<char>& p_slice, const size_t p_element_nb)
+inline Slice<CastedType> slice_cast_fixedelementnb(const Slice<int8>& p_slice, const uimax p_element_nb)
 {
 #if CONTAINER_BOUND_TEST
 	if (p_slice->Size < (sizeof(CastedType) * p_element_nb))
@@ -152,33 +152,33 @@ inline Slice<CastedType> slice_cast_fixedelementnb(const Slice<char>& p_slice, c
 
 
 template<class ElementType>
-inline char* slice_memmove(const Slice<ElementType>& p_target, const Slice<ElementType>& p_source)
+inline int8* slice_memmove(const Slice<ElementType>& p_target, const Slice<ElementType>& p_source)
 {
 #if STANDARD_ALLOCATION_BOUND_TEST
-	return memory_move_safe(cast(char*, p_target.Begin), p_target.Size * sizeof(ElementType), cast(char*, p_source.Begin), p_source.Size * sizeof(ElementType));
+	return memory_move_safe(cast(int8*, p_target.Begin), p_target.Size * sizeof(ElementType), cast(int8*, p_source.Begin), p_source.Size * sizeof(ElementType));
 #else
-	return memory_move((char*)p_target.Begin, (char*)p_source.Begin, p_source.Size * sizeof(ElementType));
+	return memory_move((int8*)p_target.Begin, (int8*)p_source.Begin, p_source.Size * sizeof(ElementType));
 #endif
 };
 
 template<class ElementType>
-inline char* slice_memcpy(const Slice<ElementType>& p_target, const Slice<ElementType>& p_source)
+inline int8* slice_memcpy(const Slice<ElementType>& p_target, const Slice<ElementType>& p_source)
 {
 #if STANDARD_ALLOCATION_BOUND_TEST
-	return memory_cpy_safe(cast(char*, p_target.Begin), p_target.Size * sizeof(ElementType), cast(char*, p_source.Begin), p_source.Size * sizeof(ElementType));
+	return memory_cpy_safe(cast(int8*, p_target.Begin), p_target.Size * sizeof(ElementType), cast(int8*, p_source.Begin), p_source.Size * sizeof(ElementType));
 #else
-	return memory_cpy((char*)p_target.Begin, (char*)p_source.Begin, p_source.Size * sizeof(ElementType));
+	return memory_cpy((int8*)p_target.Begin, (int8*)p_source.Begin, p_source.Size * sizeof(ElementType));
 #endif
 };
 
 template<class ElementType>
-inline char slice_memcompare_element(const Slice<ElementType>& p_target, const Slice<ElementType>& p_compared)
+inline int8 slice_memcompare_element(const Slice<ElementType>& p_target, const Slice<ElementType>& p_compared)
 {
-	return memory_compare(cast(char*, p_target.Begin), cast(char*, p_compared.Begin), p_compared.Size);
+	return memory_compare(cast(int8*, p_target.Begin), cast(int8*, p_compared.Begin), p_compared.Size);
 };
 
 template<class ElementType>
-inline char slice_memfind(const Slice<ElementType>& p_target, const Slice<ElementType>& p_compared, size_t* out_index)
+inline int8 slice_memfind(const Slice<ElementType>& p_target, const Slice<ElementType>& p_compared, uimax* out_index)
 {
 #if CONTAINER_BOUND_TEST
 	if (p_compared.Size > p_target.Size)
@@ -194,7 +194,7 @@ inline char slice_memfind(const Slice<ElementType>& p_target, const Slice<Elemen
 		return 1;
 	};
 
-	for (size_t i = 1; i < p_target.Size - p_compared.Size + 1; i++)
+	for (uimax i = 1; i < p_target.Size - p_compared.Size + 1; i++)
 	{
 		l_target_slice.slide(1);
 		if (slice_memcompare_element(l_target_slice, p_compared))
@@ -208,14 +208,14 @@ inline char slice_memfind(const Slice<ElementType>& p_target, const Slice<Elemen
 };
 
 /*
-	A SliceIndex is just a begin and end size_t
+	A SliceIndex is just a begin and end uimax
 */
 struct SliceIndex
 {
-	size_t Begin;
-	size_t Size;
+	uimax Begin;
+	uimax Size;
 
-	inline static SliceIndex build(const size_t p_begin, const size_t p_size)
+	inline static SliceIndex build(const uimax p_begin, const uimax p_size)
 	{
 		return SliceIndex{ p_begin, p_size };
 	};
@@ -225,9 +225,9 @@ struct SliceIndex
 		return build(0, 0);
 	};
 
-	inline void slice_two(const size_t p_break_point, SliceIndex* out_left, SliceIndex* out_right) const
+	inline void slice_two(const uimax p_break_point, SliceIndex* out_left, SliceIndex* out_right) const
 	{
-		size_t l_source_initial_size = this->Size;
+		uimax l_source_initial_size = this->Size;
 		*out_left = SliceIndex::build(this->Begin, p_break_point - this->Begin);
 		*out_right = SliceIndex::build(p_break_point, l_source_initial_size - out_left->Size);
 	};

@@ -4,7 +4,7 @@
 #include "./collision_definition.hpp"
 
 
-inline BoxCollider BoxCollider::build_from_local_aabb(const char p_enabled, const aabb& p_local_box)
+inline BoxCollider BoxCollider::build_from_local_aabb(const int8 p_enabled, const aabb& p_local_box)
 {
 	BoxCollider l_box_collider;
 	l_box_collider.enabled = p_enabled;
@@ -131,7 +131,7 @@ inline Slice<TriggerEvent> CollisionHeap2::get_triggerevents_from_colliderdetect
 	return this->collider_detectors_events_2.get_vector(this->collider_detectors.get(p_collider_detector).collision_events);
 };
 
-inline char CollisionHeap2::does_boxcollider_have_colliderdetector(const Token(BoxCollider) p_box_collider)
+inline int8 CollisionHeap2::does_boxcollider_have_colliderdetector(const Token(BoxCollider) p_box_collider)
 {
 	if (!this->box_colliders_to_collider_detector.is_element_free(tk_bf(Token(ColliderDetector), p_box_collider)))
 	{
@@ -151,7 +151,7 @@ inline CollisionDetectionStep::IntersectionEvent CollisionDetectionStep::Interse
 	return IntersectionEvent{ p_detector, p_other };
 };
 
-inline char CollisionDetectionStep::IntersectionEvent::equals_intersectionevent(const IntersectionEvent& p_other)
+inline int8 CollisionDetectionStep::IntersectionEvent::equals_intersectionevent(const IntersectionEvent& p_other)
 {
 	return tk_eq(this->detector, p_other.detector) && tk_eq(this->other, p_other.other);
 };
@@ -339,15 +339,15 @@ inline void CollisionDetectionStep::exit_collision(const IntersectionEvent& p_in
 inline void CollisionDetectionStep::remove_references_to_colliderdetector(const Token(ColliderDetector) p_collider_detector)
 {
 	vector_erase_if_2_begin(&this->is_waitingfor_trigger_stay_detector, j, l_intsersrection_event)
-		char l_erased = tk_eq(l_intsersrection_event.detector, p_collider_detector);
+		int8 l_erased = tk_eq(l_intsersrection_event.detector, p_collider_detector);
 	vector_erase_if_2_end(&this->is_waitingfor_trigger_stay_detector, j, l_erased);
 
 	vector_erase_if_2_begin(&this->is_waitingfor_trigger_none_detector, j, l_trigger_event)
-		char l_erased = tk_eq(l_trigger_event.detector, p_collider_detector);
+		int8 l_erased = tk_eq(l_trigger_event.detector, p_collider_detector);
 	vector_erase_if_2_end(&this->is_waitingfor_trigger_none_detector, j, l_erased);
 
 	vector_erase_if_2_begin(&this->in_colliders_processed, j, l_disabled_collider);
-	char l_erased = false;
+	int8 l_erased = false;
 	Token(ColliderDetector)& l_collider_detector = this->heap->get_colliderdetector_from_boxcollider(l_disabled_collider);
 	if (tk_v(l_collider_detector) != -1 && tk_eq(l_collider_detector, p_collider_detector))
 	{
@@ -360,15 +360,15 @@ inline void CollisionDetectionStep::remove_references_to_colliderdetector(const 
 inline void CollisionDetectionStep::remove_references_to_boxcollider(const Token(BoxCollider) p_box_collider)
 {
 	vector_erase_if_2_begin(&this->in_colliders_processed, j, l_collider)
-		char l_erased = tk_eq(l_collider, p_box_collider);
+		int8 l_erased = tk_eq(l_collider, p_box_collider);
 	vector_erase_if_2_end(&this->in_colliders_processed, j, l_erased);
 
 	vector_erase_if_2_begin(&this->is_waitingfor_trigger_stay_detector, j, l_intsersrection_event)
-		char l_erased = tk_eq(l_intsersrection_event.other, p_box_collider);
+		int8 l_erased = tk_eq(l_intsersrection_event.other, p_box_collider);
 	vector_erase_if_2_end(&this->is_waitingfor_trigger_stay_detector, j, l_erased);
 
 	vector_erase_if_2_begin(&this->is_waitingfor_trigger_none_detector, j, l_trigger_event)
-		char l_erased = tk_eq(l_trigger_event.other, p_box_collider);
+		int8 l_erased = tk_eq(l_trigger_event.other, p_box_collider);
 	vector_erase_if_2_end(&this->is_waitingfor_trigger_none_detector, j, l_erased);
 };
 
@@ -651,7 +651,7 @@ struct Collision2
 	inline static void free(Collision2** p_collision_ptr)
 	{
 		(*p_collision_ptr)->free();
-		heap_free(cast(char*, *p_collision_ptr));
+		heap_free(cast(int8*, *p_collision_ptr));
 	};
 
 	inline void free()

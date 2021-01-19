@@ -6,11 +6,11 @@
 */
 struct BoxCollider
 {
-	char enabled;
+	int8 enabled;
 	transform_pa transform;
 	aabb local_box;
 
-	static BoxCollider build_from_local_aabb(const char p_enabled, const aabb& p_local_box);;
+	static BoxCollider build_from_local_aabb(const int8 p_enabled, const aabb& p_local_box);;
 };
 
 /*
@@ -57,7 +57,7 @@ struct CollisionHeap2
 	Slice<TriggerEvent> get_triggerevents_from_boxcollider(const Token(BoxCollider) p_box_collider);
 	Slice<TriggerEvent> get_triggerevents_from_colliderdetector(const Token(ColliderDetector) p_collider_detector);
 
-	char does_boxcollider_have_colliderdetector(const Token(BoxCollider) p_box_collider);
+	int8 does_boxcollider_have_colliderdetector(const Token(BoxCollider) p_box_collider);
 };
 
 
@@ -75,7 +75,7 @@ struct CollisionDetectionStep
 		Token(BoxCollider) other;
 
 		inline static IntersectionEvent build(const Token(ColliderDetector) p_detector, const Token(BoxCollider) p_other);
-		inline char equals_intersectionevent(const IntersectionEvent& p_other);
+		inline int8 equals_intersectionevent(const IntersectionEvent& p_other);
 	};
 
 	struct CollisionDetectorDeletionEvent

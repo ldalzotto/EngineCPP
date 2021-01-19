@@ -4,7 +4,7 @@
 
 namespace v2
 {
-	inline Node::State Node::State::build(const char p_matrices_must_be_recalculated, const char p_haschanged_thisframe)
+	inline Node::State Node::State::build(const int8 p_matrices_must_be_recalculated, const int8 p_haschanged_thisframe)
 	{
 		return State{ p_matrices_must_be_recalculated, p_haschanged_thisframe };
 	};
@@ -36,9 +36,9 @@ namespace v2
 		return cast(ComponentType*, this->get_component_object());
 	};
 
-	inline char* NodeComponentHeader::get_component_object()
+	inline int8* NodeComponentHeader::get_component_object()
 	{
-		return cast(char*, this) + sizeof(NodeComponentHeader);
+		return cast(int8*, this) + sizeof(NodeComponentHeader);
 	};
 
 
@@ -54,12 +54,12 @@ namespace v2
 		this->component_heap.free();
 	};
 
-	inline Token(NodeComponentHeader) SceneTree::Heap::allocate_component(const Token(Node) p_node, const SceneNodeComponentType& p_component_type, const char* p_initial_value)
+	inline Token(NodeComponentHeader) SceneTree::Heap::allocate_component(const Token(Node) p_node, const SceneNodeComponentType& p_component_type, const int8* p_initial_value)
 	{
-		Slice<char> l_allocated_chunk;
+		Slice<int8> l_allocated_chunk;
 		Token(SliceIndex) l_chunk_token = this->component_heap.allocate_empty_element_return_chunk(sizeof(NodeComponentHeader) + p_component_type.size, &l_allocated_chunk);
 		((NodeComponentHeader*)l_allocated_chunk.Begin)->type = &p_component_type;
-		slice_memcpy(l_allocated_chunk.slide_rv(sizeof(NodeComponentHeader)), Slice<char>::build_memory_elementnb((char*)p_initial_value, p_component_type.size));
+		slice_memcpy(l_allocated_chunk.slide_rv(sizeof(NodeComponentHeader)), Slice<int8>::build_memory_elementnb((int8*)p_initial_value, p_component_type.size));
 		return tk_bf(NodeComponentHeader, l_chunk_token);
 	};
 
@@ -132,7 +132,7 @@ namespace v2
 
 
 
-	inline Token(NodeComponentHeader) SceneTree::add_node_component(const Token(Node) p_node, const SceneNodeComponentType& p_type, const char* p_initial_value)
+	inline Token(NodeComponentHeader) SceneTree::add_node_component(const Token(Node) p_node, const SceneNodeComponentType& p_type, const int8* p_initial_value)
 	{
 		Token(NodeComponentHeader) l_component_header = this->heap.allocate_component(p_node, p_type, p_initial_value);
 		// We push to it's corresponding array
@@ -145,7 +145,7 @@ namespace v2
 		return this->node_to_components.get_vector(tk_bf(Slice<Token(NodeComponentHeader)>, p_node));
 	};
 
-	inline char SceneTree::get_node_component(const Token(Node) p_node, const Token(NodeComponentHeader) p_component, NodeComponentHeader** out_component)
+	inline int8 SceneTree::get_node_component(const Token(Node) p_node, const Token(NodeComponentHeader) p_component, NodeComponentHeader** out_component)
 	{
 		Slice<Token(NodeComponentHeader)> l_components = this->get_node_components_token(p_node);
 		for (loop(i, 0, l_components.Size))
@@ -162,7 +162,7 @@ namespace v2
 		return 0;
 	};
 
-	inline char SceneTree::get_node_component_by_type(const Token(Node) p_node, const SceneNodeComponentType& p_type, NodeComponentHeader** out_component)
+	inline int8 SceneTree::get_node_component_by_type(const Token(Node) p_node, const SceneNodeComponentType& p_type, NodeComponentHeader** out_component)
 	{
 		Slice<Token(NodeComponentHeader)> l_components = this->get_node_components_token(p_node);
 		for (loop(i, 0, l_components.Size))
@@ -180,7 +180,7 @@ namespace v2
 	};
 
 	/*
-	inline char SceneTree::remove_node_component(const Token(Node) p_node, const Token(NodeComponentHeader) p_component)
+	inline int8 SceneTree::remove_node_component(const Token(Node) p_node, const Token(NodeComponentHeader) p_component)
 	{
 		Slice<Token(NodeComponentHeader)> l_components = this->get_node_components_token(p_node);
 		for (loop(i, 0, l_components.Size))
@@ -195,7 +195,7 @@ namespace v2
 		return 0;
 	};
 
-	inline char SceneTree::remove_node_component_by_type(const Token(Node) p_node, const SceneNodeComponentType& p_type)
+	inline int8 SceneTree::remove_node_component_by_type(const Token(Node) p_node, const SceneNodeComponentType& p_type)
 	{
 		Slice<Token(NodeComponentHeader)> l_components = this->get_node_components_token(p_node);
 		for (loop(i, 0, l_components.Size))
@@ -217,7 +217,7 @@ namespace v2
 		this->node_to_components.element_clear(tk_bf(Slice<Token(NodeComponentHeader)>, p_node));
 	};
 
-	inline char SceneTree::detach_node_component_by_type(const Token(Node) p_node, const SceneNodeComponentType& p_type, Token(NodeComponentHeader)* out_component)
+	inline int8 SceneTree::detach_node_component_by_type(const Token(Node) p_node, const SceneNodeComponentType& p_type, Token(NodeComponentHeader)* out_component)
 	{
 		Slice<Token(NodeComponentHeader)> l_components = this->get_node_components_token(p_node);
 		for (loop(i, 0, l_components.Size))
@@ -250,7 +250,7 @@ namespace v2
 	{
 		return p_node.Element->local_transform.rotation;
 	};
-	
+
 	inline v3f& SceneTree::get_localscale(const NodeEntry& p_node)
 	{
 		return p_node.Element->local_transform.scale;
@@ -551,13 +551,13 @@ namespace v2
 
 		tree_traverse2_stateful_begin(Node, Vector<Token(Node)>*p_node_that_will_be_destroyed, GetAllNodes)
 			p_node_that_will_be_destroyed->push_back_element(tk_bf(Node, p_node.Node->index));
-		tree_traverse2_stateful_end(Node, &this->tree.node_tree, p_node.Node->index, &this->node_that_will_be_destroyed ,GetAllNodes)
+		tree_traverse2_stateful_end(Node, &this->tree.node_tree, p_node.Node->index, &this->node_that_will_be_destroyed, GetAllNodes)
 	};
 
 	template<class ComponentType>
 	inline Token(NodeComponentHeader) Scene::add_node_component_typed(const Token(Node) p_node, const ComponentType& p_intial_value)
 	{
-		Token(NodeComponentHeader) l_added_component = this->tree.add_node_component(p_node, ComponentType::Type, cast(const char*, &p_intial_value));
+		Token(NodeComponentHeader) l_added_component = this->tree.add_node_component(p_node, ComponentType::Type, cast(const int8*, &p_intial_value));
 		this->component_events.push_back_element(ComponentEvent{ ComponentEvent::State::ADDED, p_node, l_added_component });
 		return l_added_component;
 	};
@@ -571,13 +571,13 @@ namespace v2
 		if (!this->tree.get_node_component_by_type(p_node, ComponentType::Type, &l_component_header))
 		{
 			abort();
-	};
+		};
 #else
 		this->tree.get_node_component_by_type(p_node, ComponentType::Type, &l_component_header);
 #endif
 
 		return l_component_header->cast_to_object<ComponentType>();
-};
+	};
 
 	template<class ComponentType>
 	inline ComponentType* Scene::get_component_from_token_typed(const Token(NodeComponentHeader) p_component)

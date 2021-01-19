@@ -52,6 +52,6 @@ Slice<Trigger::Event> ColliderDetectorHandle::get_collision_events(CollisionHand
 {
 	return slice_cast<Trigger::Event>(
 		cast(Collision2*, p_collision.handle)->collision_heap.get_triggerevents_from_colliderdetector(tk_b(ColliderDetector, this->handle))
-		.build_aschar()
+		.build_asint8()
 		);
 };

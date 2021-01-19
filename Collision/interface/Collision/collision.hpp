@@ -19,9 +19,9 @@ struct CollisionHandle
 
 struct BoxColliderHandle
 {
-	size_t handle;
+	uimax handle;
 
-	inline static BoxColliderHandle build_default() { return BoxColliderHandle{ cast(size_t, -1) }; }
+	inline static BoxColliderHandle build_default() { return BoxColliderHandle{ cast(uimax, -1) }; }
 	inline void reset() { *this = build_default(); };
 
 	void allocate(CollisionHandle p_collision, const aabb& p_local_aabb);
@@ -50,13 +50,13 @@ struct Trigger
 
 struct ColliderDetectorHandle
 {
-	size_t handle;
+	uimax handle;
 	BoxColliderHandle collider;
 
 	inline static ColliderDetectorHandle build_default()
 	{
 		return ColliderDetectorHandle{
-			cast(size_t, -1), BoxColliderHandle::build_default()
+			cast(uimax, -1), BoxColliderHandle::build_default()
 		};
 	};
 

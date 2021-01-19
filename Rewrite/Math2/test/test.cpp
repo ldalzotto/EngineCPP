@@ -60,7 +60,7 @@ inline void math_tests()
 			v4f{ 0.000000000f, 0.000000000f, 7.00000000f, 1.00000000f }, v4f{ 0.000000000f, 0.000000000f, -24.0000000f, 0.000000000f }));
 };
 
-inline void assert_obb_overlap(const obb& p_left, const obb& p_right, const char p_overlap_result)
+inline void assert_obb_overlap(const obb& p_left, const obb& p_right, const int8 p_overlap_result)
 {
 	assert_true(p_left.overlap(p_right) == p_overlap_result);
 	assert_true(p_left.overlap1(p_right) == p_overlap_result);

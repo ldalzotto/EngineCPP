@@ -4,10 +4,10 @@ namespace v2
 {
 	struct SceneNodeComponentType
 	{
-		size_t id;
-		size_t size;
+		uimax id;
+		uimax size;
 
-		inline static constexpr SceneNodeComponentType build(const size_t p_id, const size_t p_size)
+		inline static constexpr SceneNodeComponentType build(const uimax p_id, const uimax p_size)
 		{
 			return SceneNodeComponentType{ p_id,p_size };
 		};

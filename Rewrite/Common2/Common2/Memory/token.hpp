@@ -1,6 +1,6 @@
 #pragma once
 
-typedef size_t token_t;
+typedef uimax token_t;
 
 inline token_t tokent_build_default()
 {
@@ -12,7 +12,7 @@ inline void tokent_reset(token_t* p_token)
 	*p_token = tokent_build_default();
 };
 
-inline char tokent_is_valid(const token_t* p_token)
+inline int8 tokent_is_valid(const token_t* p_token)
 {
 	return *p_token != -1;
 };
@@ -37,7 +37,7 @@ struct Token
 
 #define tk_v(TokenVariable) (TokenVariable)
 
-#define Token(ElementType) size_t
+#define Token(ElementType) uimax
 
 #endif
 

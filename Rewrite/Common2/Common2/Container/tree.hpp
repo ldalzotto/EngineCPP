@@ -42,7 +42,7 @@ namespace v2
 				return Resolve{ p_element, p_node };
 			};
 
-			inline char has_parent() const
+			inline int8 has_parent() const
 			{
 				return tk_v(this->Node->parent) != -1;
 			};
@@ -94,7 +94,7 @@ namespace v2
 			return this->get_childs(this->get_from_node(p_node).Node->childs);
 		};
 
-		inline char add_child(const Resolve& p_parent, const  Resolve& p_new_child)
+		inline int8 add_child(const Resolve& p_parent, const  Resolve& p_new_child)
 		{
 			if (!tk_eq(p_parent.Node->index, p_new_child.Node->index))
 			{
@@ -109,7 +109,7 @@ namespace v2
 		};
 
 
-		inline char add_child(const Token(ElementType) p_parent, const Token(ElementType) p_new_child)
+		inline int8 add_child(const Token(ElementType) p_parent, const Token(ElementType) p_new_child)
 		{
 			Resolve l_new_child_value = this->get(p_new_child);
 			return this->add_child(this->get(p_parent), l_new_child_value);
@@ -143,7 +143,7 @@ namespace v2
 			Resolve l_node = this->get(tk_bf(ElementType, p_current_node));
 			ForEachFunc::foreach(l_node);
 			Slice<Token(NTreeNode)> l_childs = this->get_childs(l_node.Node->childs);
-			for (size_t i = 0; i < l_childs.Size; i++)
+			for (uimax i = 0; i < l_childs.Size; i++)
 			{
 				this->traverse2<ForEachFunc>(l_childs.get(i));
 			};
@@ -155,7 +155,7 @@ namespace v2
 			Resolve l_node = this->get(tk_bf(ElementType, p_current_node));
 			p_foreach_obj.foreach(l_node);
 			Slice<Token(NTreeNode)> l_childs = this->get_childs(l_node.Node->childs);
-			for (size_t i = 0; i < l_childs.Size; i++)
+			for (uimax i = 0; i < l_childs.Size; i++)
 			{
 				this->traverse2_stateful<ForEachObj>(l_childs.get(i), p_foreach_obj);
 			};

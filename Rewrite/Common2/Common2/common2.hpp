@@ -4,8 +4,10 @@
 #include <string.h>
 #include <math.h>
 
-#include "./Functional/assert.hpp"
+#include "./Types/types.hpp"
 #include "./Macros/macros.hpp"
+
+#include "./Functional/assert.hpp"
 
 #include "./Memory/token.hpp"
 #include "./Memory/memory.hpp"

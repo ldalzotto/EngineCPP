@@ -24,7 +24,7 @@ namespace v2
 			this->Indices.free();
 		};
 
-		inline char has_allocated_elements()
+		inline int8 has_allocated_elements()
 		{
 			return this->Memory.has_allocated_elements();
 		};

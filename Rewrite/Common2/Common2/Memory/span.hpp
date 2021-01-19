@@ -5,34 +5,34 @@
     Span can allocate memory, be resized and freed.
 */
 template<class ElementType>
-struct Span 
+struct Span
 {
     union
     {
         struct
         {
-            size_t Capacity;
+            uimax Capacity;
             ElementType* Memory;
         };
         Slice<ElementType> slice;
     };
 
-    inline static Span<ElementType> build(ElementType* p_memory, const size_t p_capacity)
+    inline static Span<ElementType> build(ElementType* p_memory, const uimax p_capacity)
     {
         return Span<ElementType>{p_capacity, p_memory};
     };
 
-    inline static Span<ElementType> allocate(const size_t p_capacity)
+    inline static Span<ElementType> allocate(const uimax p_capacity)
     {
         return Span<ElementType>{p_capacity, cast(ElementType*, heap_malloc(p_capacity * sizeof(ElementType)))};
     };
 
 
-    inline char resize(const size_t p_new_capacity)
+    inline int8 resize(const uimax p_new_capacity)
     {
         if (p_new_capacity > this->Capacity)
         {
-            ElementType* l_newMemory = (ElementType*)heap_realloc(cast(char*, this->Memory), p_new_capacity * sizeof(ElementType));
+            ElementType* l_newMemory = (ElementType*)heap_realloc(cast(int8*, this->Memory), p_new_capacity * sizeof(ElementType));
             if (l_newMemory != NULL)
             {
                 *this = Span<ElementType>::build(l_newMemory, p_new_capacity);
@@ -43,9 +43,9 @@ struct Span
         return 1;
     };
 
-    inline void resize_until_capacity_met(const size_t p_desired_capacity)
+    inline void resize_until_capacity_met(const uimax p_desired_capacity)
     {
-        size_t l_resized_capacity = this->Capacity;
+        uimax l_resized_capacity = this->Capacity;
 
         if (l_resized_capacity >= p_desired_capacity)
         {
@@ -64,7 +64,7 @@ struct Span
 
     inline void free()
     {
-        heap_free(cast(char*, this->Memory));
+        heap_free(cast(int8*, this->Memory));
         *this = Span<ElementType>::build(NULL, 0);
     };
 
@@ -79,7 +79,7 @@ struct Span
     };
 
 
-    inline void bound_check(const size_t p_index)
+    inline void bound_check(const uimax p_index)
     {
 #if CONTAINER_BOUND_TEST
         if (p_index > this->Capacity)
@@ -91,7 +91,7 @@ struct Span
 
 
 
-    inline void move_memory_down(const size_t p_moved_block_size, const size_t p_break_index, const size_t p_move_delta)
+    inline void move_memory_down(const uimax p_moved_block_size, const uimax p_break_index, const uimax p_move_delta)
     {
         Slice<ElementType> l_target = Slice<ElementType>::build_memory_offset_elementnb(this->Memory, p_break_index + p_move_delta, p_moved_block_size - p_break_index);
 #if CONTAINER_BOUND_TEST
@@ -101,7 +101,7 @@ struct Span
         slice_memmove(l_target, l_source);
     };
 
-    inline void move_memory_up(const size_t p_moved_block_size, const size_t p_break_index, const size_t p_move_delta)
+    inline void move_memory_up(const uimax p_moved_block_size, const uimax p_break_index, const uimax p_move_delta)
     {
         Slice<ElementType> l_target = Slice<ElementType>::build_memory_offset_elementnb(this->Memory, p_break_index, p_moved_block_size - p_break_index);
 #if CONTAINER_BOUND_TEST
@@ -111,7 +111,7 @@ struct Span
         slice_memmove(l_target, l_source);
     };
 
-    inline void copy_memory(const size_t p_copy_index, const Slice<ElementType>& p_elements)
+    inline void copy_memory(const uimax p_copy_index, const Slice<ElementType>& p_elements)
     {
         Slice<ElementType> l_target = Slice<ElementType>::build_memory_elementnb(this->Memory + p_copy_index, p_elements.Size);
 

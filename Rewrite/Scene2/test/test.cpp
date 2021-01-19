@@ -17,7 +17,7 @@ namespace v2
 	{
 		static const SceneNodeComponentType Type;
 
-		size_t i0, i1, i2;
+		uimax i0, i1, i2;
 	};
 	constexpr SceneNodeComponentType ComponentTest2::Type = SceneNodeComponentType::build(2, sizeof(ComponentTest2));
 
@@ -165,10 +165,10 @@ namespace v2
 	{
 		struct component_consume_callbacks
 		{
-			char component_test_1_added_called;
-			char component_test_2_added_called;
-			char component_test_1_removed_called;
-			char component_test_2_removed_called;
+			int8 component_test_1_added_called;
+			int8 component_test_2_added_called;
+			int8 component_test_1_removed_called;
+			int8 component_test_2_removed_called;
 
 			inline static component_consume_callbacks build_default()
 			{

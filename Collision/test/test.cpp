@@ -118,7 +118,7 @@ inline void collision_test_02()
 	CollisionHandle l_collision;
 	l_collision.allocate();
 
-	aabb l_unit_aabb = aabb{v3f{ 0.0f, 0.0f, 0.0f }, v3f{ 0.5f, 0.5f, 0.5f }};
+	aabb l_unit_aabb = aabb{ v3f{ 0.0f, 0.0f, 0.0f }, v3f{ 0.5f, 0.5f, 0.5f } };
 	transform_pa l_box_collider_1_transform, l_box_collider_2_transform, l_box_collider_3_transform;
 	{
 		l_box_collider_1_transform = transform_pa{ v3f{0.0f, 0.0f, 0.0f}, quat_const::IDENTITY.to_axis() };
@@ -543,9 +543,9 @@ inline void collision_test_06()
 	aabb l_unit_aabb = aabb(v3f(0.0f, 0.0f, 0.0f), v3f(0.5f, 0.5f, 0.5f));
 	Math::Transform l_box_collider_1_transform, l_box_collider_2_transform, l_box_collider_3_transform;
 	{
-		l_box_collider_1_transform = Math::Transform(v3f(1000.0f, 1000.0f, 1000.0f), Math::QuatConst::IDENTITY, Math::VecConst<float>::ONE);
-		l_box_collider_2_transform = Math::Transform(v3f(0.25f, 0.0f, 0.25f), Math::QuatConst::IDENTITY, Math::VecConst<float>::ONE);
-		l_box_collider_3_transform = Math::Transform(v3f(0.25f, 0.0f, -0.25f), Math::QuatConst::IDENTITY, Math::VecConst<float>::ONE);
+		l_box_collider_1_transform = Math::Transform(v3f(1000.0f, 1000.0f, 1000.0f), Math::QuatConst::IDENTITY, Math::VecConst<float32>::ONE);
+		l_box_collider_2_transform = Math::Transform(v3f(0.25f, 0.0f, 0.25f), Math::QuatConst::IDENTITY, Math::VecConst<float32>::ONE);
+		l_box_collider_3_transform = Math::Transform(v3f(0.25f, 0.0f, -0.25f), Math::QuatConst::IDENTITY, Math::VecConst<float32>::ONE);
 	}
 
 	BoxColliderHandle l_box_collider_1, l_box_collider_2, l_box_collider_3;
@@ -568,7 +568,7 @@ inline void collision_test_06()
 
 	l_collision.step();
 
-	l_box_collider_1_transform = Math::Transform(v3f(0.0f, 0.0f, 0.0f), Math::QuatConst::IDENTITY, Math::VecConst<float>::ONE);
+	l_box_collider_1_transform = Math::Transform(v3f(0.0f, 0.0f, 0.0f), Math::QuatConst::IDENTITY, Math::VecConst<float32>::ONE);
 	l_box_collider_1.on_collider_moved(l_collision, &l_box_collider_1_transform, &Math::QuatConst::IDENTITY);
 
 	l_collision.step();
@@ -582,7 +582,7 @@ inline void collision_test_06()
 		assert_true(l_box_collider_1_events.get(1)->other.handle == l_box_collider_3.handle);
 	}
 
-	l_box_collider_1_transform = Math::Transform(v3f(10000.0f, 10000.0f, 10000.0f), Math::QuatConst::IDENTITY, Math::VecConst<float>::ONE);
+	l_box_collider_1_transform = Math::Transform(v3f(10000.0f, 10000.0f, 10000.0f), Math::QuatConst::IDENTITY, Math::VecConst<float32>::ONE);
 	l_box_collider_1.on_collider_moved(l_collision, &l_box_collider_1_transform, &Math::QuatConst::IDENTITY);
 
 	l_collision.step();
@@ -608,9 +608,9 @@ inline void collision_test_07()
 	aabb l_unit_aabb = aabb(v3f(0.0f, 0.0f, 0.0f), v3f(0.5f, 0.5f, 0.5f));
 	Math::Transform l_box_collider_1_transform, l_box_collider_2_transform, l_box_collider_3_transform;
 	{
-		l_box_collider_1_transform = Math::Transform(v3f(0.0f, 0.0f, 0.0f), Math::QuatConst::IDENTITY, Math::VecConst<float>::ONE);
-		l_box_collider_2_transform = Math::Transform(v3f(0.25f, 0.0f, 0.25f), Math::QuatConst::IDENTITY, Math::VecConst<float>::ONE);
-		l_box_collider_3_transform = Math::Transform(v3f(0.25f, 0.0f, -0.25f), Math::QuatConst::IDENTITY, Math::VecConst<float>::ONE);
+		l_box_collider_1_transform = Math::Transform(v3f(0.0f, 0.0f, 0.0f), Math::QuatConst::IDENTITY, Math::VecConst<float32>::ONE);
+		l_box_collider_2_transform = Math::Transform(v3f(0.25f, 0.0f, 0.25f), Math::QuatConst::IDENTITY, Math::VecConst<float32>::ONE);
+		l_box_collider_3_transform = Math::Transform(v3f(0.25f, 0.0f, -0.25f), Math::QuatConst::IDENTITY, Math::VecConst<float32>::ONE);
 	}
 
 	BoxColliderHandle l_box_collider_1, l_box_collider_2, l_box_collider_3;
@@ -643,7 +643,7 @@ inline void collision_test_07()
 	}
 
 
-	l_box_collider_1_transform = Math::Transform(v3f(10000.0f, 0.0f, 0.0f), Math::QuatConst::IDENTITY, Math::VecConst<float>::ONE);
+	l_box_collider_1_transform = Math::Transform(v3f(10000.0f, 0.0f, 0.0f), Math::QuatConst::IDENTITY, Math::VecConst<float32>::ONE);
 	l_box_collider_1.on_collider_moved(l_collision, &l_box_collider_1_transform, &Math::QuatConst::IDENTITY);
 
 	l_collision.step();

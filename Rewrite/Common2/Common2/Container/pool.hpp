@@ -26,7 +26,7 @@ namespace v2
 			return Pool<ElementType>{p_memory, p_free_blocks};
 		};
 
-		inline static Pool<ElementType> allocate(const size_t p_memory_capacity)
+		inline static Pool<ElementType> allocate(const uimax p_memory_capacity)
 		{
 			return Pool<ElementType>{ Vector<ElementType>::allocate(p_memory_capacity), Vector<Token(ElementType)>::build(cast(Token(ElementType)*, NULL), 0) };
 		};
@@ -38,17 +38,17 @@ namespace v2
 			this->free_blocks.free();
 		};
 
-		inline size_t get_size()
+		inline uimax get_size()
 		{
 			return this->memory.Size;
 		};
 
-		inline size_t get_capacity()
+		inline uimax get_capacity()
 		{
 			return this->memory.Memory.Capacity;
 		};
 
-		inline size_t get_free_size()
+		inline uimax get_free_size()
 		{
 			return this->free_blocks.Size;
 		};
@@ -58,12 +58,12 @@ namespace v2
 			return this->memory.Memory.Memory;
 		};
 
-		inline char has_allocated_elements()
+		inline int8 has_allocated_elements()
 		{
 			return this->memory.Size != this->free_blocks.Size;
 		};
 
-		inline char is_element_free(const Token(ElementType) p_token)
+		inline int8 is_element_free(const Token(ElementType) p_token)
 		{
 			for (vector_loop(&this->free_blocks, i))
 			{
@@ -156,6 +156,3 @@ namespace v2
 
 
 }
-
-
-#define pool_loop(PoolVariable, Iteratorname) size_t Iteratorname = 0; Iteratorname < (PoolVariable)->get_size(); Iteratorname++
