@@ -30,6 +30,29 @@ namespace v2
 			l_span_sizet.free();
 			assert_span_unitialized(&l_span_sizet);
 		}
+
+		//Move memory
+		{
+			l_span_sizet.resize(10);
+
+			l_span_sizet.get(0) = 3;
+			l_span_sizet.get(1) = 5;
+			l_span_sizet.get(3) = 10;
+
+			l_span_sizet.move_memory_down(1, 3, 1);
+			assert_true(l_span_sizet.get(4) == 10);
+
+			l_span_sizet.move_memory_up(1, 4, 2);
+			assert_true(l_span_sizet.get(2) == 10);
+
+			assert_true(l_span_sizet.get(0) == 3);
+			assert_true(l_span_sizet.get(1) == 5);
+
+			l_span_sizet.move_memory_up(2, 2, 2);
+
+			assert_true(l_span_sizet.get(0) == 10);
+			assert_true(l_span_sizet.get(1) == 10);
+		}
 	};
 
 	inline void vector_test()
@@ -68,7 +91,7 @@ namespace v2
 			assert_true(l_vector_sizet.Size == l_old_size + 5);
 			for (loop_int16(i, 0, 5))
 			{
-				assert_true((l_vector_sizet.get(i)) == i);
+				assert_true((l_vector_sizet.get(i)) == (uimax)i);
 			}
 
 			l_vector_sizet.insert_array_at(l_elements_slice, 3);
@@ -100,6 +123,7 @@ namespace v2
 			l_vector_sizet.insert_element_at(cast(uimax, 20), 9);
 		}
 
+
 		// vector_erase_element_at
 		{
 			uimax l_old_size = l_vector_sizet.Size;
@@ -109,6 +133,7 @@ namespace v2
 			assert_true(l_vector_sizet.Size == l_old_size - 1);
 			assert_true(l_vector_sizet.get(1) == l_element_after);
 		}
+
 
 		// vector_erase_array_at
 		{
@@ -152,6 +177,7 @@ namespace v2
 			assert_true(l_vector_sizet.Size == 0);
 			assert_span_unitialized(&l_vector_sizet.Memory);
 		}
+
 	};
 
 	inline void pool_test()
@@ -337,8 +363,8 @@ namespace v2
 
 			Slice<int8> l_varyingvector_element_2 = l_varyingvector.get(2);
 			assert_true(*cast(uimax*, l_varyingvector_element_2.Begin) == l_element_0);
-			assert_true(*l_varyingvector_element_2.slide_rv(sizeof(uimax)).Begin == l_element_1);
-			assert_true(*l_varyingvector_element_2.slide_rv(2 * sizeof(uimax)).Begin == l_element_2);
+			assert_true(*cast(uimax*, l_varyingvector_element_2.slide_rv(sizeof(uimax)).Begin) == l_element_1);
+			assert_true(*cast(uimax*, l_varyingvector_element_2.slide_rv(2 * sizeof(uimax)).Begin) == l_element_2);
 		}
 
 		{
@@ -572,9 +598,9 @@ namespace v2
 			{
 				NTree<uimax>::Resolve l_root_element = l_uimax_tree.get(l_root);
 				assert_true((*l_root_element.Element) == 0);
-				assert_true(tk_v(l_root_element.Node->parent) == -1);
-				assert_true(tk_v(l_root_element.Node->index) == 0);
-				assert_true(tk_v(l_root_element.Node->childs) != -1);
+				assert_true(tk_v(l_root_element.Node->parent) == (token_t)-1);
+				assert_true(tk_v(l_root_element.Node->index) == (token_t)0);
+				assert_true(tk_v(l_root_element.Node->childs) != (token_t)-1);
 
 				Slice<Token(NTreeNode)> l_childs_indices = l_uimax_tree.get_childs(l_root_element.Node->childs);
 				assert_true(l_childs_indices.Size == 3);
@@ -588,9 +614,9 @@ namespace v2
 			{
 				NTree<uimax>::Resolve l_2_element = l_uimax_tree.get(l_2_node);
 				assert_true((*l_2_element.Element) == 2);
-				assert_true(tk_v(l_2_element.Node->parent) == 0);
-				assert_true(tk_v(l_2_element.Node->index) == 2);
-				assert_true(tk_v(l_2_element.Node->childs) != -1);
+				assert_true(tk_v(l_2_element.Node->parent) == (token_t)0);
+				assert_true(tk_v(l_2_element.Node->index) == (token_t)2);
+				assert_true(tk_v(l_2_element.Node->childs) != (token_t)-1);
 
 				Slice<Token(NTreeNode)> l_childs_indices = l_uimax_tree.get_childs(l_2_element.Node->childs);
 				assert_true(l_childs_indices.Size == 2);
@@ -737,7 +763,6 @@ namespace v2
 			assert_true(l_heap.get(l_chunk_3.token)->Size == 50);
 			assert_true(l_heap.Size > l_initial_heap_size);
 			assert_heap_integrity(&l_heap);
-
 
 		}
 
@@ -891,7 +916,8 @@ namespace v2
 				"]"
 				"}";
 
-			JSONDeserializer l_deserialized = JSONDeserializer::start(String::allocate_elements(slice_int8_build_rawstr(l_json)));
+			String l_json_str = String::allocate_elements(slice_int8_build_rawstr(l_json));
+			JSONDeserializer l_deserialized = JSONDeserializer::start(l_json_str);
 
 			JSONDeserializer l_v3;
 			l_deserialized.next_object("local_position", &l_v3);
@@ -940,7 +966,9 @@ namespace v2
 				"{"
 				"\"nodes\":[]}";
 
-			JSONDeserializer l_deserialized = JSONDeserializer::start(String::allocate_elements(slice_int8_build_rawstr(l_json)));
+
+			String l_json_str = String::allocate_elements(slice_int8_build_rawstr(l_json));
+			JSONDeserializer l_deserialized = JSONDeserializer::start(l_json_str);
 
 			JSONDeserializer l_array = JSONDeserializer::allocate_default(), l_object = JSONDeserializer::allocate_default();
 			l_deserialized.next_array("nodes", &l_array);
@@ -958,7 +986,9 @@ namespace v2
 				"\"z\" : \"16.705424\""
 				"}";
 
-			JSONDeserializer l_deserialized = JSONDeserializer::start(String::allocate_elements(slice_int8_build_rawstr(l_json)));
+			String l_json_str = String::allocate_elements(slice_int8_build_rawstr(l_json));
+			JSONDeserializer l_deserialized = JSONDeserializer::start(l_json_str);
+
 			JSONDeserializer l_v3;
 			l_deserialized.next_object("local_position", &l_v3);
 			l_v3.next_field("x");
@@ -978,7 +1008,8 @@ namespace v2
 				"}";
 
 
-			JSONDeserializer l_deserialized = JSONDeserializer::start(String::allocate_elements(slice_int8_build_rawstr(l_json)));
+			String l_json_str = String::allocate_elements(slice_int8_build_rawstr(l_json));
+			JSONDeserializer l_deserialized = JSONDeserializer::start(l_json_str);
 			l_deserialized.next_field("x");
 			assert_true(FromString::afloat32(l_deserialized.get_currentfield().value) == 16.506252f);
 			l_deserialized.next_field("y");

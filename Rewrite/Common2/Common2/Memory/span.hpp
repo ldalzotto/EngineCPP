@@ -27,6 +27,13 @@ struct Span
         return Span<ElementType>{p_capacity, cast(ElementType*, heap_malloc(p_capacity * sizeof(ElementType)))};
     };
 
+    inline ElementType& get(const uimax p_index)
+    {
+#if CONTAINER_BOUND_TEST
+        assert_true(p_index < this->Capacity);
+#endif
+        return this->Memory[p_index];
+    };
 
     inline int8 resize(const uimax p_new_capacity)
     {
@@ -89,25 +96,23 @@ struct Span
 #endif
     };
 
-
-
     inline void move_memory_down(const uimax p_moved_block_size, const uimax p_break_index, const uimax p_move_delta)
     {
-        Slice<ElementType> l_target = Slice<ElementType>::build_memory_offset_elementnb(this->Memory, p_break_index + p_move_delta, p_moved_block_size - p_break_index);
+        Slice<ElementType> l_target = Slice<ElementType>::build_memory_offset_elementnb(this->Memory, p_break_index + p_move_delta, p_moved_block_size);
 #if CONTAINER_BOUND_TEST
         this->bound_inside_check(l_target);
 #endif		
-        Slice<ElementType> l_source = Slice<ElementType>::build(this->Memory, p_break_index, p_moved_block_size);
+        Slice<ElementType> l_source = Slice<ElementType>::build(this->Memory, p_break_index, p_break_index + p_moved_block_size);
         slice_memmove(l_target, l_source);
     };
 
     inline void move_memory_up(const uimax p_moved_block_size, const uimax p_break_index, const uimax p_move_delta)
     {
-        Slice<ElementType> l_target = Slice<ElementType>::build_memory_offset_elementnb(this->Memory, p_break_index, p_moved_block_size - p_break_index);
+        Slice<ElementType> l_target = Slice<ElementType>::build_memory_offset_elementnb(this->Memory, p_break_index - p_move_delta, p_moved_block_size);
 #if CONTAINER_BOUND_TEST
         this->bound_inside_check(l_target);
 #endif		
-        Slice<ElementType> l_source = Slice<ElementType>::build(this->Memory, p_break_index + p_move_delta, p_moved_block_size);
+        Slice<ElementType> l_source = Slice<ElementType>::build(this->Memory, p_break_index, p_break_index + p_moved_block_size);
         slice_memmove(l_target, l_source);
     };
 
@@ -119,10 +124,7 @@ struct Span
         this->bound_inside_check(l_target);
 #endif
 
-        slice_memcpy(
-            l_target,
-            p_elements
-        );
+        slice_memcpy(l_target, p_elements);
     };
 };
 

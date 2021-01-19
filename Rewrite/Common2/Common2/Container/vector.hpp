@@ -173,7 +173,7 @@ namespace v2
 			this->bound_head_check(p_index); // use vector_pop_back_array //TODO -> create a "always" variant of vector_erase_array_at
 #endif
 
-			this->move_memory_up(p_index, p_element_nb);
+			this->move_memory_up(p_index + p_element_nb, p_element_nb);
 			this->Size -= p_element_nb;
 
 			return 1;
@@ -186,7 +186,7 @@ namespace v2
 			this->bound_head_check(p_index); // use vector_pop_back //TODO -> create a "always" variant of vector_erase_element_at
 #endif
 
-			this->move_memory_up(p_index, 1);
+			this->move_memory_up(p_index + 1, 1);
 			this->Size -= 1;
 
 			return 1;
@@ -231,12 +231,12 @@ namespace v2
 
 		inline void move_memory_down(const uimax p_break_index, const uimax p_move_delta)
 		{
-			this->Memory.move_memory_down(this->Size, p_break_index, p_move_delta);
+			this->Memory.move_memory_down(this->Size - p_break_index, p_break_index, p_move_delta);
 		};
 
 		inline void move_memory_up(const uimax p_break_index, const uimax p_move_delta)
 		{
-			this->Memory.move_memory_up(this->Size, p_break_index, p_move_delta);
+			this->Memory.move_memory_up(this->Size - p_break_index, p_break_index, p_move_delta);
 		};
 
 		inline int8 insert_element_at_unchecked(const ElementType& p_element, const uimax p_index)
